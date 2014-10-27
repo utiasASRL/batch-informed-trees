@@ -231,3 +231,8 @@ ompl::base::PlannerTerminationCondition ompl::base::timedPlannerTerminationCondi
         interval = duration;
     return PlannerTerminationCondition(boost::bind(&timePassed, time::now() + time::seconds(duration)), interval);
 }
+
+ompl::base::PlannerTerminationCondition ompl::base::exactSolnPlannerTerminationCondition(ompl::base::ProblemDefinitionPtr pdef)
+{
+    return PlannerTerminationCondition(boost::bind(&ProblemDefinition::hasExactSolution, pdef));
+}

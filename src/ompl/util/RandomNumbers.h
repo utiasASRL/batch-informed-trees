@@ -164,7 +164,7 @@ namespace ompl
         <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
         void uniformProlateHyperspheroidSurface(ProlateHyperspheroidPtr phsPtr, unsigned int n, double value[]);
 
-        /** \brief Uniform random sampling of the surface of a prolate hyperspheroid, a special symmetric type of
+        /** \brief Uniform random sampling of a prolate hyperspheroid, a special symmetric type of
         n-dimensional ellipse.
         @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
         Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."

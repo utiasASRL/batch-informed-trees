@@ -39,6 +39,7 @@
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
+#include <ompl/base/ProblemDefinition.h>
 
 namespace ompl
 {
@@ -120,6 +121,9 @@ namespace ompl
 
         /** \brief Return a termination condition that will become true \e duration seconds in the future (wall-time), but is checked in a separate thread, every \e interval seconds; \e interval must be less than \e duration */
         PlannerTerminationCondition timedPlannerTerminationCondition(double duration, double interval);
+
+        /** \brief Return a termination condition that will become true as soon as the problem definition has an exact solution */
+        PlannerTerminationCondition exactSolnPlannerTerminationCondition(ompl::base::ProblemDefinitionPtr pdef);
     }
 }
 
