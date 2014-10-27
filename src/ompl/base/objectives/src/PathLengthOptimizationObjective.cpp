@@ -33,6 +33,7 @@
 *********************************************************************/
 
 /* Author: Luis G. Torres */
+/* Edited by: Jonathan Gammell (allocInformedStateSampler) */
 
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
 
@@ -54,4 +55,9 @@ ompl::base::PathLengthOptimizationObjective::motionCostHeuristic(const State *s1
                                                                  const State *s2) const
 {
     return motionCost(s1, s2);
+}
+
+ompl::base::InformedStateSamplerPtr ompl::base::PathLengthOptimizationObjective::allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const
+{
+    return InformedStateSamplerPtr(new PathLengthInformedSampler(space, probDefn, bestCost));
 }

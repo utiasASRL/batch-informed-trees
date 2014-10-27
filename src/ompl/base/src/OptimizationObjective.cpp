@@ -33,6 +33,7 @@
 *********************************************************************/
 
 /* Author: Luis G. Torres, Ioan Sucan */
+/* Edited by: Jonathan Gammell (allocInformedStateSampler) */
 
 #include "ompl/base/OptimizationObjective.h"
 #include "ompl/geometric/PathGeometric.h"
@@ -182,6 +183,11 @@ const ompl::base::SpaceInformationPtr&
 ompl::base::OptimizationObjective::getSpaceInformation() const
 {
     return si_;
+}
+
+ompl::base::InformedStateSamplerPtr ompl::base::OptimizationObjective::allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const
+{
+    throw Exception("A heuristic state sampler does not appear to be implemented for this optimization objective.");
 }
 
 ompl::base::Cost ompl::base::goalRegionCostToGo(const State *state, const Goal *goal)

@@ -76,10 +76,42 @@ namespace ompl
             {
             }
 
+            /** \brief Cast this instance to a desired type. */
+            template<class T>
+            T* as()
+            {
+                /** \brief Make sure the type we are casting to is indeed a planner */
+                BOOST_CONCEPT_ASSERT((boost::Convertible<T*, StateSampler*>));
+
+                return static_cast<T*>(this);
+            }
+
+            /** \brief Cast this instance to a desired type. */
+            template<class T>
+            const T* as() const
+            {
+                /** \brief Make sure the type we are casting to is indeed a Planner */
+                BOOST_CONCEPT_ASSERT((boost::Convertible<T*, StateSampler*>));
+
+                return static_cast<const T*>(this);
+            }
+
             /** \brief The underlying RNG.*/
-            RNG& rng()
+            virtual RNG& rng()
             {
                 return rng_;
+            }
+
+            /** \brief Set the seed of the state sampler. By default set's the seed of the member RNG, but may be overloaded by deriving classes. */
+            virtual void setLocalSeed(boost::uint32_t localSeed)
+            {
+                rng_.setLocalSeed(localSeed);
+            }
+
+            /** \brief Get the seed of the state sampler. By default returns the seed of the member RNG, but may be overloaded by deriving classes. */
+            virtual boost::uint32_t getLocalSeed() const
+            {
+                return rng_.getLocalSeed();
             }
 
             /** \brief Sample a state */

@@ -33,6 +33,7 @@
 *********************************************************************/
 
 /* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan */
+/* Edited by: Jonathan Gammell (Informed sampling) */
 
 #ifndef OMPL_CONTRIB_RRT_STAR_RRTSTAR_
 #define OMPL_CONTRIB_RRT_STAR_RRTSTAR_
@@ -122,6 +123,18 @@ namespace ompl
                 return maxDistance_;
             }
 
+            /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* (or k_rrg = s \times k_rrg*) */
+            void setRewireFactor(double rewireFactor)
+            {
+                rewireFactor_ = rewireFactor;
+            }
+
+            /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
+            double getRewireFactor() const
+            {
+                return rewireFactor_;
+            }
+
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
             void setNearestNeighbors()
@@ -147,19 +160,47 @@ namespace ompl
                 return delayCC_;
             }
 
-            /** \brief Get the seed for the underlying RNG and StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
-            boost::uint32_t getRngLocalSeed() const
+            /** \brief Use a k-nearest search for rewiring instead of a r-disc search. */
+            void setKNearest(bool useKNearest)
             {
-                return sampler_->rng().getLocalSeed();
+                useKNearest_ = useKNearest;
             }
 
-            /** \brief Set the seed for the underlying and StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
-            void setRngLocalSeed(boost::uint32_t seed)
+            /** \brief Get the state of using a k-nearest search for rewiring. */
+            bool getKNearest() const
             {
-                sampler_->rng().setLocalSeed(seed);
+                return useKNearest_;
+            }
+
+            /** \brief Use \e Informed \e RRT*.
+            This means that once a problem is found, the search is focused only to the subproblem that could contain a better solution.
+            Currently only implemented for problems with a single goal that are seeking to minimize path length in R^n (i.e., RealVectorStateSpace), SE(2) (i.e., SE2StateSpace), or SE(3) (i.e., SE3StateSpace).
+            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
+            Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
+            IROS 2014. <a href="http://arxiv.org/abs/1404.2334">arXiv:1404.2334 [cs.RO]</a>.
+            <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
+            <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
+            void setInformedSampling(bool informedSampling);
+
+            /** \brief Get the state of informed sampling */
+            bool getInformedSampling() const
+            {
+                return useInformedSampling_;
             }
 
             virtual void setup();
+
+            /** \brief Get the seed for the underlying RNG and StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
+            boost::uint32_t getLocalSeed() const
+            {
+                return sampler_->getLocalSeed();
+            }
+
+            /** \brief Set the seed for the underlying and StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
+            void setLocalSeed(boost::uint32_t seed)
+            {
+                sampler_->setLocalSeed(seed);
+            }
 
             ///////////////////////////////////////
             // Planner progress property functions
@@ -203,6 +244,9 @@ namespace ompl
                 std::vector<Motion*> children;
             };
 
+            /** \brief Create the sampler */
+            void allocSampler();
+
             /** \brief Free the memory allocated by this planner */
             void freeMemory();
 
@@ -236,11 +280,17 @@ namespace ompl
                 return 0; // remove warning
             }
 
+            /** \brief Gets the neighbours of a given motion, using either k-nearest of radius as appropriate. */
+            void getNeighbors(Motion *motion, std::vector<Motion*> &nbh);
+
             /** \brief Removes the given motion from the parent's child list */
             void removeFromParent(Motion *m);
 
             /** \brief Updates the cost of the children of this node if the cost up to this node has changed */
             void updateChildCosts(Motion *m);
+
+            /** \brief Pretend to prune the graph of any vertices that have a heuristic value (lower-bounding solution cost constrained to pass through the vertex) that is greater than the current solution. Given the current memory model, for now this actually just calculates how many vertices \e would be pruned and stores that number in numPrunedVertices_*/
+            void fakeHeuristicGraphPruning();
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
@@ -254,17 +304,34 @@ namespace ompl
             /** \brief The maximum length of a motion to be added to a tree */
             double                                         maxDistance_;
 
+            /** \brief The rewiring factor, s, so that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
+            double                                         rewireFactor_;
+
             /** \brief Option to delay and reduce collision checking within iterations */
             bool                                           delayCC_;
 
+            /** \brief Option to use k-nearest search for rewiring */
+            bool                                           useKNearest_;
+
+            /** \brief Option to use informed sampling */
+            bool                                           useInformedSampling_;
+
             /** \brief Objective we're optimizing */
-            base::OptimizationObjectivePtr opt_;
+            base::OptimizationObjectivePtr                 opt_;
 
             /** \brief The most recent goal motion.  Used for PlannerData computation */
             Motion                                         *lastGoalMotion_;
 
             /** \brief A list of states in the tree that satisfy the goal condition */
             std::vector<Motion*>                           goalMotions_;
+
+            /** \brief A constant for k-nearest rewiring calculations */
+            double                                         k_rrg_;
+            /** \brief A constant for r-disc rewiring calculations */
+            double                                         r_rrg_;
+
+            /** \brief The number of vertices in the graph that are considered "pruned" */
+            unsigned int                                   numPrunedVertices_;
 
             //////////////////////////////
             // Planner progress properties
