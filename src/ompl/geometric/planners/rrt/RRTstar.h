@@ -161,7 +161,11 @@ namespace ompl
                 return delayCC_;
             }
 
-            /** \brief Controls whether the tree is pruned during the search. */
+            /** \brief Controls whether the tree is pruned during the search. This pruning removes
+                a vertex \e and \e its \e descendants if the heuristic value of the \e vertex is
+                greater than the current solution. This may remove descendent vertices that
+                could later improve the solution simply because they are currently.
+                attached to an ancestor that cannot. */
             void setPrune(const bool prune)
             {
                 prune_ = prune;
@@ -234,13 +238,13 @@ namespace ompl
             {
                 return boost::lexical_cast<std::string>(iterations_);
             }
-            std::string getBestCost() const
-            {
-                return boost::lexical_cast<std::string>(bestCost_);
-            }
             std::string getCollisionCheckCount() const
             {
                 return boost::lexical_cast<std::string>(collisionChecks_);
+            }
+            std::string getBestCost() const
+            {
+                return boost::lexical_cast<std::string>(bestCost_);
             }
 
         protected:
@@ -324,8 +328,8 @@ namespace ompl
                  start-motion is given. Otherwise, this cost to come is the current motion cost. */
             base::Cost costToGo(const Motion *motion, const bool shortest = true) const;
 
-            /** \brief Pretend to prune the graph of any vertices that have a heuristic value (lower-bounding solution cost constrained to pass through the vertex) that is greater than the current solution. Given the current memory model, for now this actually just calculates how many vertices \e would be pruned and stores that number in numPrunedVertices_*/
-            void fakeHeuristicGraphPruning();
+            /** \brief Pretend to prune the graph of any vertices that have a heuristic value (lower-bounding solution cost constrained to pass through the vertex) that is greater than the current solution. This actually just calculates how many vertices \e would be pruned and stores that number in numVerticesWorseThanSoln_*/
+            void countNumberOfVerticesWorseThanSoln();
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
@@ -339,17 +343,19 @@ namespace ompl
             /** \brief The maximum length of a motion to be added to a tree */
             double                                         maxDistance_;
 
-            /** \brief The rewiring factor, s, so that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
-            double                                         rewireFactor_;
-
-            /** \brief Option to delay and reduce collision checking within iterations */
-            bool                                           delayCC_;
-
             /** \brief Option to use k-nearest search for rewiring */
             bool                                           useKNearest_;
 
-            /** \brief Option to use informed sampling */
-            bool                                           useInformedSampling_;
+            /** \brief The rewiring factor, s, so that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
+            double                                         rewireFactor_;
+
+            /** \brief A constant for k-nearest rewiring calculations */
+            double                                         k_rrg_;
+            /** \brief A constant for r-disc rewiring calculations */
+            double                                         r_rrg_;
+
+            /** \brief Option to delay and reduce collision checking within iterations */
+            bool                                           delayCC_;
 
             /** \brief Objective we're optimizing */
             base::OptimizationObjectivePtr                 opt_;
@@ -360,19 +366,17 @@ namespace ompl
             /** \brief A list of states in the tree that satisfy the goal condition */
             std::vector<Motion*>                           goalMotions_;
 
-            /** \brief A constant for k-nearest rewiring calculations */
-            double                                         k_rrg_;
-            /** \brief A constant for r-disc rewiring calculations */
-            double                                         r_rrg_;
-
-            /** \brief The number of vertices in the graph that are considered "pruned" */
-            unsigned int                                   numPrunedVertices_;
-
             /** \brief If this value is set to true, tree pruning will be enabled. */
             bool                                           prune_;
 
             /** \brief The tree is only pruned is the percentage of states to prune is above this threshold (between 0 and 1). */
             double                                         pruneStatesThreshold_;
+
+            /** \brief Option to use informed sampling */
+            bool                                           useInformedSampling_;
+
+            /** \brief The number of vertices in the graph that cannot improve the solution. This is used by Informed RRT* to calculate the number of samples in the sub planning problem.*/
+            unsigned int                                   numVerticesWorseThanSoln_;
 
             struct PruneScratchSpace { std::vector<Motion*> newTree, toBePruned, candidates; } pruneScratchSpace_;
 

@@ -53,19 +53,19 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     base::Planner(si, "RRTstar"),
     goalBias_(0.05),
     maxDistance_(0.0),
-    delayCC_(true),
-    lastGoalMotion_(NULL),
-    prune_(false),
-    pruneStatesThreshold_(0.95),
     useKNearest_(true),
     rewireFactor_(1.1),
     k_rrg_(0u),
     r_rrg_(0.0),
+    delayCC_(true),
+    lastGoalMotion_(NULL),
+    prune_(false),
+    pruneStatesThreshold_(0.95),
     useInformedSampling_(false),
-    numPrunedVertices_(0u),
-    iterations_(0),
-    bestCost_(std::numeric_limits<double>::quiet_NaN()),
-    collisionChecks_(0),
+    numVerticesWorseThanSoln_(0u),
+    iterations_(0u),
+    collisionChecks_(0u),
+    bestCost_(std::numeric_limits<double>::quiet_NaN())
 {
     specs_.approximateSolutions = true;
     specs_.optimizingPaths = true;
@@ -82,10 +82,10 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
 
     addPlannerProgressProperty("iterations INTEGER",
                                boost::bind(&RRTstar::getIterationCount, this));
-    addPlannerProgressProperty("best cost REAL",
-                               boost::bind(&RRTstar::getBestCost, this));
     addPlannerProgressProperty("collision checks INTEGER",
                                boost::bind(&RRTstar::getCollisionCheckCount, this));
+    addPlannerProgressProperty("best cost REAL",
+                               boost::bind(&RRTstar::getBestCost, this));
 }
 
 ompl::geometric::RRTstar::~RRTstar()
@@ -176,13 +176,13 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         startMotion_ = motion;
     }
 
-    if (nn_->size() - numPrunedVertices_ == 0)
+    if (nn_->size() - numVerticesWorseThanSoln_ == 0)
     {
         OMPL_ERROR("%s: There are no valid initial states!", getName().c_str());
         return base::PlannerStatus::INVALID_START;
     }
 
-    OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size() - numPrunedVertices_);
+    OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size() - numVerticesWorseThanSoln_);
 
     if (prune_ && !si_->getStateSpace()->isMetricSpace())
         OMPL_WARN("%s: tree pruning was activated but since the state space %s is not a metric space, "
@@ -221,9 +221,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         OMPL_INFORM("%s: Starting planning with existing solution of cost %.5f", getName().c_str(), solution->cost.value());
 
     if (useKNearest_)
-        OMPL_INFORM("%s: Initial k-nearest value of %u", getName().c_str(), (unsigned int)std::ceil(k_rrg_ * log((double)(nn_->size() - numPrunedVertices_ + 1))));
+        OMPL_INFORM("%s: Initial k-nearest value of %u", getName().c_str(), (unsigned int)std::ceil(k_rrg_ * log((double)(nn_->size() - numVerticesWorseThanSoln_ + 1))));
     else
-        OMPL_INFORM("%s: Initial rewiring radius of %.2f", getName().c_str(), std::min(maxDistance_, r_rrg_*std::pow(log((double)(nn_->size() - numPrunedVertices_ + 1))/((double)(nn_->size() - numPrunedVertices_ + 1)), 1/(double)(si_->getStateDimension()))));
+        OMPL_INFORM("%s: Initial rewiring radius of %.2f", getName().c_str(), std::min(maxDistance_, r_rrg_*std::pow(log((double)(nn_->size() - numVerticesWorseThanSoln_ + 1))/((double)(nn_->size() - numVerticesWorseThanSoln_ + 1)), 1/(double)(si_->getStateDimension()))));
 
     // our functor for sorting nearest neighbors
     CostIndexCompare compareFn(costs, *opt_);
@@ -456,7 +456,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                     {
                         if (std::isfinite(bestCost.value()) == false)
                         {
-                            OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u vertices)", getName().c_str(), goalMotions_[i]->cost, iterations_, nn_->size() - numPrunedVertices_);
+                            OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u vertices)", getName().c_str(), goalMotions_[i]->cost, iterations_, nn_->size() - numVerticesWorseThanSoln_);
                         }
                         bestCost = goalMotions_[i]->cost;
                         bestCost_ = bestCost;
@@ -481,7 +481,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                 {
                     if (useInformedSampling_ == true)
                     {
-                        fakeHeuristicGraphPruning();
+                        countNumberOfVerticesWorseThanSoln();
                         if (useKNearest_ == false)
                         {
                             r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/(double)(si_->getStateDimension()))*(sampler_->as<ompl::base::InformedStateSampler>()->getInformedMeasure()/ProlateHyperspheroid::unitNBallMeasure(si_->getStateDimension())), 1.0/(double)(si_->getStateDimension()));
@@ -574,12 +574,12 @@ void ompl::geometric::RRTstar::getNeighbors(Motion *motion, std::vector<Motion*>
     if (useKNearest_)
     {
         //- k-nearest RRT*
-        unsigned int k = std::ceil(k_rrg_ * log((double)(nn_->size() - numPrunedVertices_ + 1)));
+        unsigned int k = std::ceil(k_rrg_ * log((double)(nn_->size() - numVerticesWorseThanSoln_ + 1)));
         nn_->nearestK(motion, k, nbh);
     }
     else
     {
-        double r = std::min(maxDistance_, r_rrg_*std::pow(log((double)(nn_->size() - numPrunedVertices_ + 1))/((double)(nn_->size() - numPrunedVertices_ + 1)), 1/(double)(si_->getStateDimension())));
+        double r = std::min(maxDistance_, r_rrg_*std::pow(log((double)(nn_->size() - numVerticesWorseThanSoln_ + 1))/((double)(nn_->size() - numVerticesWorseThanSoln_ + 1)), 1/(double)(si_->getStateDimension())));
         nn_->nearestR(motion, r, nbh);
     }
 }
@@ -715,7 +715,7 @@ ompl::base::Cost ompl::geometric::RRTstar::costToGo(const Motion *motion, const 
     return opt_->combineCosts(costToCome, costToGo); // h_s + h_g
 }
 
-void ompl::geometric::RRTstar::fakeHeuristicGraphPruning(void)
+void ompl::geometric::RRTstar::countNumberOfVerticesWorseThanSoln()
 {
     //Variable
     //The list of data in the nearest neighbours struct
@@ -726,7 +726,7 @@ void ompl::geometric::RRTstar::fakeHeuristicGraphPruning(void)
 
 
     //Reset the counter:
-    numPrunedVertices_ = 0u;
+    numVerticesWorseThanSoln_ = 0u;
     for (unsigned int i = 0u; i < data.size(); ++i)
     {
         //Variable
@@ -740,7 +740,7 @@ void ompl::geometric::RRTstar::fakeHeuristicGraphPruning(void)
         if (heuristicValue > bestCost_.value())
         {
             //Increment the counter:
-            ++numPrunedVertices_;
+            ++numVerticesWorseThanSoln_;
         }
         //No else
     }
@@ -748,6 +748,9 @@ void ompl::geometric::RRTstar::fakeHeuristicGraphPruning(void)
 
 void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
 {
+    //We don't use pruning, as it is overly aggressive.
+    setPrune(false);
+
     //Store the setting. We only want to create a new sampler if it has changed, but we do it in 2 if-steps so that we can also check if we have a planner yet...
     if (informedSampling != useInformedSampling_)
     {
