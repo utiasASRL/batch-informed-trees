@@ -32,15 +32,16 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan */
+/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez */
 /* Edited by: Jonathan Gammell (Informed sampling) */
 
-#ifndef OMPL_CONTRIB_RRT_STAR_RRTSTAR_
-#define OMPL_CONTRIB_RRT_STAR_RRTSTAR_
+#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_RRTSTAR_
+#define OMPL_GEOMETRIC_PLANNERS_RRT_RRTSTAR_
 
 #include "ompl/geometric/planners/PlannerIncludes.h"
 #include "ompl/base/OptimizationObjective.h"
 #include "ompl/datastructures/NearestNeighbors.h"
+
 #include <limits>
 #include <vector>
 #include <utility>
@@ -68,8 +69,8 @@ namespace ompl
            @par External documentation
            S. Karaman and E. Frazzoli, Sampling-based
            Algorithms for Optimal Motion Planning, International Journal of Robotics
-           Research (to appear), 2011.
-           <a href="http://arxiv.org/abs/1105.1186">http://arxiv.org/abs/1105.1186</a>
+           Research, Vol 30, No 7, 2011.
+           http://arxiv.org/abs/1105.1186
         */
 
         /** \brief Optimal Rapidly-exploring Random Trees */
@@ -160,6 +161,31 @@ namespace ompl
                 return delayCC_;
             }
 
+            /** \brief Controls whether the tree is pruned during the search. */
+            void setPrune(const bool prune)
+            {
+                prune_ = prune;
+            }
+
+            /** \brief Get the state of the pruning option. */
+            bool getPrune() const
+            {
+                return prune_;
+            }
+
+            /** \brief Set the percentage threshold (between 0 and 1) for pruning the tree. If the new tree has removed
+                at least this percentage of states, the tree will be finally pruned. */
+            void setPruneStatesImprovementThreshold(const double pp)
+            {
+                pruneStatesThreshold_ = pp;
+            }
+
+            /** \brief Get the current prune states percentage threshold parameter. */
+            double getPruneStatesImprovementThreshold () const
+            {
+                return pruneStatesThreshold_;
+            }
+
             /** \brief Use a k-nearest search for rewiring instead of a r-disc search. */
             void setKNearest(bool useKNearest)
             {
@@ -191,25 +217,31 @@ namespace ompl
             virtual void setup();
 
             /** \brief Get the seed for the underlying RNG and StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
-            boost::uint32_t getLocalSeed() const
+            boost::uint32_t getRngLocalSeed() const
             {
-                return sampler_->getLocalSeed();
+                return sampler_->rng().getLocalSeed();
             }
 
             /** \brief Set the seed for the underlying and StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
-            void setLocalSeed(boost::uint32_t seed)
+            void setRngLocalSeed(boost::uint32_t seed)
             {
-                sampler_->setLocalSeed(seed);
+                sampler_->rng().setLocalSeed(seed);
             }
 
             ///////////////////////////////////////
             // Planner progress property functions
-            std::string getIterationCount() const;
-
-            std::string getCollisionCheckCount() const;
-
-            std::string getBestCost() const;
-            ///////////////////////////////////////
+            std::string getIterationCount() const
+            {
+                return boost::lexical_cast<std::string>(iterations_);
+            }
+            std::string getBestCost() const
+            {
+                return boost::lexical_cast<std::string>(bestCost_);
+            }
+            std::string getCollisionCheckCount() const
+            {
+                return boost::lexical_cast<std::string>(collisionChecks_);
+            }
 
         protected:
 
@@ -265,19 +297,10 @@ namespace ompl
                 const base::OptimizationObjective &opt_;
             };
 
-            enum DistanceDirection { FROM_NEIGHBORS, TO_NEIGHBORS };
-
             /** \brief Compute distance between motions (actually distance between contained states) */
             double distanceFunction(const Motion *a, const Motion *b) const
             {
-                switch (distanceDirection_)
-                {
-                case FROM_NEIGHBORS:
                     return si_->distance(a->state, b->state);
-                case TO_NEIGHBORS:
-                    return si_->distance(b->state, a->state);
-                }
-                return 0; // remove warning
             }
 
             /** \brief Gets the neighbours of a given motion, using either k-nearest of radius as appropriate. */
@@ -288,6 +311,18 @@ namespace ompl
 
             /** \brief Updates the cost of the children of this node if the cost up to this node has changed */
             void updateChildCosts(Motion *m);
+
+            /** \brief Prunes all those states which estimated total cost is higher than pruneTreeCost.
+                Returns the number of motions pruned. Depends on the parameter set by setPruneStatesImprovementThreshold() */
+            int pruneTree(const base::Cost pruneTreeCost);
+
+            /** \brief Deletes (frees memory) the motion and its children motions. */
+            void deleteBranch(Motion *motion);
+
+            /** \brief Computes the Cost To Go heuristically as the cost to come from start to motion plus
+                 the cost to go from motion to goal. If \e shortest is true, the estimated cost to come
+                 start-motion is given. Otherwise, this cost to come is the current motion cost. */
+            base::Cost costToGo(const Motion *motion, const bool shortest = true) const;
 
             /** \brief Pretend to prune the graph of any vertices that have a heuristic value (lower-bounding solution cost constrained to pass through the vertex) that is greater than the current solution. Given the current memory model, for now this actually just calculates how many vertices \e would be pruned and stores that number in numPrunedVertices_*/
             void fakeHeuristicGraphPruning();
@@ -333,24 +368,26 @@ namespace ompl
             /** \brief The number of vertices in the graph that are considered "pruned" */
             unsigned int                                   numPrunedVertices_;
 
+            /** \brief If this value is set to true, tree pruning will be enabled. */
+            bool                                           prune_;
+
+            /** \brief The tree is only pruned is the percentage of states to prune is above this threshold (between 0 and 1). */
+            double                                         pruneStatesThreshold_;
+
+            struct PruneScratchSpace { std::vector<Motion*> newTree, toBePruned, candidates; } pruneScratchSpace_;
+
+            /** \brief Stores the Motion containing the last added initial start state. */
+            Motion *                                       startMotion_;
+
             //////////////////////////////
             // Planner progress properties
-
             /** \brief Number of iterations the algorithm performed */
             unsigned int                                   iterations_;
-
             /** \brief Number of collisions checks performed by the algorithm */
             unsigned int                                   collisionChecks_;
-
             /** \brief Best cost found so far by algorithm */
             base::Cost                                     bestCost_;
-
-            /** \brief Directionality of distance computation for
-                nearest neighbors. Either from neighbors to new state,
-                or from new state to neighbors. */
-            DistanceDirection                              distanceDirection_;
         };
-
     }
 }
 
