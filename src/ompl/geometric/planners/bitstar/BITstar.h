@@ -76,24 +76,20 @@ namespace ompl
         /**
             @anchor gBITTstar
             @par Short description
-            \ref gBITstar "BIT*" (Batch Informed Trees) is ...
+            \ref gBITstar "BIT*" (Batch Informed Trees) is an anytime asymptotically-optimal sampling-based
+            motion planning algorithm that extends Lifelong Planning A* (LPA*) techniques to continuous planning
+            problems. \ref gBITstar "BIT*" accomplishes this by processing batches of samples with a heuristic.
+            In doing so, it strikes a balance between algorithms like RRT* and FMT*.
 
+            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*):
+            Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit
+            Random Geometric Graphs, Submitted to ICRA 2015."
+            <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
 
-            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "BIT*: Batch Informed Trees for Optimal
-            Sampling-based Planning via Dynamic Programming on Implicit Random Geometric Graphs."
-            arXiv. <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
-        */
-        /*
-            an asymptotically-optimal incremental
-            sampling-based motion planning algorithm. \ref gRRTstar "RRT*" algorithm is
-            guaranteed to converge to an optimal solution, while its
-            running time is guaranteed to be a constant factor of the
-            running time of the \ref gRRT "RRT". The notion of optimality is with
-            respect to the distance function defined on the state space
-            we are operating on. See ompl::base::Goal::setMaximumPathLength() for
-            how to set the maximally allowed path length to reach the goal.
-            If a solution path that is shorter than ompl::base::Goal::getMaximumPathLength() is
-            found, the algorithm terminates before the elapsed time.
+            @par TODO:
+            Make k-nearest correct.
+            Extend beyond single goal states to other samplable goals (i.e., goal sets).
+            Generalize heuristics to make proper use of the optimization class.
         */
 
         /** \brief Batch Informed Trees */
@@ -112,13 +108,13 @@ namespace ompl
 
             virtual void getPlannerData(base::PlannerData &data) const;
 
-            /** \brief Get the next edge to be processed. Causes a call to updateQueue so effects the run timings of the algorithm, but helpful for some videos and debugging. */
+            /** \brief Get the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             std::pair<ompl::base::State*, ompl::base::State*> getNextEdgeInQueue();
 
             /** \brief Get the next edge actually in the queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
             std::pair<ompl::base::State*, ompl::base::State*> getApproxNextEdgeInQueue() const;
 
-            /** \brief Get the value of the next edge to be processed. Causes a call to updateQueue so effects the run timings of the algorithm, but helpful for some videos and debugging. */
+            /** \brief Get the value of the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             ompl::base::Cost getNextEdgeValueInQueue();
 
             /** \brief Get the value of the next edge actually in the queue.  This may not be the next edge actually processed, as updateQueue may update the queue. */
@@ -143,82 +139,103 @@ namespace ompl
             /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* */
             void setRewireFactor(double rewireFactor);
 
-            /** \brief Get the rewiring scale factor, s, such that r_rrg = s \times r_rrg* > r_rrg* */
+            /** \brief Get the rewiring scale factor. */
             double getRewireFactor() const;
 
-            /** \brief Set the number of samplers per batch */
+            /** \brief Set the number of samplers per batch. */
             void setSamplesPerBatch(unsigned int n);
 
-            /** \brief Get the number of samplers per batch */
+            /** \brief Get the number of samplers per batch. */
             unsigned int getSamplesPerBatch() const;
 
-            /** \brief Use a k-nearest search for rewiring instead of a r-disc search. */
+            /** \brief Enable a k-nearest search for instead of an r-disc search. */
             void setKNearest(bool useKNearest);
 
-            /** \brief Get the state of using a k-nearest search for rewiring. */
+            /** \brief Get whether a k-nearest search is being used.*/
             bool getKNearest() const;
 
-            /** \brief Set the use of a failed edge list */
+            /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
             void setUseFailureTracking(bool trackFailures);
 
-            /** \brief Get the use of a failed edge list */
+            /** \brief Get whether a failed edge list is in use.*/
             bool getUseFailureTracking() const;
 
-            /** \brief Set the use of strict queue ordering */
+            /** \brief Enable "strict sorting" of the edge queue.
+            Rewirings can change the position in the queue of an edge.
+            When strict sorting is enabled, the effected edges are resorted
+            immediately, while disabling strict sorting delays this
+            resorting until the end of the batch. */
             void setStrictQueueOrdering(bool beStrict);
 
-            /** \brief Get the use of strict queue ordering */
+            /** \brief Get whether strict queue ordering is in use*/
             bool getStrictQueueOrdering() const;
 
-            /** \brief Set the use of graph and sample pruning */
+            /** \brief Enable pruning of vertices/samples that CANNOT improve the current solution.
+            When a vertex in the graph is pruned, it's descendents are also pruned
+            (if they also cannot improve the solution) or placed back in
+            the set of free samples (if they could improve the solution).
+            This assures that a uniform density is maintained.*/
             void setPruning(bool prune);
 
-            /** \brief Get the use of graph and sample pruning */
+            /** \brief Get whether graph and sample pruning is in use.*/
             bool getPruning() const;
 
-            /** \brief Stop the planner on any change in solution cost. Useful for debugging the family of paths found. */
+            /** \brief Stop the planner each time a solution improvement is found. Useful
+            for examining the intermediate solutions found by BIT*. */
             void setStopOnSolnImprovement(bool stopOnChange);
 
-            /** \brief Stop the planner on any change in solution cost. Useful for debugging the family of paths found. */
+            /** \brief Get whether BIT* stops each time a solution is found. */
             bool getStopOnSolnImprovement() const;
             ///////////////////////////////////////
 
             ///////////////////////////////////////
             // Planner progress property functions
-            /** \brief Retrieve planner progress property for bestCost_ */
+            /** \brief Retrieve the best exact-solution cost found
+            as a planner-progress property. */
             std::string bestCostProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numBatches_ */
+            /** \brief Retrieve the number of batches processed
+            as a planner-progress property. */
             std::string batchesProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numIterations_ */
+            /** \brief Retrieve the number of iterations
+            as a planner-progress property. */
             std::string iterationProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numStateCollisionChecks_ */
+            /** \brief Retrieve the number of state collisions checks (i.e., calls to SpaceInformation::isValid(...))
+            as a planner-progress property. */
             std::string stateCollisionCheckProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numEdgeCollisionChecks_ */
+            /** \brief Retrieve the number of edge (or motion) collision checks (i.e., calls to SpaceInformation::checkMotion(...))
+            as a planner-progress property. */
             std::string edgeCollisionCheckProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numSamples_ */
+            /** \brief Retrieve the \e total number of samples generated
+            as a planner-progress property. */
             std::string samplesGeneratedProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numVertices_ */
+            /** \brief Retrieve the \e total number of vertices added to the graph
+            as a planner-progress property. */
             std::string verticesConstructedProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numNearestNeighbours_ */
+            /** \brief Retrieve the number of nearest neighbour calls (i.e., NearestNeighbors<T>::nearestK(...) or NearestNeighbors<T>::nearestR(...))
+            as a planner-progress property. */
             std::string nearestNeighbourProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for numRewirings_ */
+            /** \brief Retrieve the number of edges that rewired the graph
+            as a planner-progress property. */
             std::string rewiringProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for freeStateNN_->size() */
+            /** \brief Retrieve the current number of free samples
+            as a planner-progress property. */
             std::string currentSampleProgressProperty() const;
 
-            /** \brief Retrieve planner progress property for vertexNN_->size() */
+            /** \brief Retrieve the current number of vertices in the graph
+            as a planner-progress property. */
             std::string currentVertexProgressProperty() const;
 
-            /** \brief Retrieve planner progress property edgeQueue_->size() */
+            /** \brief Retrieve the current number of edges in the edge queue
+            as a planner-progress property. */
             std::string queueSizeProgressProperty() const;
             ///////////////////////////////////////
 
@@ -354,10 +371,10 @@ namespace ompl
             ///////////////////////////////////////////////////////////////////
             //Helper functions to calculate parameters:
             /** \brief Get the nearest samples from the freeStateNN_ using the appropriate "near" definition (i.e., k or r). */
-            void nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples) const;
+            void nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples);
 
             /** \brief Get the nearest samples from the vertexNN_ using the appropriate "near" definition (i.e., k or r). */
-            void nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices) const;
+            void nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices);
 
             /** \brief Update the appropriate nearest-neighbour terms, r_ and k_ */
             void updateNearestTerms(unsigned int N);

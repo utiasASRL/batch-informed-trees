@@ -84,7 +84,7 @@ namespace ompl
             rewireFactor_(1.1),
             samplesPerBatch_(100u),
             useFailureTracking_(false),
-            useKNearest_(true),
+            useKNearest_(false),
             usePruning_(true),
             stopOnSolnChange_(false),
             sampleDensity_(0.0),
@@ -561,7 +561,7 @@ namespace ompl
 
             if (hasSolution_ == true)
             {
-                OMPL_INFORM("%s: Found a final solution of cost %.4f from %u samples by using %u vertices and %u rewirings. Final graph has %u vertices.", Planner::getName().c_str(), bestCost_.v, numSamples_, numVertices_, numRewirings_, vertexNN_->size());
+                OMPL_INFORM("%s: Found a final solution of cost %.4f from %u samples by using %u vertices and %u rewirings. Final graph has %u vertices.", Planner::getName().c_str(), bestCost_.value(), numSamples_, numVertices_, numRewirings_, vertexNN_->size());
 
                 this->publishSolution();
             }
@@ -854,9 +854,6 @@ namespace ompl
             //Get the set of nearby free states:
             this->nearestSamples(vertex, &neighbourSamples);
 
-            //Increment our counter:
-            ++numNearestNeighbours_;
-
             //Iterate over the vector and add only those who could ever provide a better solution:
             for (unsigned int i = 0u; i < neighbourSamples.size(); ++i)
             {
@@ -873,9 +870,6 @@ namespace ompl
 
                 //Get the set of nearby free states:
                 this->nearestVertices(vertex, &neighbourVertices);
-
-                //Increment our counter:
-                ++numNearestNeighbours_;
 
                 //Iterate over the vector and add only those who could ever provide a better solution:
                 for (unsigned int i = 0u; i < neighbourVertices.size(); ++i)
@@ -1151,7 +1145,16 @@ namespace ompl
             }
 
             //Now create the solution
-            ompl::base::PlannerSolution soln(pathGeoPtr, approximateSoln_, approximateDiff_, Planner::getName());
+            ompl::base::PlannerSolution soln(pathGeoPtr);
+
+            //Mark the name:
+            soln.setPlannerName(Planner::getName());
+
+            //Mark as exact or approximate:
+            if (approximateSoln_ == true)
+            {
+                soln.setApproximate(approximateDiff_);
+            }
 
             //Mark whether the solution met the optimization objective:
             soln.optimized_ = opt_->isSatisfied(bestCost_);
@@ -1560,8 +1563,11 @@ namespace ompl
 
 
 
-        void BITstar::nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples) const
+        void BITstar::nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples)
         {
+            //Increment our counter:
+            ++numNearestNeighbours_;
+
             if (useKNearest_ == true)
             {
                 freeStateNN_->nearestK(vertex, k_, *neighbourSamples);
@@ -1573,8 +1579,11 @@ namespace ompl
         }
 
 
-        void BITstar::nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices) const
+        void BITstar::nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices)
         {
+            //Increment our counter:
+            ++numNearestNeighbours_;
+
             if (useKNearest_ == true)
             {
                 vertexNN_->nearestK(vertex, k_, *neighbourVertices);
@@ -1665,7 +1674,7 @@ namespace ompl
                 outputStream << Planner::getName();
                 outputStream << " (";
                 //The current path cost:
-                outputStream << "l: " << std::setw(6) << std::setfill(' ') << std::setprecision(5) << bestCost_.v;
+                outputStream << "l: " << std::setw(6) << std::setfill(' ') << std::setprecision(5) << bestCost_.value();
                 //The number of batches:
                 outputStream << ", b: " << std::setw(5) << std::setfill(' ') << numBatches_;
                 //The number of iterations
@@ -1786,6 +1795,12 @@ namespace ompl
             {
                 //Set the k-nearest flag
                 useKNearest_ = useKNearest;
+
+                if (useKNearest_ == true)
+                {
+                    //Warn that this isn't exactly implemented
+                    OMPL_WARN("%s: K-Nearest BIT* is not 100% correct.", Planner::getName().c_str());
+                }
 
                 //Check if there's things to update
                 if (this->isSetup() == true)
@@ -1908,7 +1923,7 @@ namespace ompl
 
         std::string BITstar::bestCostProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(bestCost_.v);
+            return boost::lexical_cast<std::string>(bestCost_.value());
         }
 
 
