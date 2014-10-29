@@ -69,7 +69,7 @@ namespace ompl
 
         /** \brief Abstract definition of optimization objectives.
 
-            \note This implementation has greatly benefited from discussions with <a href="http://www.cs.indiana.edu/~hauserk/">Kris Hauser</a> */
+            \note This implementation has greatly benefited from discussions with Kris Hauser */
         class OptimizationObjective : private boost::noncopyable
         {
         public:
@@ -111,8 +111,8 @@ namespace ompl
                 }
             }
 
-            /** \brief Evaluate a cost map defined on the state space at a state \e s. Default implementation maps all states to 1.0. */
-            virtual Cost stateCost(const State *s) const;
+            /** \brief Evaluate a cost map defined on the state space at a state \e s. */
+            virtual Cost stateCost(const State *s) const = 0;
 
             /** \brief Get the cost that corresponds to the motion segment between \e s1 and \e s2 */
             virtual Cost motionCost(const State *s1, const State *s2) const = 0;

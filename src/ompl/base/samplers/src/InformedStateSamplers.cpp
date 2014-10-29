@@ -172,7 +172,7 @@ namespace ompl
         void PathLengthInformedSampler::sampleUniform(State* statePtr, const Cost& maxCost)
         {
             //Check if a solution path has been found
-            if (std::isfinite(maxCost.v) == false)
+            if (std::isfinite(maxCost.value()) == false)
             {
                 //We don't have a solution yet, we sample from our basic sampler instead...
                 baseSampler_->sampleUniform(statePtr);
@@ -180,7 +180,7 @@ namespace ompl
             else //We have a solution
             {
                 //Set the new transverse diameter
-                phsPtr_->setTransverseDiameter(maxCost.v);
+                phsPtr_->setTransverseDiameter(maxCost.value());
 
                 //Check whether the problem domain (i.e., StateSpace) or PHS has the smaller measure. Sample the smaller directly and reject out of the larger.
                 if (informedSubSpace_->getMeasure() <= phsPtr_->getPhsMeasure())
@@ -229,7 +229,7 @@ namespace ompl
             std::vector<double> informedVector(informedSubSpace_->getDimension());
 
             //Set the new transverse diameter
-            phsPtr_->setTransverseDiameter(maxCost.v);
+            phsPtr_->setTransverseDiameter(maxCost.value());
 
             //Sample the ellipse
             rng_.uniformProlateHyperspheroid(phsPtr_, informedSubSpace_->getDimension(), &informedVector[0]);
@@ -270,7 +270,7 @@ namespace ompl
             {
                 this->sampleUniform(statePtr, maxCost);
             }
-            while ( this->getHeuristicValue(statePtr) < minCost.v );
+            while ( this->getHeuristicValue(statePtr) < minCost.value() );
         }
 
         void PathLengthInformedSampler::sampleUniformIgnoreBounds(State* statePtr, const Cost& minCost, const Cost& maxCost)
@@ -281,7 +281,7 @@ namespace ompl
             {
                 this->sampleUniformIgnoreBounds(statePtr, maxCost);
             }
-            while ( this->getHeuristicValue(statePtr) < minCost.v );
+            while ( this->getHeuristicValue(statePtr) < minCost.value() );
         }
 
         double PathLengthInformedSampler::getHeuristicValue(const State* statePtr)
@@ -330,7 +330,7 @@ namespace ompl
             double informedMeasure;
 
             //It is at least the measure of the PHS:
-            informedMeasure = phsPtr_->getPhsMeasure(hypCost.v);
+            informedMeasure = phsPtr_->getPhsMeasure(hypCost.value());
 
             //And if the space is compound, further multiplied by the measure of the uniformed subspace
             if ( space_->isCompound() == true )
