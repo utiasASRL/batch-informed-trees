@@ -164,8 +164,9 @@ namespace ompl
             /** \brief Controls whether the tree is pruned during the search. This pruning removes
                 a vertex \e and \e its \e descendants if the heuristic value of the \e vertex is
                 greater than the current solution. This may remove descendent vertices that
-                could later improve the solution simply because they are currently.
-                attached to an ancestor that cannot. */
+                could later improve the solution because they are currently attached to an
+                ancestor that cannot. This occurs because the homotopy class of a path to a vertex
+                can change at anytime during a run.*/
             void setPrune(const bool prune)
             {
                 prune_ = prune;
