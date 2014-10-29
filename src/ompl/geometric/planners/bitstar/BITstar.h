@@ -81,15 +81,13 @@ namespace ompl
             problems. \ref gBITstar "BIT*" accomplishes this by processing batches of samples with a heuristic.
             In doing so, it strikes a balance between algorithms like RRT* and FMT*.
 
-            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*):
-            Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit
-            Random Geometric Graphs, Submitted to ICRA 2015."
-            <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
+            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
+            Submitted to ICRA 2015. <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
 
             @par TODO:
-            Make k-nearest correct.
-            Extend beyond single goal states to other samplable goals (i.e., goal sets).
-            Generalize heuristics to make proper use of the optimization class.
+            - Make k-nearest correct.
+            - Extend beyond single goal states to other samplable goals (i.e., goal sets).
+            - Generalize heuristics to make proper use of the optimization class.
         */
 
         /** \brief Batch Informed Trees */
@@ -129,10 +127,10 @@ namespace ompl
             void setNearestNeighbors();
 
             /** \brief Get the seed for the underlying StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
-            boost::uint32_t getLocalSeed() const;
+            boost::uint32_t getRngLocalSeed() const;
 
             /** \brief Set the seed for the underlying StateSampler. Useful for running different settings with the exact same pseudorandom sequence. */
-            void setLocalSeed(boost::uint32_t seed);
+            void setRngLocalSeed(boost::uint32_t seed);
 
             ///////////////////////////////////////
             // Planner settings:

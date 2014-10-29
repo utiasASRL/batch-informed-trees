@@ -1732,7 +1732,7 @@ namespace ompl
 
         //****************** A bunch of boring gets/sets ******************//
 
-        boost::uint32_t BITstar::getLocalSeed() const
+        boost::uint32_t BITstar::getRngLocalSeed() const
         {
             if (sampler_)
             {
@@ -1746,7 +1746,7 @@ namespace ompl
 
 
 
-        void BITstar::setLocalSeed(boost::uint32_t seed)
+        void BITstar::setRngLocalSeed(boost::uint32_t seed)
         {
             if (sampler_)
             {
