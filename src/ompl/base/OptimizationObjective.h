@@ -150,7 +150,7 @@ namespace ompl
             /** \brief Returns this objective's SpaceInformation. Needed for operators in MultiOptimizationObjective */
             const SpaceInformationPtr& getSpaceInformation() const;
 
-            /** \brief Allocate a heuristic-sampling state generator for this cost function, throws exceptions for derived classes that don't provide such a sampler.*/
+            /** \brief Allocate a heuristic-sampling state generator for this cost function, defaults to a basic rejection sampling scheme when the derived classes does not provide a better method.*/
             virtual InformedStateSamplerPtr allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const;
 
         protected:

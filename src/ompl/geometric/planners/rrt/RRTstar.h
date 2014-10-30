@@ -165,8 +165,8 @@ namespace ompl
                 a vertex \e and \e its \e descendants if the heuristic value of the \e vertex is
                 greater than the current solution. This may remove descendent vertices that
                 could later improve the solution because they are currently attached to an
-                ancestor that cannot. This occurs because the homotopy class of a path to a vertex
-                can change at anytime during a run.*/
+                ancestor that cannot. This overly aggressive pruning occurs because the
+                homotopy class of a path to a vertex can change at \e anytime during a run.*/
             void setPrune(const bool prune)
             {
                 prune_ = prune;

@@ -179,7 +179,8 @@ const ompl::base::SpaceInformationPtr& ompl::base::OptimizationObjective::getSpa
 
 ompl::base::InformedStateSamplerPtr ompl::base::OptimizationObjective::allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const
 {
-    throw Exception("A heuristic state sampler does not appear to be implemented for this optimization objective.");
+    OMPL_WARN("%s: No informed sampling scheme is defined, defaulting to rejection sampling.", description_.c_str());
+    return InformedStateSamplerPtr(new RejectionSampler(space, probDefn, bestCost));
 }
 
 ompl::base::Cost ompl::base::goalRegionCostToGo(const State *state, const Goal *goal)
