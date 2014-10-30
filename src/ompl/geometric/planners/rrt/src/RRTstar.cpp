@@ -748,9 +748,6 @@ void ompl::geometric::RRTstar::countNumberOfVerticesWorseThanSoln()
 
 void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
 {
-    //We don't use pruning, as it is overly aggressive.
-    setPrune(false);
-
     //Store the setting. We only want to create a new sampler if it has changed, but we do it in 2 if-steps so that we can also check if we have a planner yet...
     if (informedSampling != useInformedSampling_)
     {

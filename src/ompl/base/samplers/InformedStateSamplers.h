@@ -43,6 +43,8 @@
 #include "ompl/base/Cost.h"
 //We use a pointer to the problem definition to access problem and solution data.
 #include "ompl/base/ProblemDefinition.h"
+//The goal definitions
+#include "ompl/base/Goal.h"
 
 namespace ompl
 {
@@ -50,7 +52,9 @@ namespace ompl
     {
         OMPL_CLASS_FORWARD(InformedStateSampler);
 
-        /** \brief An abstract class for state samplers that use information about the current solution to limit future search to a planning subproblem that contains all possibly better solutions. */
+        /** \brief An abstract class for state samplers that use information
+        about the current solution to limit future search to a planning
+        subproblem that contains all possibly better solutions. */
         class InformedStateSampler : public StateSampler
         {
         public:
@@ -67,14 +71,8 @@ namespace ompl
             /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is less than the provided cost */
             virtual void sampleUniform(State* state, const Cost& maxCost) = 0;
 
-            /** \brief Draw a sample uniformly distributed over the subsetof the planning problem that can improve the current solution, ignoring the bounds of the state space. */
-            virtual void sampleUniformIgnoreBounds(State* statePtr, const Cost& maxCost) = 0;
-
             /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is between the provided costs*/
             virtual void sampleUniform(State* statePtr, const Cost& minCost, const Cost& maxCost) = 0;
-
-            /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is between the provided costs, ignoring the bounds of the state space*/
-            virtual void sampleUniformIgnoreBounds(State* statePtr, const Cost& minCost, const Cost& maxCost) = 0;
 
             /** \brief Calculate the heuristic value for a given state */
             virtual double getHeuristicValue(const State* state) = 0;
@@ -103,6 +101,53 @@ namespace ompl
 
 
 
+        /** \brief A default rejection sampling scheme that samples uniformly from the entire planning domain.
+        Samples are rejected until one is found that has a heuristic solution estimate that is less than the current solution.
+        In general, direct sampling of the informed subset is much better, but this is a general default.
+        This is \e completely \e untested.
+
+        @par TODO
+        - Test.
+        */
+        class RejectionSampler : public InformedStateSampler
+        {
+        public:
+
+            /** \brief Construct the sampler with a pointer to the planner so it can extract solution information. */
+            RejectionSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost);
+            virtual ~RejectionSampler()
+            {
+            }
+
+            /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is less than the provided cost */
+            void sampleUniform(State* state, const Cost& maxCost);
+
+            /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is between the provided costs*/
+            void sampleUniform(State* statePtr, const Cost& minCost, const Cost& maxCost);
+
+            /** \brief Calculate the heuristic value for a given state */
+            double getHeuristicValue(const State* state);
+
+            /** \brief The measure of the space being searched informed by the knowledge of the problem and the solution. As rejection sampling has no closed-form knowledge of the informed subset, the measure of the informed space is always the measure of the entire space. */
+            double getInformedMeasure() const;
+
+            /** \brief The measure of the informed space if the best cost was as given. As rejection sampling has no closed-form knowledge of the informed subset, the measure of the informed space will always be the measure of the entire space, regardless of the current solution. */
+            double getHypotheticalMeasure(const Cost& /*hypCost*/) const;
+
+            /** \brief Set the seed of all the state samplers. */
+            void setLocalSeed(boost::uint32_t localSeed);
+
+        private:
+            //Variables
+            /** \brief The basic raw sampler used to generate samples to keep/reject. */
+            StateSamplerPtr baseSampler_;
+            //The start and goal states
+            State* startState_;
+            GoalPtr goal_;
+        };
+
+
+
         /** \brief An informed sampler for problems seeking to minimize path length.
 
         It focuses the search to the subset of a problem that can improve a current solution, which is a prolate hyperspheroid (PHS)
@@ -116,7 +161,12 @@ namespace ompl
         Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
         IROS 2014. <a href="http://arxiv.org/abs/1404.2334">arXiv:1404.2334 [cs.RO]</a>.
         <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
-        <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
+        <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>.
+
+        @par TODO
+        - Use OptimizationObjective properly.
+        - Handle compound spaces more gracefully.
+        - Handle other types of goals? */
         class PathLengthInformedSampler : public InformedStateSampler
         {
         public:
@@ -129,14 +179,8 @@ namespace ompl
             /** \brief Draw a sample uniformly distributed over the subsetof the planning problem that can improve the current solution. */
             void sampleUniform(State* statePtr, const Cost& maxCost);
 
-            /** \brief Draw a sample uniformly distributed over the subsetof the planning problem that can improve the current solution, ignoring the bounds of the state space. */
-            void sampleUniformIgnoreBounds(State* statePtr, const Cost& maxCost);
-
             /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is between the provided costs*/
             void sampleUniform(State* statePtr, const Cost& minCost, const Cost& maxCost);
-
-            /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is between the provided costs, ignoring the bounds of the state space*/
-            void sampleUniformIgnoreBounds(State* statePtr, const Cost& minCost, const Cost& maxCost);
 
             /** \brief Calculate the heuristic value for a given state */
             double getHeuristicValue(const State* statePtr);
@@ -158,6 +202,13 @@ namespace ompl
         protected:
 
         private:
+            //Some functions that used to be public by are still helpful to have around:
+            /** \brief Draw a sample uniformly distributed over the subsetof the planning problem that can improve the current solution, ignoring the bounds of the state space. */
+            void sampleUniformIgnoreBounds(State* statePtr, const Cost& maxCost);
+
+            /** \brief Sample uniformly in the subset of the state space whose heuristic estimate is between the provided costs, ignoring the bounds of the state space*/
+            void sampleUniformIgnoreBounds(State* statePtr, const Cost& minCost, const Cost& maxCost);
+
             //Variables
             /** \brief The prolate hyperspheroid description of the sub problem */
             ompl::ProlateHyperspheroidPtr phsPtr_;

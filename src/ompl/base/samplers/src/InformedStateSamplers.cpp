@@ -36,6 +36,7 @@
 
 #include "ompl/base/samplers/InformedStateSamplers.h"
 #include "ompl/util/Exception.h"
+#include "ompl/base/OptimizationObjective.h"
 #include "ompl/base/goals/GoalState.h"
 #include "ompl/base/StateSpace.h"
 #include "ompl/base/spaces/RealVectorStateSpace.h"
@@ -47,6 +48,7 @@ namespace ompl
 {
     namespace base
     {
+        //The base InformedStateSampler class:
         InformedStateSampler::InformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost)
           : StateSampler(space),
             probDefn_(probDefn),
@@ -76,7 +78,85 @@ namespace ompl
         }
 
 
+        //The default rejection-sampling class:
+        RejectionSampler::RejectionSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost)
+          : InformedStateSampler(space, probDefn, bestCost)
+        {
+            //Sanity check the problem.
+            if (probDefn_->getStartStateCount() != 1u)
+            {
+                throw Exception("Rejection sampling currently only supports 1 start state.");
+            }//No else
 
+            if (probDefn_->hasOptimizationObjective() == false)
+            {
+                throw Exception("No optimization objective specified during creation of the rejection sampler.");
+            }//No else
+
+            //Create the basic sampler
+            baseSampler_ = space_->allocDefaultStateSampler();
+
+            //Set it's seed to the same as mine
+            baseSampler_->setLocalSeed( this->getLocalSeed() );
+
+            //Store the start and goal
+            startState_ = probDefn_->getStartState(0u);
+            goal_ = probDefn_->getGoal();
+        }
+
+        void RejectionSampler::sampleUniform(State* statePtr, const Cost& maxCost)
+        {
+            //Sample from the entire domain until the sample has a suitable heuristic value.
+            do
+            {
+                this->sampleUniform(statePtr, maxCost);
+            }
+            while ( this->getHeuristicValue(statePtr) >= maxCost.value() );
+        }
+
+        void RejectionSampler::sampleUniform(State* statePtr, const Cost& minCost, const Cost& maxCost)
+        {
+            //Sample from the larger heuristic bound until the sample is greater than the smaller bound.
+            do
+            {
+                this->sampleUniform(statePtr, maxCost);
+            }
+            while ( this->getHeuristicValue(statePtr) < minCost.value() );
+        }
+
+        double RejectionSampler::getHeuristicValue(const State* statePtr)
+        {
+            //Variable
+            return probDefn_->getOptimizationObjective()->motionCostHeuristic(startState_, statePtr).value() + probDefn_->getOptimizationObjective()->costToGo(statePtr, goal_.get()).value();
+        }
+
+        double RejectionSampler::getInformedMeasure() const
+        {
+            return space_->getMeasure();
+        }
+
+        double RejectionSampler::getHypotheticalMeasure(const Cost& /*hypCost*/) const
+        {
+            return space_->getMeasure();
+        }
+
+        void RejectionSampler::setLocalSeed(boost::uint32_t localSeed)
+        {
+            //Set the seed of my base class, i.e., my rng_ memeber variable
+            StateSampler::setLocalSeed(localSeed);
+
+            //Set the seed for my member sub-samplers as well:
+            baseSampler_->setLocalSeed( this->getLocalSeed() );
+        }
+
+
+
+
+
+
+
+
+        //The direct ellipsoid-sampling class for path-length:
         PathLengthInformedSampler::PathLengthInformedSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost)
           : InformedStateSampler(space, probDefn, bestCost)
         {
@@ -160,7 +240,6 @@ namespace ompl
 
             //Create the definition of the PHS
             phsPtr_ = ProlateHyperspheroidPtr(new ProlateHyperspheroid(informedSubSpace_->getDimension(), &xStart[0], &xGoal[0]));
-
         }
 
         PathLengthInformedSampler::~PathLengthInformedSampler()
@@ -222,46 +301,6 @@ namespace ompl
             }
         }
 
-        void PathLengthInformedSampler::sampleUniformIgnoreBounds(State* statePtr, const Cost& maxCost)
-        {
-            //Variable
-            //The informed subset of the sample as a vector
-            std::vector<double> informedVector(informedSubSpace_->getDimension());
-
-            //Set the new transverse diameter
-            phsPtr_->setTransverseDiameter(maxCost.value());
-
-            //Sample the ellipse
-            rng_.uniformProlateHyperspheroid(phsPtr_, informedSubSpace_->getDimension(), &informedVector[0]);
-
-            //If there is an extra "uninformed" subspace, we need to add that to the state before converting the raw vector representation into a state....
-            if ( space_->isCompound() == false )
-            {
-                //No, space_ == informedSubSpace_
-                //Copy into the state pointer
-                informedSubSpace_->copyFromReals(statePtr, informedVector);
-            }
-            else
-            {
-                //Yes, we need to also sample the uninformed subspace
-                //Variables
-                //A state for the uninformed subspace
-                State* uninformedState = uninformedSubSpace_->allocState();
-
-                //Copy the informed subspace into the state pointer
-                informedSubSpace_->copyFromReals(statePtr->as<CompoundState>()->components[INFORMED_IDX], informedVector);
-
-                //Sample the uniformed subspace
-                uninformedSubSampler_->sampleUniform(uninformedState);
-
-                //Copy the informed subspace into the state pointer
-                uninformedSubSpace_->copyState(statePtr->as<CompoundState>()->components[UNINFORMED_IDX], uninformedState);
-
-                //Free the state
-                uninformedSubSpace_->freeState(uninformedState);
-            }
-        }
-
         void PathLengthInformedSampler::sampleUniform(State* statePtr, const Cost& minCost, const Cost& maxCost)
         {
             //Sample from the larger PHS until the sample does not lie within the smaller PHS.
@@ -269,17 +308,6 @@ namespace ompl
             do
             {
                 this->sampleUniform(statePtr, maxCost);
-            }
-            while ( this->getHeuristicValue(statePtr) < minCost.value() );
-        }
-
-        void PathLengthInformedSampler::sampleUniformIgnoreBounds(State* statePtr, const Cost& minCost, const Cost& maxCost)
-        {
-            //Sample from the larger PHS until the sample does not lie within the smaller PHS.
-            //Since volume in a sphere/spheroid is proportionately concentrated near the surface, this isn't horribly inefficient, though a direct method would be better
-            do
-            {
-                this->sampleUniformIgnoreBounds(statePtr, maxCost);
             }
             while ( this->getHeuristicValue(statePtr) < minCost.value() );
         }
@@ -354,6 +382,57 @@ namespace ompl
             {
                 uninformedSubSampler_->setLocalSeed( this->getLocalSeed() );
             }
+        }
+
+        void PathLengthInformedSampler::sampleUniformIgnoreBounds(State* statePtr, const Cost& maxCost)
+        {
+            //Variable
+            //The informed subset of the sample as a vector
+            std::vector<double> informedVector(informedSubSpace_->getDimension());
+
+            //Set the new transverse diameter
+            phsPtr_->setTransverseDiameter(maxCost.value());
+
+            //Sample the ellipse
+            rng_.uniformProlateHyperspheroid(phsPtr_, informedSubSpace_->getDimension(), &informedVector[0]);
+
+            //If there is an extra "uninformed" subspace, we need to add that to the state before converting the raw vector representation into a state....
+            if ( space_->isCompound() == false )
+            {
+                //No, space_ == informedSubSpace_
+                //Copy into the state pointer
+                informedSubSpace_->copyFromReals(statePtr, informedVector);
+            }
+            else
+            {
+                //Yes, we need to also sample the uninformed subspace
+                //Variables
+                //A state for the uninformed subspace
+                State* uninformedState = uninformedSubSpace_->allocState();
+
+                //Copy the informed subspace into the state pointer
+                informedSubSpace_->copyFromReals(statePtr->as<CompoundState>()->components[INFORMED_IDX], informedVector);
+
+                //Sample the uniformed subspace
+                uninformedSubSampler_->sampleUniform(uninformedState);
+
+                //Copy the informed subspace into the state pointer
+                uninformedSubSpace_->copyState(statePtr->as<CompoundState>()->components[UNINFORMED_IDX], uninformedState);
+
+                //Free the state
+                uninformedSubSpace_->freeState(uninformedState);
+            }
+        }
+
+        void PathLengthInformedSampler::sampleUniformIgnoreBounds(State* statePtr, const Cost& minCost, const Cost& maxCost)
+        {
+            //Sample from the larger PHS until the sample does not lie within the smaller PHS.
+            //Since volume in a sphere/spheroid is proportionately concentrated near the surface, this isn't horribly inefficient, though a direct method would be better
+            do
+            {
+                this->sampleUniformIgnoreBounds(statePtr, maxCost);
+            }
+            while ( this->getHeuristicValue(statePtr) < minCost.value() );
         }
 
     }; //base
