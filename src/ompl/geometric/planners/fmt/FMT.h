@@ -147,6 +147,9 @@ namespace ompl
                 return freeSpaceVolume_;
             }
 
+            /** \brief Retrieve planner progress property for numIterations_ */
+            std::string iterationProgressProperty() const;
+
         protected:
             /** \brief Representation of a motion
               */
@@ -272,7 +275,7 @@ namespace ompl
 
             /** \brief Sample a state from the free configuration space and save
                 it into the nearest neighbors data structure */
-            void sampleFree(const ompl::base::PlannerTerminationCondition &ptc);
+            void sampleFree();
 
             /** \brief For each goal region, check to see if any of the sampled
                 states fall within that region. If not, add a goal state from
@@ -361,6 +364,15 @@ namespace ompl
 
             /** \brief The most recent goal motion.  Used for PlannerData computation */
             Motion *lastGoalMotion_;
+
+            //Variables moved up from within the solve function.
+            base::GoalSampleableRegion *goal_;
+            Motion *initMotion_;
+            double r_;
+            bool plannerSuccess_;
+            bool successfulExpansion_;
+            Motion *z_;
+            unsigned int numIterations_;
 
         };
     }

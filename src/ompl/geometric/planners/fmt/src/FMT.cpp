@@ -52,6 +52,7 @@ ompl::geometric::FMT::FMT(const base::SpaceInformationPtr &si)
     : base::Planner(si, "FMT")
     , numSamples_(1000)
     , radiusMultiplier_(1.1)
+    , numIterations_(0u)
 {
     freeSpaceVolume_ = std::pow(si_->getMaximumExtent() / std::sqrt(si_->getStateDimension()), (int)si_->getStateDimension());
     lastGoalMotion_ = NULL;
@@ -88,6 +89,51 @@ void ompl::geometric::FMT::setup()
     if (!nn_)
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(si_->getStateSpace()));
     nn_->setDistanceFunction(boost::bind(&FMT::distanceFunction, this, _1, _2));
+
+    //////////////////////////////////////
+    //Copied from solve to allow for incremental calls to solve
+    checkValidity();
+    goal_ = dynamic_cast<base::GoalSampleableRegion*>(pdef_->getGoal().get());
+    initMotion_ = NULL;
+
+    // Add start states to V (nn_) and H
+    while (const base::State *st = pis_.nextStart())
+    {
+        initMotion_ = new Motion(si_);
+        si_->copyState(initMotion_->getState(), st);
+        hElements_[initMotion_] = H_.insert(initMotion_);
+        initMotion_->setSetType(Motion::SET_H);
+        initMotion_->setCost(opt_->initialCost(initMotion_->getState()));
+        nn_->add(initMotion_); // V <-- {x_init}
+    }
+
+    // Sample N free states in the configuration space
+    if (!sampler_)
+        sampler_ = si_->allocStateSampler();
+    sampleFree();
+    assureGoalIsSampled(goal_);
+    OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size());
+
+    // Calculate the nearest neighbor search radius
+    r_ = calculateRadius(si_->getStateDimension(), nn_->size());
+    OMPL_DEBUG("Using radius of %f", r_);
+
+    // Flag all nodes as in set W
+    std::vector<Motion*> vNodes;
+    vNodes.reserve(nn_->size());
+    nn_->list(vNodes);
+    unsigned int vNodesSize = vNodes.size();
+    for (unsigned int i = 0; i < vNodesSize; ++i)
+    {
+        vNodes[i]->setSetType(Motion::SET_W);
+    }
+
+    plannerSuccess_ = false;
+    successfulExpansion_ = true; //To enter the loop
+    z_ = initMotion_; // z <-- xinit
+    z_->setSetType(Motion::SET_H);
+    saveNeighborhood(z_, r_);
+    //////////////////////////////////////
 }
 
 void ompl::geometric::FMT::freeMemory()
@@ -178,13 +224,13 @@ double ompl::geometric::FMT::calculateRadius(const unsigned int dimension, const
     return radiusMultiplier_ * 2.0 * std::pow(a, a) * std::pow(freeSpaceVolume_ / unitBallVolume, a) * std::pow(log((double)n) / (double)n, a);
 }
 
-void ompl::geometric::FMT::sampleFree(const base::PlannerTerminationCondition &ptc)
+void ompl::geometric::FMT::sampleFree()
 {
     unsigned int nodeCount = 0;
     Motion *motion = new Motion(si_);
 
     // Sample numSamples_ number of nodes from the free configuration space
-    while (nodeCount < numSamples_ && !ptc)
+    while (nodeCount < numSamples_)
     {
         sampler_->sampleUniform(motion->getState());
 
@@ -243,78 +289,33 @@ ompl::base::PlannerStatus ompl::geometric::FMT::solve(const base::PlannerTermina
         OMPL_DEBUG("Final path cost: %f", lastGoalMotion_->getCost().value());
         return base::PlannerStatus(true, false);
     }
-    else if (hElements_.size() > 0)
-    {
-        OMPL_INFORM("solve() called before clear(); no previous solution so starting afresh");
-        clear();
-    }
 
-    checkValidity();
-    base::GoalSampleableRegion *goal = dynamic_cast<base::GoalSampleableRegion*>(pdef_->getGoal().get());
-    Motion *initMotion = NULL;
-
-    if (!goal)
+    if (!goal_)
     {
         OMPL_ERROR("%s: Unknown type of goal", getName().c_str());
         return base::PlannerStatus::UNRECOGNIZED_GOAL_TYPE;
     }
-
-    // Add start states to V (nn_) and H
-    while (const base::State *st = pis_.nextStart())
-    {
-        initMotion = new Motion(si_);
-        si_->copyState(initMotion->getState(), st);
-        hElements_[initMotion] = H_.insert(initMotion);
-        initMotion->setSetType(Motion::SET_H);
-        initMotion->setCost(opt_->initialCost(initMotion->getState()));
-        nn_->add(initMotion); // V <-- {x_init}
-    }
-
-    if (!initMotion)
+    if (!initMotion_)
     {
         OMPL_ERROR("Start state undefined");
         return base::PlannerStatus::INVALID_START;
     }
 
-    // Sample N free states in the configuration space
-    if (!sampler_)
-        sampler_ = si_->allocStateSampler();
-    sampleFree(ptc);
-    assureGoalIsSampled(goal);
-    OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size());
-
-    // Calculate the nearest neighbor search radius
-    double r = calculateRadius(si_->getStateDimension(), nn_->size());
-    OMPL_DEBUG("Using radius of %f", r);
-
-    // Flag all nodes as in set W
-    std::vector<Motion*> vNodes;
-    vNodes.reserve(nn_->size());
-    nn_->list(vNodes);
-    unsigned int vNodesSize = vNodes.size();
-    for (unsigned int i = 0; i < vNodesSize; ++i)
-    {
-        vNodes[i]->setSetType(Motion::SET_W);
-    }
-
     // Execute the planner, and return early if the planner returns a failure
-    bool plannerSuccess = false;
-    bool successfulExpansion = false;
-    Motion *z = initMotion; // z <-- xinit
-    z->setSetType(Motion::SET_H);
-    saveNeighborhood(z, r);
-
-    while (!ptc && !(plannerSuccess = goal->isSatisfied(z->getState())))
+    while (!ptc && !(plannerSuccess_ = goal_->isSatisfied(z_->getState())) && successfulExpansion_)
     {
-        successfulExpansion = expandTreeFromNode(z, r);
-        if (!successfulExpansion)
-            return base::PlannerStatus(false, false);
+        ++numIterations_;
+        successfulExpansion_ = expandTreeFromNode(z_, r_);
+        if (!successfulExpansion_)
+        {
+            return base::PlannerStatus::CRASH;
+        }
     } // While not at goal
 
-    if (plannerSuccess)
+    if (plannerSuccess_)
     {
         // Return the path to z, since by definition of planner success, z is in the goal region
-        lastGoalMotion_ = z;
+        lastGoalMotion_ = z_;
         traceSolutionPathThroughTree(lastGoalMotion_);
 
         OMPL_DEBUG("Final path cost: %f", lastGoalMotion_->getCost().value());
@@ -443,4 +444,9 @@ bool ompl::geometric::FMT::expandTreeFromNode(Motion *&z, const double r)
     z = H_.top()->data;
 
     return true;
+}
+
+std::string ompl::geometric::FMT::iterationProgressProperty() const
+{
+    return boost::lexical_cast<std::string>(numIterations_);
 }
