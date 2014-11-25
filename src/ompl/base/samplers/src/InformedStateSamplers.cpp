@@ -109,7 +109,7 @@ namespace ompl
             //Sample from the entire domain until the sample has a suitable heuristic value.
             do
             {
-                this->sampleUniform(statePtr, maxCost);
+                baseSampler_->sampleUniform(statePtr);
             }
             while ( this->getHeuristicValue(statePtr) >= maxCost.value() );
         }
