@@ -145,6 +145,7 @@ void ompl::geometric::RRTstar::setup()
 
 void ompl::geometric::RRTstar::clear()
 {
+    setup_ = false;
     Planner::clear();
     sampler_.reset();
     freeMemory();

@@ -402,6 +402,9 @@ namespace ompl
             numRewirings_ = 0u;
             numBatches_ = 0u;
 
+            //Mark as not setup:
+            setup_ = false;
+
             //Call my base clear:
             Planner::clear();
         }
