@@ -130,6 +130,11 @@ namespace ompl
             return probDefn_->getOptimizationObjective()->motionCostHeuristic(startState_, statePtr).value() + probDefn_->getOptimizationObjective()->costToGo(statePtr, goal_.get()).value();
         }
 
+        bool RejectionSampler::hasInformedMeasure() const
+        {
+            return false;
+        }
+
         double RejectionSampler::getInformedMeasure() const
         {
             return space_->getMeasure();
@@ -330,6 +335,11 @@ namespace ompl
 
             //Calculate and return the length
             return phsPtr_->getPathLength(informedSubSpace_->getDimension(), &rawData[0]);
+        }
+
+        bool PathLengthInformedSampler::hasInformedMeasure() const
+        {
+            return true;
         }
 
         double PathLengthInformedSampler::getInformedMeasure() const

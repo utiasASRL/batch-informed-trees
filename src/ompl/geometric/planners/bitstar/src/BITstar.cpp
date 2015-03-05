@@ -93,15 +93,11 @@ namespace ompl
             numIterations_(0u),
             numBatches_(0u),
             numPrunings_(0u),
-            numShortcutSearches_(0u),
             numSamples_(0u),
             numVertices_(0u),
             numFreeStatesPruned_(0u),
             numVerticesPruned_(0u),
-            numSmoothedVerticesPruned_(0u),
             numRewirings_(0u),
-            numShortcutAttempts_(0u),
-            numShortcutEdges_(0u),
             numStateCollisionChecks_(0u),
             numEdgeCollisionChecks_(0u),
             numNearestNeighbours_(0u),
@@ -2078,7 +2074,7 @@ namespace ompl
 
         std::string BITstar::totalStatesCreatedProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(numSamples_ + numSmoothedVertices_);
+            return boost::lexical_cast<std::string>(numSamples_);
         }
 
 
@@ -2092,7 +2088,7 @@ namespace ompl
 
         std::string BITstar::statesPrunedProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(numFreeStatesPruned_ + numVerticesPruned_ + numSmoothedVerticesPruned_);
+            return boost::lexical_cast<std::string>(numFreeStatesPruned_ + numVerticesPruned_);
         }
 
 
