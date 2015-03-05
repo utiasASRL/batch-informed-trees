@@ -77,6 +77,9 @@ namespace ompl
             /** \brief Calculate the heuristic value for a given state */
             virtual double getHeuristicValue(const State* state) = 0;
 
+            /** \brief Whether the informed sampling technique provides a measure of the space it is sampling */
+            virtual bool hasInformedMeasure() const = 0;
+
             /** \brief The measure of the space being searched informed by the knowledge of the problem and the solution, i.e., include consideration of the boundary. Should return the measure of the entire space if no solution has been found */
             virtual double getInformedMeasure() const = 0;
 
@@ -127,6 +130,9 @@ namespace ompl
 
             /** \brief Calculate the heuristic value for a given state */
             double getHeuristicValue(const State* state);
+
+            /** \brief Whether the informed sampling technique provides a measure of the space it is sampling */
+            bool hasInformedMeasure() const;
 
             /** \brief The measure of the space being searched informed by the knowledge of the problem and the solution. As rejection sampling has no closed-form knowledge of the informed subset, the measure of the informed space is always the measure of the entire space. */
             double getInformedMeasure() const;
@@ -184,6 +190,9 @@ namespace ompl
 
             /** \brief Calculate the heuristic value for a given state */
             double getHeuristicValue(const State* statePtr);
+
+            /** \brief Whether the informed sampling technique provides a measure of the space it is sampling */
+            bool hasInformedMeasure() const;
 
             /** \brief The measure of the space being searched informed by the knowledge of the problem and the solution, i.e., include consideration of the boundary. */
             double getInformedMeasure() const;

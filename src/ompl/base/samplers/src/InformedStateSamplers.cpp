@@ -130,6 +130,11 @@ namespace ompl
             return probDefn_->getOptimizationObjective()->motionCostHeuristic(startState_, statePtr).value() + probDefn_->getOptimizationObjective()->costToGo(statePtr, goal_.get()).value();
         }
 
+        bool RejectionSampler::hasInformedMeasure() const
+        {
+            return false;
+        }
+
         double RejectionSampler::getInformedMeasure() const
         {
             return space_->getMeasure();
@@ -332,6 +337,11 @@ namespace ompl
             return phsPtr_->getPathLength(informedSubSpace_->getDimension(), &rawData[0]);
         }
 
+        bool PathLengthInformedSampler::hasInformedMeasure() const
+        {
+            return true;
+        }
+
         double PathLengthInformedSampler::getInformedMeasure() const
         {
             //Variable
@@ -339,7 +349,7 @@ namespace ompl
             double informedMeasure;
 
             //It is at least the measure of the PHS:
-            informedMeasure = phsPtr_->getPhsMeasure();
+            informedMeasure = phsPtr_->getPhsMeasure(bestCostPtr_->value());
 
             //And if the space is compound, further multiplied by the measure of the uniformed subspace
             if ( space_->isCompound() == true )

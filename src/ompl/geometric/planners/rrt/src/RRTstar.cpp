@@ -565,7 +565,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         si_->freeState(rmotion->state);
     delete rmotion;
 
-    OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree.", getName().c_str(), statesGenerated, rewireTest, goalMotions_.size());
+    OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final solution cost %.3f", getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestCost_);
 
     return base::PlannerStatus(addedSolution, approximate);
 }
@@ -770,7 +770,12 @@ void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
 void ompl::geometric::RRTstar::allocSampler()
 {
     if (useInformedSampling_)
+    {
+        OMPL_INFORM("%s: Using informed sampling.", getName().c_str());
         sampler_ = opt_->allocInformedStateSampler(si_->getStateSpace().get(), pdef_, &bestCost_);
+    }
     else
+    {
         sampler_ = si_->allocStateSampler();
+    }
 }
