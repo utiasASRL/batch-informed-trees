@@ -349,7 +349,7 @@ namespace ompl
             double informedMeasure;
 
             //It is at least the measure of the PHS:
-            informedMeasure = phsPtr_->getPhsMeasure();
+            informedMeasure = phsPtr_->getPhsMeasure(bestCostPtr_->value());
 
             //And if the space is compound, further multiplied by the measure of the uniformed subspace
             if ( space_->isCompound() == true )

@@ -413,7 +413,7 @@ namespace ompl
                 }
 
                 //If the edge queue is empty, that must mean we're either starting from scratch, or just finished a batch. Either way, make a batch of samples and fill the queue for the first time:
-                if (edgeQueue_.empty() == true)
+                if (edgeQueue_.empty() == true && vertexQueue_.empty() == true)
                 {
                     this->newBatch();
                 }
@@ -514,6 +514,7 @@ namespace ompl
                         this->statusMessage(ompl::msg::LOG_DEBUG, "Clearing edge queue!");
                         //Else, I cannot improve the current solution, and as the queue is perfectly sorted and I am the best edge, no one can improve the current solution . Give up on the batch:
                         edgeQueue_.clear();
+                        vertexQueue_.clear();
                     }
                 }
             }
