@@ -103,25 +103,24 @@ namespace ompl
 
             virtual void clear();
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            virtual void getPlannerData(base::PlannerData& data) const;
 
             /** \brief Get the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             std::pair<ompl::base::State*, ompl::base::State*> getNextEdgeInQueue();
 
-            /** \brief Get the next edge actually in the queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
+            /** \brief Get the next edge to be processed given the current queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
             std::pair<ompl::base::State*, ompl::base::State*> getApproxNextEdgeInQueue() const;
 
             /** \brief Get the value of the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             ompl::base::Cost getNextEdgeValueInQueue();
 
-            /** \brief Get the value of the next edge actually in the queue.  This may not be the next edge actually processed, as updateQueue may update the queue. */
+            /** \brief Get the value of the next edge to be processed given the current queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
             ompl::base::Cost getApproxNextEdgeValueInQueue() const;
 
             /** \brief Get the whole messy queue. Expensive but helpful for some videos */
             void getQueue(std::vector<std::pair<VertexPtr, VertexPtr> >& edgesInQueue);
-
 
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
@@ -179,6 +178,12 @@ namespace ompl
             /** \brief Get whether graph and sample pruning is in use.*/
             bool getPruning() const;
 
+            /** \brief Set the fractional change in the solution cost necessary for pruning to occur. */
+            void setPruneThresholdFraction(double fractionalChange);
+
+            /** \brief Get the fractional change in the solution cost necessary for pruning to occur. */
+            double getPruneThresholdFraction() const;
+
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by BIT*. */
             void setStopOnSolnImprovement(bool stopOnChange);
@@ -190,52 +195,79 @@ namespace ompl
             ///////////////////////////////////////
             // Planner progress property functions
             /** \brief Retrieve the best exact-solution cost found
-            as a planner-progress property. */
+            as the raw data. (bestCost_) */
+            ompl::base::Cost bestCost() const;
+            /** \brief Retrieve the best exact-solution cost found
+            as a planner-progress property. (bestCost_) */
             std::string bestCostProgressProperty() const;
 
-            /** \brief Retrieve the number of batches processed
-            as a planner-progress property. */
-            std::string batchesProgressProperty() const;
+            /** \brief Retrieve the current number of free samples
+            as a planner-progress property. (size of freeStateNN_) */
+            std::string currentFreeProgressProperty() const;
+
+            /** \brief Retrieve the current number of vertices in the graph
+            as a planner-progress property. (Size of vertexNN_) */
+            std::string currentVertexProgressProperty() const;
+
+            /** \brief Retrieve the current number of vertices in the expansion queue
+            as a planner-progress property. (Size of vertexQueue_) */
+            std::string vertexQueueSizeProgressProperty() const;
+
+            /** \brief Retrieve the current number of edges in the search queue
+            as a planner-progress property. (Size of edgeQueue_) */
+            std::string edgeQueueSizeProgressProperty() const;
 
             /** \brief Retrieve the number of iterations
-            as a planner-progress property. */
+            as a planner-progress property. (numIterations_) */
             std::string iterationProgressProperty() const;
 
+            /** \brief Retrieve the number of batches processed
+            as the raw data. (numBatches_) */
+            unsigned int numBatches() const;
+            /** \brief Retrieve the number of batches processed
+            as a planner-progress property. (numBatches_) */
+            std::string batchesProgressProperty() const;
+
+            /** \brief Retrieve the number of graph prunings performed
+            as a planner-progress property. (numPrunings_) */
+            std::string pruningProgressProperty() const;
+
+            /** \brief Retrieve the \e total number of states generated
+            as a planner-progress property. (numSamples_) */
+            std::string totalStatesCreatedProgressProperty() const;
+
+
+            /** \brief Retrieve the \e total number of vertices added to the graph
+            as a planner-progress property. (numVertices_) */
+            std::string verticesConstructedProgressProperty() const;
+
+            /** \brief Retrieve the \e total number of states pruned from the problem
+            as a planner-progress property. (numFreeStatesPruned_ + numVerticesPruned_) */
+            std::string statesPrunedProgressProperty() const;
+
+            /** \brief Retrieve the number of free states pruned from the problem
+            as a planner-progress property. (numFreeStatesPruned_) */
+            std::string freeStatesPrunedProgressProperty() const;
+
+            /** \brief Retrieve the number of graph vertices pruned from the problem
+            as a planner-progress property. (numVerticesPruned_) */
+            std::string verticesPrunedProgressProperty() const;
+
+            /** \brief Retrieve the number of global-search edges that rewired the graph
+            as a planner-progress property. (numRewirings_) */
+            std::string rewiringProgressProperty() const;
+
             /** \brief Retrieve the number of state collisions checks (i.e., calls to SpaceInformation::isValid(...))
-            as a planner-progress property. */
+            as a planner-progress property. (numStateCollisionChecks_) */
             std::string stateCollisionCheckProgressProperty() const;
 
             /** \brief Retrieve the number of edge (or motion) collision checks (i.e., calls to SpaceInformation::checkMotion(...))
-            as a planner-progress property. */
+            as a planner-progress property. (numEdgeCollisionChecks_) */
             std::string edgeCollisionCheckProgressProperty() const;
 
-            /** \brief Retrieve the \e total number of samples generated
-            as a planner-progress property. */
-            std::string samplesGeneratedProgressProperty() const;
-
-            /** \brief Retrieve the \e total number of vertices added to the graph
-            as a planner-progress property. */
-            std::string verticesConstructedProgressProperty() const;
-
             /** \brief Retrieve the number of nearest neighbour calls (i.e., NearestNeighbors<T>::nearestK(...) or NearestNeighbors<T>::nearestR(...))
-            as a planner-progress property. */
+            as a planner-progress property. (numNearestNeighbours_) */
             std::string nearestNeighbourProgressProperty() const;
-
-            /** \brief Retrieve the number of edges that rewired the graph
-            as a planner-progress property. */
-            std::string rewiringProgressProperty() const;
-
-            /** \brief Retrieve the current number of free samples
-            as a planner-progress property. */
-            std::string currentSampleProgressProperty() const;
-
-            /** \brief Retrieve the current number of vertices in the graph
-            as a planner-progress property. */
-            std::string currentVertexProgressProperty() const;
-
-            /** \brief Retrieve the current number of edges in the edge queue
-            as a planner-progress property. */
-            std::string queueSizeProgressProperty() const;
             ///////////////////////////////////////
 
         protected:
@@ -268,17 +300,15 @@ namespace ompl
             /** \brief Prune all vertices with a solution heuristic that is greater than the bestCost_ */
             void pruneGraph();
 
-//            /** \brief Prune all failed edges where the parent vertex is not disconnected. */
-//            void pruneFailedEdgeSet();
 
             /** \brief Publish the found solution to the ProblemDefinition*/
             void publishSolution();
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
-            //Helper functions for data manipulation
-//            /** \brief Free the memory for the non shared pointer version */
-//            void freeMemory();
+            //Helper functions for data manipulation and other low-level functions
+            /** \brief Checks an edge for collision. A wrapper to SpaceInformation->checkMotion that tracks number of collision checks. */
+            bool checkEdge(const vertex_pair_t& edge);
 
             /** \brief Prune a vertex, recursively pruning its children and either (a) deleting them (b) placing them back as disconnected states depending on their heuristic value compared to the best solution*/
             void pruneVertex(const VertexPtr& oldVertex);
@@ -290,7 +320,7 @@ namespace ompl
             void disconnectVertex(const VertexPtr& oldVertex);
 
             /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. */
-            void addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost);
+            void addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateExpansionQueue);
 
             /** \brief Replace the parent edge with the given new edge and cost */
             void replaceParent(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost);
@@ -299,7 +329,7 @@ namespace ompl
             void addSample(const VertexPtr& newSample);
 
             /** \brief Add a vertex to the graph */
-            void addVertex(const VertexPtr& newVertex);
+            void addVertex(const VertexPtr& newVertex, const bool& removeFromFree, const bool& updateExpansionQueue);
 
             /** \brief Attempt to add an edge to the queue. Checks that the edge meets the queue condition and that it is not in the failed set. */
             bool queueupEdge(const VertexPtr& parent, const VertexPtr& child);
@@ -365,6 +395,30 @@ namespace ompl
 
             /** \brief Combine three costs as (a + b) + c */
             ompl::base::Cost combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c) const;
+
+            /** \brief Combine four costs as ((a + b) + c) + d */
+            ompl::base::Cost combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c, const ompl::base::Cost& d) const;
+
+            /** \brief Compare whether cost a is better than cost b. Ignores the tolerances used by OptimizationObjective::isCostBetterThan */
+            bool isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Compare whether cost a is worse than cost b by checking whether b is better than a. */
+            bool isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Compare whether cost a and cost b are equivalent by checking that neither a or b is better than the other. */
+            bool areCostsEquivalent(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Compare whether cost a is better or equivalent to cost b by checking that b is not better than a. */
+            bool isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Compare whether cost a is worse or equivalent to cost b by checking that a is not better than b. */
+            bool isCostWorseThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Returns whether the cost is finite or not. By default calls std::isfinite on Cost::value(). */
+            bool isFinite(const ompl::base::Cost& cost) const;
+
+            /** \brief Calculate the fractional change of cost "newCost" relative to cost "oldCost". */
+            double fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost);
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
@@ -375,8 +429,11 @@ namespace ompl
             /** \brief Get the nearest samples from the vertexNN_ using the appropriate "near" definition (i.e., k or r). */
             void nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices);
 
+            /** \brief Initialize the nearest-neighbour terms */
+            void initializeNearestTerms();
+
             /** \brief Update the appropriate nearest-neighbour terms, r_ and k_ */
-            void updateNearestTerms(unsigned int N);
+            void updateNearestTerms();
 
             /** \brief Calculate the r for r-disc nearest neighbours, a function of the current graph */
             double r(unsigned int N) const;
@@ -398,7 +455,7 @@ namespace ompl
 
 
 
-            //Variables -- Make sure everyone is configured in setup() and reset in clear():
+            //Variables -- Make sure every one is configured in setup() and reset in clear():
             /** \brief State sampler */
             ompl::base::InformedStateSamplerPtr                      sampler_;
 
@@ -411,23 +468,94 @@ namespace ompl
             /** \brief The goal of the problem as a vertex*/
             VertexPtr                                                goalVertex_;
 
-            /** \brief The unconnected samples as a nearest-neighbours datastructure. Sorted by nnDistance. */
+            /** \brief The unconnected samples as a nearest-neighbours datastructure. Sorted by nnDistance. Size accessible via currentFreeProgressProperty */
             boost::shared_ptr< NearestNeighbors<VertexPtr> >         freeStateNN_;
 
-            /** \brief The vertices as a nearest-neighbours data structure. Sorted by nnDistance. */
+            /** \brief The vertices as a nearest-neighbours data structure. Sorted by nnDistance. Size accessible via currentVertexProgressProperty */
             boost::shared_ptr< NearestNeighbors<VertexPtr> >         vertexNN_;
 
-            /** \brief The planning graph as a queue sorted on f-value (total heuristic cost). Sorted by vertexComparison. */
+            /** \brief The planning graph as a queue sorted on f-value (total heuristic cost). Sorted by vertexComparison. Size accessible via vertexQueueSizeProgressProperty */
             VertexQueue                                              vertexQueue_;
 
-            /** \brief The queue of new edges to process. Sorted by edgeComparison. */
+            /** \brief The queue of new edges to process. Sorted by edgeComparison. Size accessible via edgeQueueSizeProgressProperty */
             EdgeQueue                                                edgeQueue_;
 
-//            /** \brief The set of edges that have been previously tried (i.e., had their true cost calculated) and failed. */
-//            boost::unordered_set<vertex_pair_t>                      failedEdgeSet_;
+
+            /** \brief The resulting sampling density for a batch */
+            double                                                   sampleDensity_;
+
+            /** \brief The current r-disc RGG connection radius */
+            double                                                   r_;
+
+            /** \brief The minimum k-nearest RGG connection term. Only a function of state dimension, so can be calculated once. Left as a double for later accuracy in calculate k*/
+            double                                                   k_rgg_;
+
+            /** \brief The current k-nearest RGG connection number*/
+            unsigned int                                            k_;
+
+            /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider. Accessible via bestCostProgressProperty*/
+            ompl::base::Cost                                         bestCost_;
+
+            /** \brief The cost to which the graph has been pruned. We will only prune the graph if bestCost_ is less than this value. */
+            ompl::base::Cost                                         prunedCost_;
+
+            /** \brief The minimum possible solution cost. I.e., the heuristic value of the goal. */
+            ompl::base::Cost                                         minCost_;
+
+            /** \brief The total-heuristic cost up to which we've sampled */
+            ompl::base::Cost                                         costSampled_;
+
+            /** \brief If we've found a solution yet */
+            bool                                                     hasSolution_;
+            ///////////////////////////////////////
 
             ///////////////////////////////////////
-            //Parameters
+            //Informational variables - Make sure initialized in setup and reset in clear
+            /** \brief If the solution is approximate */
+            bool                                                     approximateSoln_;
+
+            /** \brief The distance of the approximate solution, set to -1.0 for non approximate solutions */
+            double                                                   approximateDiff_;
+
+            /** \brief The number of iterations run. Accessible via iterationProgressProperty */
+            unsigned int                                             numIterations_;
+
+            /** \brief The number of batches processed. Accessible via batchesProgressProperty */
+            unsigned int                                             numBatches_;
+
+            /** \brief The number of times the graph/samples have been pruned. Accessible via pruningProgressProperty */
+            unsigned int                                             numPrunings_;
+
+            /** \brief The number of states generated through sampling. Accessible via statesFromSamplingProgressProperty */
+            unsigned int                                             numSamples_;
+
+            /** \brief The number of vertices generated through smoothing/shortcutting. Accessible via statesFromSmoothingProgressProperty */
+            unsigned int                                             numSmoothedVertices_;
+
+            /** \brief The number of vertices ever added to the graph. Will count vertices twice if they spend any time disconnected. Accessible via verticesConstructedProgressProperty */
+            unsigned int                                             numVertices_;
+
+            /** \brief The number of free states that have been pruned. Accessible via freeStatesPrunedProgressProperty */
+            unsigned int                                             numFreeStatesPruned_;
+
+            /** \brief The number of graph vertices that have been pruned. Accessible via verticesPrunedProgressProperty */
+            unsigned int                                             numVerticesPruned_;
+
+            /** \brief The number of times a state in the graph was rewired. Accessible via rewiringProgressProperty */
+            unsigned int                                             numRewirings_;
+
+            /** \brief The number of state collision checks. Accessible via stateCollisionCheckProgressProperty */
+            unsigned int                                             numStateCollisionChecks_;
+
+            /** \brief The number of edge collision checks. Accessible via edgeCollisionCheckProgressProperty */
+            unsigned int                                             numEdgeCollisionChecks_;
+
+            /** \brief The number of nearest neighbour calls. Accessible via nearestNeighbourProgressProperty */
+            unsigned int                                             numNearestNeighbours_;
+            ///////////////////////////////////////
+
+            ///////////////////////////////////////
+            //Parameters - Set defaults in construction/setup and DO NOT reset in clear.
             /** \brief Whether to use a strict-queue ordering (param) */
             bool                                                     useStrictQueueOrdering_;
 
@@ -438,71 +566,20 @@ namespace ompl
             unsigned int                                             samplesPerBatch_;
 
             /** \brief Track edges that have been checked and failed so they never reenter the queue. (param) */
-            bool                                           useFailureTracking_;
+            bool                                                     useFailureTracking_;
 
             /** \brief Option to use k-nearest search for rewiring (param) */
-            bool                                           useKNearest_;
+            bool                                                     useKNearest_;
 
-            /** Whether to use graph pruning (param) */
+            /** \brief Whether to use graph pruning (param) */
             bool                                                     usePruning_;
+
+            /** \brief The fractional decrease in solution cost required to trigger pruning (param) */
+            double                                                   pruneFraction_;
 
             /** Whether to stop the planner as soon as the path changes (param) */
             bool                                                     stopOnSolnChange_;
             ///////////////////////////////////////
-
-            /** \brief The resulting sampling density for a batch */
-            double                                                   sampleDensity_;
-
-            /** \brief The current r-disc RGG connection radius */
-            double                                                   r_;
-
-            /** \brief The minimum k-nearest RGG connection term. Only a function of state dimension, so can be calculated once. Left as a double for later accuracy in calculate k*/
-            double                                            k_rgg_;
-
-            /** \brief The current k-nearest RGG connection number*/
-            unsigned int                                            k_;
-
-            /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider. */
-            ompl::base::Cost                                         bestCost_;
-
-            /** \brief The minimum possible solution cost. I.e., the heuristic value of the goal. */
-            ompl::base::Cost                                         minCost_;
-
-            /** \brief The total-heuristic cost up to which we've sampled */
-            ompl::base::Cost                                         costSampled_;
-
-            /** \brief If we've found a solution */
-            bool                                                     hasSolution_;
-
-            /** \brief If the solution is approximate */
-            bool                                                     approximateSoln_;
-
-            /** \brief The distance of the approximate solution, set to -1.0 for non approximate solutions */
-            double                                                   approximateDiff_;
-
-            /** \brief The number of iterations run */
-            unsigned int                                             numIterations_;
-
-            /** \brief The total number of samples generated */
-            unsigned int                                             numSamples_;
-
-            /** \brief The number of vertices ever added to the graph. Will count vertices twice if they spend anytime disconnected */
-            unsigned int                                             numVertices_;
-
-            /** \brief The number of state collision checks */
-            unsigned int                                             numStateCollisionChecks_;
-
-            /** \brief The number of edge collision checks */
-            unsigned int                                             numEdgeCollisionChecks_;
-
-            /** \brief The number of nearest neighbour calls */
-            unsigned int                                             numNearestNeighbours_;
-
-            /** \brief The number of times a state in the graph was rewired */
-            unsigned int                                             numRewirings_;
-
-            /** \brief The number of batches processed */
-            unsigned int                                             numBatches_;
         }; //class: BITstar
     } //geometric
 } //ompl
