@@ -1108,6 +1108,14 @@ namespace ompl
 
 
 
+        bool BITstar::checkEdge(const vertex_pair_t& edge)
+        {
+            ++numEdgeCollisionChecks_;
+            return Planner::si_->checkMotion(edge.first->state(), edge.second->state());
+        }
+
+
+
         void BITstar::pruneVertex(const VertexPtr& oldVertex)
         {
             //We must iterate over the children of this vertex and prune each one.
