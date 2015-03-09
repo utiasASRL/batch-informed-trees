@@ -60,7 +60,7 @@
 //The nearest neighbours structure
 #include "ompl/datastructures/NearestNeighbors.h"
 //The informed sampler structure
-#include "ompl/base/samplers/InformedStateSamplers.h"
+#include "ompl/base/samplers/InformedStateSampler.h"
 
 //#include "ompl/geometric/planners/PlannerIncludes.h"
 

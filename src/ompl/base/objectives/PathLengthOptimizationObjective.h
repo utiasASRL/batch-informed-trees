@@ -39,7 +39,6 @@
 #define OMPL_BASE_OBJECTIVES_PATH_LENGTH_OPTIMIZATION_OBJECTIVE_
 
 #include "ompl/base/OptimizationObjective.h"
-#include "ompl/base/samplers/InformedStateSamplers.h"
 
 namespace ompl
 {

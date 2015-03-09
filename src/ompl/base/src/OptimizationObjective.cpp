@@ -39,7 +39,10 @@
 #include "ompl/geometric/PathGeometric.h"
 #include "ompl/tools/config/MagicConstants.h"
 #include "ompl/base/goals/GoalRegion.h"
+#include "ompl/base/samplers/informed/RejectionInfSampler.h"
 #include <limits>
+//For boost::make_shared
+#include "boost/make_shared.hpp"
 
 ompl::base::OptimizationObjective::OptimizationObjective(const SpaceInformationPtr &si) :
     si_(si),
@@ -104,7 +107,11 @@ ompl::base::Cost ompl::base::OptimizationObjective::getCost(const Path &path) co
 
 bool ompl::base::OptimizationObjective::isCostBetterThan(Cost c1, Cost c2) const
 {
-    return c1.value() + magic::BETTER_PATH_COST_MARGIN < c2.value();
+    return (c1.value() + magic::BETTER_PATH_COST_MARGIN) < c2.value();
+}
+bool ompl::base::OptimizationObjective::isCostWorseThan(Cost c1, Cost c2) const
+{
+    return this->isCostBetterThan(c2,c1);
 }
 
 ompl::base::Cost ompl::base::OptimizationObjective::combineCosts(Cost c1, Cost c2) const
@@ -159,9 +166,14 @@ void ompl::base::OptimizationObjective::setCostToGoHeuristic(const CostToGoHeuri
     costToGoFn_ = costToGo;
 }
 
+bool ompl::base::OptimizationObjective::hasCostToGoHeuristic() const
+{
+    return static_cast<bool>(costToGoFn_);
+}
+
 ompl::base::Cost ompl::base::OptimizationObjective::costToGo(const State *state, const Goal *goal) const
 {
-    if (costToGoFn_)
+    if (hasCostToGoHeuristic())
         return costToGoFn_(state, goal);
     else
         return this->identityCost(); // assumes that identity < all costs
@@ -179,8 +191,8 @@ const ompl::base::SpaceInformationPtr& ompl::base::OptimizationObjective::getSpa
 
 ompl::base::InformedStateSamplerPtr ompl::base::OptimizationObjective::allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const
 {
-    OMPL_WARN("%s: No informed sampling scheme is defined, defaulting to rejection sampling.", description_.c_str());
-    return InformedStateSamplerPtr(new RejectionSampler(space, probDefn, bestCost));
+    OMPL_WARN("%s: No direct informed sampling scheme is defined, defaulting to rejection sampling.", description_.c_str());
+    return boost::make_shared<RejectionInfSampler>(space, probDefn, bestCost);
 }
 
 ompl::base::Cost ompl::base::goalRegionCostToGo(const State *state, const Goal *goal)
