@@ -81,6 +81,11 @@ namespace ompl
             while ( InformedStateSampler::opt_->isCostBetterThan(InformedStateSampler::heuristicSolnCost(statePtr), minCost) );
         }
 
+        bool RejectionInfSampler::hasInformedMeasure() const
+        {
+            return true;
+        }
+
         double RejectionInfSampler::getInformedMeasure() const
         {
             return StateSampler::space_->getMeasure();

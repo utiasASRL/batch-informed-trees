@@ -71,6 +71,9 @@ namespace ompl
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs. */
             virtual void sampleUniform(State* statePtr, const Cost& minCost, const Cost& maxCost) = 0;
 
+            /** \brief Whether the sampler can provide a measure of the informed subset */
+            virtual bool hasInformedMeasure() const = 0;
+
             /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. Does not consider problem boundaries but returns the measure of the entire space if no solution has been found or if a closed form expression for the measure does not exist. By default calls the 1-argument overloaded version with the current best cost; however, there may be more efficient ways to do this for some cost functions. */
             virtual double getInformedMeasure() const;
 

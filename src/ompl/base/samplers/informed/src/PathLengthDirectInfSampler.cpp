@@ -261,6 +261,13 @@ namespace ompl
 
 
 
+        bool PathLengthDirectInfSampler::hasInformedMeasure() const
+        {
+            return true;
+        }
+
+
+
         double PathLengthDirectInfSampler::getInformedMeasure(const Cost& currentCost) const
         {
             //Variable
