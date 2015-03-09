@@ -36,6 +36,8 @@
 /* Edited by: Jonathan Gammell (allocInformedStateSampler) */
 
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
+#include "ompl/base/samplers/informed/PathLengthDirectInfSampler.h"
+#include "boost/make_shared.hpp"
 
 ompl::base::PathLengthOptimizationObjective::
 PathLengthOptimizationObjective(const SpaceInformationPtr &si) :
@@ -61,5 +63,6 @@ ompl::base::Cost ompl::base::PathLengthOptimizationObjective::motionCostHeuristi
 
 ompl::base::InformedStateSamplerPtr ompl::base::PathLengthOptimizationObjective::allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const
 {
-    return InformedStateSamplerPtr(new PathLengthInformedSampler(space, probDefn, bestCost));
+    //return boost::make_shared<DirectPathLengthInformedSampler>(space, probDefn, bestCost);
+    return boost::make_shared<PathLengthDirectInfSampler>(space, probDefn, bestCost);
 }

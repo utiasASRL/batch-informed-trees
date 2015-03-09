@@ -208,7 +208,7 @@ namespace ompl
             Currently only implemented for problems with a single goal that are seeking to minimize path length in R^n (i.e., RealVectorStateSpace), SE(2) (i.e., SE2StateSpace), or SE(3) (i.e., SE3StateSpace).
             @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
             Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
-            IROS 2014. <a href="http://arxiv.org/abs/1404.2334">arXiv:1404.2334 [cs.RO]</a>.
+            IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
             <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
             <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
             void setInformedSampling(bool informedSampling);
@@ -305,7 +305,7 @@ namespace ompl
             /** \brief Compute distance between motions (actually distance between contained states) */
             double distanceFunction(const Motion *a, const Motion *b) const
             {
-                    return si_->distance(a->state, b->state);
+                return si_->distance(a->state, b->state);
             }
 
             /** \brief Gets the neighbours of a given motion, using either k-nearest of radius as appropriate. */
@@ -324,10 +324,13 @@ namespace ompl
             /** \brief Deletes (frees memory) the motion and its children motions. */
             void deleteBranch(Motion *motion);
 
-            /** \brief Computes the Cost To Go heuristically as the cost to come from start to motion plus
+            /** \brief Computes the solution cost heuristically as the cost to come from start to motion plus
                  the cost to go from motion to goal. If \e shortest is true, the estimated cost to come
                  start-motion is given. Otherwise, this cost to come is the current motion cost. */
-            base::Cost costToGo(const Motion *motion, const bool shortest = true) const;
+            base::Cost solutionHeuristic(const Motion *motion, const bool shortest = true) const;
+
+            /** \brief Computes the cost-to-go heuristically for goal states and goal regions using the motionCost given by the optimization objective.*/
+            base::Cost defaultCostToGoHeuristic(const base::State *state, const base::Goal *goal) const;
 
             /** \brief Pretend to prune the graph of any vertices that have a heuristic value (lower-bounding solution cost constrained to pass through the vertex) that is greater than the current solution. This actually just calculates how many vertices \e would be pruned and stores that number in numVerticesWorseThanSoln_*/
             void countNumberOfVerticesWorseThanSoln();
