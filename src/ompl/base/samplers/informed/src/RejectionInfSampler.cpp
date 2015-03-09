@@ -83,7 +83,7 @@ namespace ompl
 
         bool RejectionInfSampler::hasInformedMeasure() const
         {
-            return true;
+            return false;
         }
 
         double RejectionInfSampler::getInformedMeasure() const
