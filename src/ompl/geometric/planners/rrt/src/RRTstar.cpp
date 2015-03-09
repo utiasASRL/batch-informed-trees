@@ -39,15 +39,14 @@
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
+#include "ompl/base/Goal.h"
 #include "ompl/base/goals/GoalState.h"
-#include "ompl/base/samplers/InformedStateSamplers.h"
+#include "ompl/base/samplers/InformedStateSampler.h"
 #include <algorithm>
 #include <limits>
 #include <map>
 #include <queue>
 #include <boost/math/constants/constants.hpp>
-//For pre C++ 11 gamma function
-#include <boost/math/special_functions/gamma.hpp>
 
 ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     base::Planner(si, "RRTstar"),
@@ -78,7 +77,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     Planner::declareParam<bool>("delay_collision_checking", this, &RRTstar::setDelayCC, &RRTstar::getDelayCC, "0,1");
     Planner::declareParam<bool>("prune", this, &RRTstar::setPrune, &RRTstar::getPrune, "0,1");
     Planner::declareParam<double>("prune_states_threshold", this, &RRTstar::setPruneStatesImprovementThreshold, &RRTstar::getPruneStatesImprovementThreshold, "0.:.01:1.");
-    Planner::declareParam<bool>("use_informed_sampling", this, &RRTstar::setInformedSampling, &RRTstar::getInformedSampling, "0,1");
+    Planner::declareParam<bool>("informed_rrtstar", this, &RRTstar::setInformedSampling, &RRTstar::getInformedSampling, "0,1");
 
     addPlannerProgressProperty("iterations INTEGER",
                                boost::bind(&RRTstar::getIterationCount, this));
@@ -120,6 +119,15 @@ void ompl::geometric::RRTstar::setup()
         {
             OMPL_INFORM("%s: No optimization objective specified. Defaulting to optimizing path length for the allowed planning time.", getName().c_str());
             opt_.reset(new base::PathLengthOptimizationObjective(si_));
+
+            if (opt_->hasCostToGoHeuristic() == false && (pdef_->getGoal()->hasType(base::GOAL_STATE) == true || pdef_->getGoal()->hasType(base::GOAL_REGION) == true) )
+            {
+                OMPL_INFORM("%s: No cost-to-go heuristic set. Defaulting to the motion cost between the state and goal.", getName().c_str());
+                //Bind to the SpaceInformation member function "distance" belonging to the si_ pointer.
+                opt_->setCostToGoHeuristic( boost::bind(&RRTstar::defaultCostToGoHeuristic, this, _1, _2) );
+            }
+
+
             //Store it back into the problem def'n
             pdef_->setOptimizationObjective(opt_);
         }
@@ -141,10 +149,14 @@ void ompl::geometric::RRTstar::setup()
 
     // r_rrg > 2*(1+1/d)^(1/d)*(measure/ballvolume)^(1/d)
     r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(si_->getMeasure()/ProlateHyperspheroid::unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
+
+    //Set the bestCost_ as infinite
+    bestCost_ = opt_->infiniteCost();
 }
 
 void ompl::geometric::RRTstar::clear()
 {
+    setup_ = false;
     Planner::clear();
     sampler_.reset();
     freeMemory();
@@ -193,12 +205,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
     Motion *solution       = lastGoalMotion_;
 
-    // \TODO Make this variable unnecessary, or at least have it
-    // persist across solve runs
-    base::Cost bestCost    = opt_->infiniteCost();
-
-    bestCost_ = opt_->infiniteCost();
-
     Motion *approximation  = NULL;
     double approximatedist = std::numeric_limits<double>::infinity();
     bool sufficientlyShort = false;
@@ -240,7 +246,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         {
             sampler_->sampleUniform(rstate);
 
-            if (prune_ && opt_->isCostBetterThan(bestCost_, costToGo(rmotion)))
+            if (prune_ && opt_->isCostBetterThan(bestCost_, solutionHeuristic(rmotion)))
                 continue;
         }
 
@@ -376,7 +382,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
             if (prune_)
             {
-                if (opt_->isCostBetterThan(costToGo(motion, false), bestCost_))
+                if (opt_->isCostBetterThan(solutionHeuristic(motion, false), bestCost_))
                 {
                     nn_->add(motion);
                     motion->parent->children.push_back(motion);
@@ -452,14 +458,13 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                 bool updatedSolution = false;
                 for (size_t i = 0; i < goalMotions_.size(); ++i)
                 {
-                    if (opt_->isCostBetterThan(goalMotions_[i]->cost, bestCost))
+                    if (opt_->isCostBetterThan(goalMotions_[i]->cost, bestCost_))
                     {
-                        if (std::isfinite(bestCost.value()) == false)
+                        if (std::isfinite(bestCost_.value()) == false)
                         {
                             OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u vertices)", getName().c_str(), goalMotions_[i]->cost, iterations_, nn_->size() - numVerticesWorseThanSoln_);
                         }
-                        bestCost = goalMotions_[i]->cost;
-                        bestCost_ = bestCost;
+                        bestCost_ = goalMotions_[i]->cost;
                         updatedSolution = true;
                     }
 
@@ -553,7 +558,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         if (approximate)
             psol.setApproximate(approximatedist);
         // Does the solution satisfy the optimization objective?
-        psol.setOptimized(opt_, bestCost, sufficientlyShort);
+        psol.setOptimized(opt_, bestCost_, sufficientlyShort);
         pdef_->addSolutionPath(psol);
 
         addedSolution = true;
@@ -657,7 +662,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost pruneTreeCost)
     while (j != pruneScratchSpace_.candidates.size())
     {
         Motion *candidate = pruneScratchSpace_.candidates[j++];
-        if (opt_->isCostBetterThan(pruneTreeCost, costToGo(candidate)))
+        if (opt_->isCostBetterThan(pruneTreeCost, solutionHeuristic(candidate)))
             pruneScratchSpace_.toBePruned.push_back(candidate);
         else
         {
@@ -703,7 +708,25 @@ void ompl::geometric::RRTstar::deleteBranch(Motion *motion)
     }
 }
 
-ompl::base::Cost ompl::geometric::RRTstar::costToGo(const Motion *motion, const bool shortest) const
+ompl::base::Cost ompl::geometric::RRTstar::defaultCostToGoHeuristic(const base::State *state, const base::Goal *goal) const
+{
+    if (pdef_->getGoal()->hasType(base::GOAL_STATE) == true)
+    {
+        return opt_->motionCost(state, goal->as<base::GoalState>()->getState());
+    }
+    else if (pdef_->getGoal()->hasType(base::GOAL_REGION) == true)
+    {
+        //I have no idea if this is correct. This is what solutionHeuristic was doing, so I moved it here for backwards compatibility.
+        return base::goalRegionCostToGo(state, goal);
+    }
+    else
+    {
+        //Panic
+        throw Exception("Default cost-to-go heuristic is only defined for a goal state and goal regions.");
+    }
+}
+
+ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion, const bool shortest) const
 {
     base::Cost costToCome;
     if (shortest)
@@ -711,7 +734,7 @@ ompl::base::Cost ompl::geometric::RRTstar::costToGo(const Motion *motion, const 
     else
         costToCome = motion->cost; //d_s
 
-    const base::Cost costToGo = base::goalRegionCostToGo(motion->state, pdef_->getGoal().get()); // h_g
+    const base::Cost costToGo = defaultCostToGoHeuristic(motion->state, pdef_->getGoal().get()); // h_g
     return opt_->combineCosts(costToCome, costToGo); // h_s + h_g
 }
 
@@ -731,13 +754,13 @@ void ompl::geometric::RRTstar::countNumberOfVerticesWorseThanSoln()
     {
         //Variable
         //The heuristic estimate of a solution constrained to go through the state
-        double heuristicValue;
+        base::Cost solnHeuristic;
 
         //Calculate the heuristic value:
-        heuristicValue = boost::static_pointer_cast<base::InformedStateSampler>(sampler_)->getHeuristicValue(data.at(i)->state);
+        solnHeuristic = boost::static_pointer_cast<base::InformedStateSampler>(sampler_)->heuristicSolnCost(data.at(i)->state);
 
         //Check and remove if necessary
-        if (heuristicValue > bestCost_.value())
+        if (opt_->isCostWorseThan(solnHeuristic, bestCost_))
         {
             //Increment the counter:
             ++numVerticesWorseThanSoln_;

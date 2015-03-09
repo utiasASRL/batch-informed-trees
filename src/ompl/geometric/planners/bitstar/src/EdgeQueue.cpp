@@ -143,7 +143,7 @@ namespace ompl
                 }
                 else
                 {
-                    throw ompl::Exception("Parent lookup is not enabled for this instance of the container.");
+                    throw ompl::Exception("Removing edges in the queue coming from a vertex requires parent vertex lookup, which is not enabled for this instance of the container.");
                 }
             }
             //No else, nothing to remove_from
@@ -197,7 +197,7 @@ namespace ompl
                 }
                 else
                 {
-                    throw ompl::Exception("Child lookup is not enabled for this instance of the container.");
+                    throw ompl::Exception("Removing edges in the queue going to a vertex requires child vertex lookup, which is not enabled for this instance of the container.");
                 }
             }
             //No else, nothing to prune_to
@@ -377,7 +377,7 @@ namespace ompl
             }
             else
             {
-                throw ompl::Exception("Parent lookup is not enabled for this instance of the container.");
+                throw ompl::Exception("Parent lookup is required for edge queue resorting, but is not enabled for this instance of the container.");
             }
         }
 

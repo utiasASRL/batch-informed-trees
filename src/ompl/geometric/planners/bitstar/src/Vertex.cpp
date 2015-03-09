@@ -268,7 +268,7 @@ namespace ompl
             else
             {
                 //Do I have a parent?
-                if (parentSPtr_)
+                if (this->hasParent() == true)
                 {
                     //I have a parent, so my cost is my parent cost + my edge cost to the parent
                     cost_ = opt_->combineCosts(parentSPtr_->getCost(), edgeCost_);

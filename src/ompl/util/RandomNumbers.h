@@ -51,7 +51,7 @@
 namespace ompl
 {
     /// @cond IGNORE
-    //A simple forward declaration of the prolate hyperspheroid class
+    //A forward declaration of the prolate hyperspheroid class
     OMPL_CLASS_FORWARD(ProlateHyperspheroid);
     /// @endcond
 
@@ -152,14 +152,14 @@ namespace ompl
         /** \brief Uniform random sampling of a unit-length vector. I.e., the surface of an n-ball */
         void uniformNormalVector(unsigned int n, double value[]);
 
-        /** \brief Uniform random sampling of the content of an n-ball, with a radius appropriately distributed between [0,r) */
+        /** \brief Uniform random sampling of the content of an n-ball, with a radius appropriately distributed between [0,r) so that the distribution is uniform in a Cartesian coordinate system. */
         void uniformInBall(double r, unsigned int n, double value[]);
 
         /** \brief Uniform random sampling of the surface of a prolate hyperspheroid, a special symmetric type of
         n-dimensional ellipse.
         @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
         Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
-        IROS 2014. <a href="http://arxiv.org/abs/1404.2334">arXiv:1404.2334 [cs.RO]</a>.
+        IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
         <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
         <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
         void uniformProlateHyperspheroidSurface(ProlateHyperspheroidPtr phsPtr, unsigned int n, double value[]);
@@ -168,7 +168,7 @@ namespace ompl
         n-dimensional ellipse.
         @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
         Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
-        IROS 2014. <a href="http://arxiv.org/abs/1404.2334">arXiv:1404.2334 [cs.RO]</a>.
+        IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
         <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
         <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
         void uniformProlateHyperspheroid(ProlateHyperspheroidPtr phsPtr, unsigned int n, double value[]);
@@ -188,10 +188,10 @@ namespace ompl
 
 
     /** \brief A class describing a prolate hyperspheroid, a special symmetric type of n-dimensional ellipse,
-    for use in direct informed sampling.
+    for use in direct informed sampling for problems seeking to minimize path length.
     @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
     Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
-    IROS 2014. <a href="http://arxiv.org/abs/1404.2334">arXiv:1404.2334 [cs.RO]</a>.
+    IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
     <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
     <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
     class ProlateHyperspheroid
