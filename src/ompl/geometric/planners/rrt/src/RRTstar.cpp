@@ -148,7 +148,7 @@ void ompl::geometric::RRTstar::setup()
     k_rrg_ = rewireFactor_*(boost::math::constants::e<double>() + (boost::math::constants::e<double>() / dimDbl));
 
     // r_rrg > 2*(1+1/d)^(1/d)*(measure/ballvolume)^(1/d)
-    r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(si_->getMeasure()/ProlateHyperspheroid::unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
+    r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(si_->getSpaceMeasure()/ProlateHyperspheroid::unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
 
     //Set the bestCost_ as infinite
     bestCost_ = opt_->infiniteCost();

@@ -302,7 +302,7 @@ namespace ompl
             fractionObs = static_cast<double>(numObsSamples)/static_cast<double>(numTotalSamples);
 
             //Get the total measure of the space
-            totalMeasure = Planner::si_->getMeasure();
+            totalMeasure = Planner::si_->getSpaceMeasure();
 
             //Calculate the measure of the free space
             freeMeasure = fractionFree*totalMeasure;
@@ -997,7 +997,7 @@ namespace ompl
             this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune samples.");
 
             //Only reject if the informed subset is not measurable, or if it's measure is less than the total problem domain
-            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getMeasure()) )
+            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) )
             {
                 //Variable:
                 //The list of samples:
@@ -1033,7 +1033,7 @@ namespace ompl
             this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune graph.");
 
             //Only reject if the informed subset is not measurable, or if it's measure is less than the total problem domain
-            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getMeasure()) )
+            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) )
             {
                 //Variables:
                 //The list of states:
