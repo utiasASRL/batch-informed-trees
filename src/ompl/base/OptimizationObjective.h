@@ -42,7 +42,7 @@
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/util/ClassForward.h"
 #include "ompl/base/ProblemDefinition.h"
-#include "ompl/base/samplers/InformedStateSamplers.h"
+#include "ompl/base/samplers/InformedStateSampler.h"
 #include <boost/noncopyable.hpp>
 #include <boost/concept_check.hpp>
 
@@ -98,18 +98,26 @@ namespace ompl
             /** \brief Check whether the the cost \e c1 is considered better than the cost \e c2. By default, this returns true only if c1 is less by at least some threshold amount, for numerical robustness. */
             virtual bool isCostBetterThan(Cost c1, Cost c2) const;
 
+            /** \brief Compare whether cost \e c1 is worse than cost \e c2. By default defined as isCostBetterThan(c2, c1), as if c2 is better than c1, then c1 is worse than c2. */
+            virtual bool isCostWorseThan(Cost c1, Cost c2) const;
+
+            /** \brief Compare whether cost \e c1 and cost \e c2 are equivalent. By default defined as !isCostBetterThan(c1, c2) && !isCostBetterThan(c2, c1), as if c1 is not better than c2, and c2 is not better than c1, then they are equal. */
+            virtual bool isCostEquivalentTo(Cost c1, Cost c2) const;
+
+            /** \brief Compare whether cost \e c1 and cost \e c2 are not equivalent. By default defined as isCostBetterThan(c1, c2) || isCostBetterThan(c2, c1), as if c1 is better than c2, or c2 is better than c1, then they are not equal. */
+            virtual bool isCostNotEquivalentTo(Cost c1, Cost c2) const;
+
+            /** \brief Compare whether cost \e c1 is better or equivalent to cost \e c2. By default defined by !isCostBetterThan(c2, c1), as if c2 is not better than c1, then c1 is better than, or equal to, c2. */
+            virtual bool isCostBetterThanOrEquivalentTo(Cost c1, Cost c2) const;
+
+            /** \brief Compare whether cost \e c1 is worse or equivalent to cost \e c2. By default defined by !this->isCostBetterThan(c1,c2) as if c1 is not better than c2, than c1 is worse than, or equal to, c2*/
+            virtual bool isCostWorseThanOrEquivalentTo(Cost a, Cost b) const;
+
+            /** \brief Returns whether the cost is finite or not. By default calls std::isfinite on Cost::value(). */
+            virtual bool isFinite(Cost cost) const;
+
             /** \brief Return the minimum cost given \e c1 and \e c2. Uses isCostBetterThan. */
-            virtual Cost minCost(Cost c1, Cost c2) const
-            {
-                if (isCostBetterThan(c1, c2))
-                {
-                    return c1;
-                }
-                else
-                {
-                    return c2;
-                }
-            }
+            virtual Cost minCost(Cost c1, Cost c2) const;
 
             /** \brief Evaluate a cost map defined on the state space at a state \e s. */
             virtual Cost stateCost(const State *s) const = 0;
@@ -119,6 +127,12 @@ namespace ompl
 
             /** \brief Get the cost that corresponds to combining the costs \e c1 and \e c2. Default implementation defines this combination as an addition. */
             virtual Cost combineCosts(Cost c1, Cost c2) const;
+
+            /** \brief Combine three costs as (c1 + c2) + c3. By default uses the two-argument version of combineCosts */
+            virtual ompl::base::Cost combineCosts(Cost c1, Cost c2, Cost c3) const;
+
+            /** \brief Combine four costs as ((c1 + c2) + c3) + c4. By default uses the two-argument version of combineCosts */
+            virtual ompl::base::Cost combineCosts(Cost c1, Cost c2, Cost c3, Cost c4) const;
 
             /** \brief Get the identity cost value. The identity cost value is the cost c_i such that, for all costs c, combineCosts(c, c_i) = combineCosts(c_i, c) = c. In other words, combining a cost with the identity cost does not change the original cost. By default, a cost with the value 0.0 is returned. It's very important to override this with the proper identity value for your optimization objectives, or else optimal planners may not work. */
             virtual Cost identityCost() const;
@@ -141,6 +155,9 @@ namespace ompl
             /** \brief Set the cost-to-go heuristic function for this objective. The cost-to-go heuristic is a function which returns an admissible estimate of the optimal path cost from a given state to a goal, where "admissible" means that the estimated cost is always less than the true optimal cost. */
             void setCostToGoHeuristic(const CostToGoHeuristic& costToGo);
 
+            /** \brief Check if this objective has a cost-to-go heuristic function. */
+            bool hasCostToGoHeuristic() const;
+
             /** \brief Uses a cost-to-go heuristic to calculate an admissible estimate of the optimal cost from a given state to a given goal. If no cost-to-go heuristic has been specified with setCostToGoHeuristic(), this function just returns the identity cost, which is sure to be an admissible heuristic if there are no negative costs. */
             Cost costToGo(const State *state, const Goal *goal) const;
 
@@ -150,7 +167,7 @@ namespace ompl
             /** \brief Returns this objective's SpaceInformation. Needed for operators in MultiOptimizationObjective */
             const SpaceInformationPtr& getSpaceInformation() const;
 
-            /** \brief Allocate a heuristic-sampling state generator for this cost function, defaults to a basic rejection sampling scheme when the derived classes does not provide a better method.*/
+            /** \brief Allocate a heuristic-sampling state generator for this cost function, defaults to a basic rejection sampling scheme when the derived class does not provide a better method.*/
             virtual InformedStateSamplerPtr allocInformedStateSampler(const StateSpace* space, const ProblemDefinitionPtr probDefn, const Cost* bestCost) const;
 
         protected:

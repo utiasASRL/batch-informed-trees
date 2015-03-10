@@ -74,16 +74,16 @@ namespace
             sDist_(1, 1000000000),
             s_(sGen_, sDist_)
         {
-}
+        }
 
         boost::uint32_t firstSeed()
-{
+        {
             boost::mutex::scoped_lock slock(rngMutex_);
             return firstSeed_;
-}
+        }
 
         void setSeed(boost::uint32_t seed)
-{
+        {
             boost::mutex::scoped_lock slock(rngMutex_);
             if (seed > 0)
             {
@@ -135,13 +135,13 @@ namespace
     void initRNGSeedGenerator()
     {
         g_RNGSeedGenerator.reset(new RNGSeedGenerator());
-}
+    }
 
     RNGSeedGenerator& getRNGSeedGenerator()
-{
+    {
         boost::call_once(&initRNGSeedGenerator, g_once);
         return *g_RNGSeedGenerator;
-}
+    }
 }  // namespace
 /// @endcond
 
@@ -282,12 +282,16 @@ void ompl::RNG::uniformProlateHyperspheroid(ProlateHyperspheroidPtr phsPtr, unsi
     //The spherical point as a std::vector
     std::vector<double> sphere(n);
 
-    //Get a random point on the sphere
+    //Get a random point in the sphere
     this->uniformInBall(1.0, n, &sphere[0]);
 
     //Transform to the PHS
     phsPtr->transform(n, &sphere[0], value);
 }
+
+
+
+
 
 
 
