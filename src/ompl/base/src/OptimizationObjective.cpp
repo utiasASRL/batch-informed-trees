@@ -109,10 +109,6 @@ bool ompl::base::OptimizationObjective::isCostBetterThan(Cost c1, Cost c2) const
 {
     return (c1.value() + magic::BETTER_PATH_COST_MARGIN) < c2.value();
 }
-bool ompl::base::OptimizationObjective::isCostWorseThan(Cost c1, Cost c2) const
-{
-    return this->isCostBetterThan(c2,c1);
-}
 
 bool ompl::base::OptimizationObjective::isCostWorseThan(Cost c1, Cost c2) const
 {
