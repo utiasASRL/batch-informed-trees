@@ -114,9 +114,66 @@ bool ompl::base::OptimizationObjective::isCostWorseThan(Cost c1, Cost c2) const
     return this->isCostBetterThan(c2,c1);
 }
 
+bool ompl::base::OptimizationObjective::isCostWorseThan(Cost c1, Cost c2) const
+{
+    //If c2 is better than c1, then c1 is worse than c2
+    return isCostBetterThan(c2, c1);
+}
+
+bool ompl::base::OptimizationObjective::isCostEquivalentTo(Cost c1, Cost c2) const
+{
+    //If c1 is not better than c2, and c2 is not better than c1, then they are equal
+    return !isCostBetterThan(c1,c2) && !isCostBetterThan(c2,c1);
+}
+
+bool ompl::base::OptimizationObjective::isCostNotEquivalentTo(Cost c1, Cost c2) const
+{
+    //If c1 is better than c2, or c2 is better than c1, then they are not equal
+    return isCostBetterThan(c1,c2) || isCostBetterThan(c2,c1);
+}
+
+bool ompl::base::OptimizationObjective::isCostBetterThanOrEquivalentTo(Cost c1, Cost c2) const
+{
+    //If c2 is not better than c1, then c1 is better than, or equal to, c2
+    return !isCostBetterThan(c2,c1);
+}
+
+bool ompl::base::OptimizationObjective::isCostWorseThanOrEquivalentTo(Cost c1, Cost c2) const
+{
+    //If c1 is not better than c2, than c1 is worse than, or equal to, c2
+    return !isCostBetterThan(c1,c2);
+}
+
+bool ompl::base::OptimizationObjective::isFinite(Cost cost) const
+{
+    return std::isfinite(cost.value());
+}
+
+ompl::base::Cost ompl::base::OptimizationObjective::minCost(Cost c1, Cost c2) const
+{
+    if (isCostBetterThan(c1, c2))
+    {
+        return c1;
+    }
+    else
+    {
+        return c2;
+    }
+}
+
 ompl::base::Cost ompl::base::OptimizationObjective::combineCosts(Cost c1, Cost c2) const
 {
     return Cost(c1.value() + c2.value());
+}
+
+ompl::base::Cost ompl::base::OptimizationObjective::combineCosts(Cost c1, Cost c2, Cost c3) const
+{
+    return combineCosts( combineCosts(c1, c2), c3 );
+}
+
+ompl::base::Cost ompl::base::OptimizationObjective::combineCosts(Cost c1, Cost c2, Cost c3, Cost c4) const
+{
+    return combineCosts( combineCosts(c1, c2, c3), c4 );
 }
 
 ompl::base::Cost ompl::base::OptimizationObjective::identityCost() const
