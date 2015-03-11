@@ -1514,20 +1514,6 @@ namespace ompl
 
 
 
-        ompl::base::Cost BITstar::combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c) const
-        {
-            return opt_->combineCosts( opt_->combineCosts(a, b), c);
-        }
-
-
-
-        ompl::base::Cost BITstar::combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c, const ompl::base::Cost& d) const
-        {
-            return opt_->combineCosts( opt_->combineCosts(a, b, c), d);
-        }
-
-
-
         bool BITstar::isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             return a.value() < b.value();
