@@ -434,7 +434,7 @@ namespace ompl
 
                     //In the best case, can this edge improve our solution given the current graph?
                     //g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g) )
-                    if (this->isCostBetterThan( this->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), goalVertex_->getCost() ) == true)
+                    if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), goalVertex_->getCost() ) == true)
                     {
                         //Variables:
                         //The true cost of the edge:
@@ -445,7 +445,7 @@ namespace ompl
 
                         //Can this actual edge ever improve our solution?
                         //g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)
-                        if (this->isCostBetterThan( this->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  goalVertex_->getCost() ) == true)
+                        if (this->isCostBetterThan( opt_->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  goalVertex_->getCost() ) == true)
                         {
                             //Does this edge have a collision?
                             if (this->checkEdge(bestEdge) == true)
@@ -1466,14 +1466,14 @@ namespace ompl
 
         ompl::base::Cost BITstar::lowerBoundHeuristicEdge(const vertex_pair_t& edgePair) const
         {
-            return this->combineCosts(this->costToComeHeuristic(edgePair.first), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
+            return opt_->combineCosts(this->costToComeHeuristic(edgePair.first), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
         }
 
 
 
         ompl::base::Cost BITstar::currentHeuristicEdge(const vertex_pair_t& edgePair) const
         {
-            return this->combineCosts(edgePair.first->getCost(), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
+            return opt_->combineCosts(edgePair.first->getCost(), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
         }
 
 
@@ -1523,7 +1523,7 @@ namespace ompl
 
         ompl::base::Cost BITstar::combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c, const ompl::base::Cost& d) const
         {
-            return opt_->combineCosts( this->combineCosts(a, b, c), d);
+            return opt_->combineCosts( opt_->combineCosts(a, b, c), d);
         }
 
 
@@ -1543,10 +1543,18 @@ namespace ompl
 
 
 
-        bool BITstar::areCostsEquivalent(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is not better than b, and b is not better than a, then they are equal
             return !this->isCostBetterThan(a,b) && !this->isCostBetterThan(b,a);
+        }
+
+
+
+        bool BITstar::isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        {
+            //If a is better than b, or b is better than a, then they are not equal
+            return this->isCostBetterThan(a,b) || this->isCostBetterThan(b,a);
         }
 
 

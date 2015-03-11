@@ -393,12 +393,6 @@ namespace ompl
             /** \brief The true cost of an edge, including collisions.*/
             ompl::base::Cost trueEdgeCost(const vertex_pair_t& edgePair) const;
 
-            /** \brief Combine three costs as (a + b) + c */
-            ompl::base::Cost combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c) const;
-
-            /** \brief Combine four costs as ((a + b) + c) + d */
-            ompl::base::Cost combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c, const ompl::base::Cost& d) const;
-
             /** \brief Compare whether cost a is better than cost b. Ignores the tolerances used by OptimizationObjective::isCostBetterThan */
             bool isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
 
@@ -406,7 +400,10 @@ namespace ompl
             bool isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
 
             /** \brief Compare whether cost a and cost b are equivalent by checking that neither a or b is better than the other. */
-            bool areCostsEquivalent(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+            bool isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Compare whether cost a and cost b are not equivalent by checking if either a or b is better than the other. */
+            bool isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
 
             /** \brief Compare whether cost a is better or equivalent to cost b by checking that b is not better than a. */
             bool isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
