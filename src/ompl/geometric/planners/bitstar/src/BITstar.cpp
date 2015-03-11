@@ -118,6 +118,7 @@ namespace ompl
             Planner::specs_.directed = true;
             Planner::specs_.provingSolutionNonExistence = false;
 
+            OMPL_INFORM("%s: TODO: Implement goal-region support.", Planner::getName().c_str());
             OMPL_INFORM("%s: TODO: Implement approximate solution support.", Planner::getName().c_str());
 
             //Register my setting callbacks
@@ -213,13 +214,13 @@ namespace ompl
             //Initialize the nearestNeighbour terms:
             this->initializeNearestTerms();
 
-            //Store the start into the tree:
+            //Create the start as a vertex:
             startVertex_ = boost::make_shared<Vertex>(Planner::si_, opt_, true);
 
             //Copy the value of the start
             Planner::si_->copyState(startVertex_->state(), pdef_->getStartState(0u));
 
-            //Store the goal into the freeStates
+            //Create the goal as a vertex:
             //Create a vertex
             goalVertex_ = boost::make_shared<Vertex>(Planner::si_, opt_);
 
@@ -510,7 +511,7 @@ namespace ompl
                         vertexQueue_.resort(bestCost_);
                     }
                     else
-                     {
+                    {
                         this->statusMessage(ompl::msg::LOG_DEBUG, "Clearing edge queue!");
                         //Else, I cannot improve the current solution, and as the queue is perfectly sorted and I am the best edge, no one can improve the current solution . Give up on the batch:
                         edgeQueue_.clear();
@@ -726,23 +727,8 @@ namespace ompl
             vertexQueue_.clear();
             edgeQueue_.clear();
 
-            //Should we do a little tidying up?
-            if (hasSolution_ == true && usePruning_ == true && std::abs(this->fractionalChange(bestCost_, prunedCost_)) > pruneFraction_)
-            {
-                OMPL_INFORM("%s: Pruning the planning problem from %.4f to %.4f.", Planner::getName().c_str(), prunedCost_, bestCost_);
-
-                //Increment the pruning counter:
-                ++numPrunings_;
-
-                //Prune the samples
-                this->pruneSamples();
-
-                //Prune the graph:
-                this->pruneGraph();
-
-                //Store the cost at which we pruned:
-                prunedCost_ = bestCost_;
-            }
+            //Prune the graph (if enabled)
+            this->prune();
 
             //Repopulate the vertex expansion queue:
             //Get the vertices as a std::vector
@@ -825,7 +811,7 @@ namespace ompl
         void BITstar::expandVertex(const VertexPtr& vertex)
         {
             //Variables:
-            //The vector of samples within r of the vertex
+            //The vector of nearby samples (either within r or the k-nearest)
             std::vector<VertexPtr> neighbourSamples;
 
             //Info:
@@ -914,6 +900,9 @@ namespace ompl
 
                 //Mark that we've sampled all cost spaces
                 costSampled_ = opt_->infiniteCost();
+
+                //Finally, update the nearest-neighbour terms
+                this->updateNearestTerms();
             }
 
             ///JIT Sampling code. To return to:
@@ -984,79 +973,41 @@ namespace ompl
             this->updateNearestTerms();
             */
 
-            //Finally, update the nearest-neighbour terms
-            this->updateNearestTerms();
-
             this->statusMessage(ompl::msg::LOG_DEBUG, "End update samples");
         }
 
 
 
-        void BITstar::pruneSamples()
+        void BITstar::prune()
         {
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune samples.");
+            this->statusMessage(ompl::msg::LOG_DEBUG, "Start pruning.");
 
-            //Only reject if the informed subset is not measurable, or if it's measure is less than the total problem domain
-            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) )
+            //Test if we should we do a little tidying up:
+            //Is pruning enabled? Do we have a solution? Has the solution changed enough?
+            if ( (usePruning_ == true) && (hasSolution_ == true) && (std::abs(this->fractionalChange(bestCost_, prunedCost_)) > pruneFraction_) )
             {
-                //Variable:
-                //The list of samples:
-                std::vector<VertexPtr> samples;
-
-                //Get the list of samples
-                freeStateNN_->list(samples);
-
-                //Iterate through the list and remove any samples that have a heuristic larger than the bestCost_
-                for (unsigned int i = 0u; i < samples.size(); ++i)
+                //Is there good reason to prune? I.e., is the informed subset measurably less than the total problem domain? If an informed measure is not available, we'll assume yes:
+                if ( (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) || (sampler_->hasInformedMeasure() == false) )
                 {
-                    //Check if this state meets the queueing condition
-                    if (this->sampleQueueCondition(samples.at(i), bestCost_) == false)
-                    {
-                        //It doesn't, remove it to the list of samples
-                        freeStateNN_->remove(samples.at(i));
+                    OMPL_INFORM("%s: Pruning the planning problem from %.4f to %.4f.", Planner::getName().c_str(), prunedCost_, bestCost_);
 
-                        //Update the counter:
-                        ++numFreeStatesPruned_;
-                    }
-                    //No else, keep.
+                    //Increment the pruning counter:
+                    ++numPrunings_;
+
+                    //Prune the samples
+                    this->pruneSamples();
+
+                    //Prune the graph:
+                    this->pruneGraph();
+
+                    //Store the cost at which we pruned:
+                    prunedCost_ = bestCost_;
                 }
+                //No else, it's not worth the work to prune...
             }
-            //No else, it's not worth the work to prune...
+            //No else, why was I called?
 
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune samples.");
-        }
-
-
-
-        void BITstar::pruneGraph()
-        {
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune graph.");
-
-            //Only reject if the informed subset is not measurable, or if it's measure is less than the total problem domain
-            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) )
-            {
-                //Variables:
-                //The list of states:
-                std::vector<VertexPtr> vertices;
-
-                //Get the list of vertices to prune.
-                vertexNN_->list(vertices);
-
-                //Iterate through the list of vertices, removing any that are no longer valid. As we don't touch the vector, the iterators will remain valid
-                for (std::vector<VertexPtr>::iterator vIter = vertices.begin(); vIter != vertices.end(); ++vIter)
-                {
-                    //Check if the vertex is to be pruned
-                    if (this->vertexQueueCondition(*vIter, bestCost_) == false && (*vIter)->isConnected() == true)
-                    {
-                        //Prune the found state
-                        this->pruneVertex(*vIter);
-                    }
-                    //No else
-                }
-            }
-            //No else, it's not worth the work to prune...
-
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune graph.");
+            this->statusMessage(ompl::msg::LOG_DEBUG, "End pruning.");
         }
 
 
@@ -1109,6 +1060,65 @@ namespace ompl
 
 
 
+        void BITstar::pruneSamples()
+        {
+            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune samples.");
+
+            //Variable:
+            //The list of samples:
+            std::vector<VertexPtr> samples;
+
+            //Get the list of samples
+            freeStateNN_->list(samples);
+
+            //Iterate through the list and remove any samples that have a heuristic larger than the bestCost_
+            for (unsigned int i = 0u; i < samples.size(); ++i)
+            {
+                //Check if this state meets the queueing condition
+                if (this->sampleQueueCondition(samples.at(i), bestCost_) == false)
+                {
+                    //It doesn't, remove it to the list of samples
+                    freeStateNN_->remove(samples.at(i));
+
+                    //Update the counter:
+                    ++numFreeStatesPruned_;
+                }
+                //No else, keep.
+            }
+
+            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune samples.");
+        }
+
+
+
+        void BITstar::pruneGraph()
+        {
+            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune graph.");
+
+            //Variables:
+            //The list of states:
+            std::vector<VertexPtr> vertices;
+
+            //Get the list of vertices to prune.
+            vertexNN_->list(vertices);
+
+            //Iterate through the list of vertices, removing any that are no longer valid. As we don't touch the vector, the iterators will remain valid
+            for (std::vector<VertexPtr>::iterator vIter = vertices.begin(); vIter != vertices.end(); ++vIter)
+            {
+                //Check if the vertex is to be pruned
+                if (this->vertexQueueCondition(*vIter, bestCost_) == false && (*vIter)->isConnected() == true)
+                {
+                    //Prune the found state
+                    this->pruneVertex(*vIter);
+                }
+                //No else
+            }
+
+            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune graph.");
+        }
+
+
+
         bool BITstar::checkEdge(const vertex_pair_t& edge)
         {
             ++numEdgeCollisionChecks_;
@@ -1131,12 +1141,12 @@ namespace ompl
             //Some asserts:
             if (oldVertex == goalVertex_)
             {
-                throw ompl::Exception("Pruning goal vertex");
+                throw ompl::Exception("Trying to prune goal vertex. Something went wrong.");
             }
 
             if (oldVertex->isConnected() == false)
             {
-                throw ompl::Exception("Attempting to prune a vertex not in the graph.");
+                throw ompl::Exception("Trying to prune a vertex not in the graph. Something went wrong.");
             }
 
             //Get the vector of children
@@ -1238,6 +1248,7 @@ namespace ompl
         }
 
 
+
         void BITstar::replaceParent(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost)
         {
             //Increment our counter:
@@ -1312,9 +1323,14 @@ namespace ompl
             bool previouslyFailed;
             //The edge:
             vertex_pair_t testEdge;
+            //The result
+            bool success;
 
             //Make the edge
             testEdge = std::make_pair(parent, child);
+
+            //Start as unsuccessful:
+            success = false;
 
             //See if we're checking for previous failure:
             if (useFailureTracking_ == true)
@@ -1334,13 +1350,14 @@ namespace ompl
                 {
                     edgeQueue_.insert(testEdge);
 
-                    return true;
+                    //Mark as successful:
+                    success = true;
                 }
                 //No else, we assume that it's better to calculate this condition multiple times than have the list of failed sets become too large...?
             }
-            //No else, next
+            //No else
 
-            return false;
+            return success;
         }
 
 
@@ -1423,7 +1440,7 @@ namespace ompl
         {
             //Threshold should always be g_t(x_g)
             //g^(v) + h^(v) <= g_t(x_g)
-            return !this->isCostBetterThan(threshold, this->lowerBoundHeuristicVertex(state));
+            return this->isCostBetterThanOrEquivalentTo(this->lowerBoundHeuristicVertex(state), threshold);
         }
 
 
@@ -1632,7 +1649,7 @@ namespace ompl
             //The number of samples:
             unsigned int N;
 
-            //Calculate, subtracting the number "not" in the RGG:
+            //Calculate the number of N:
             N = vertexNN_->size() + freeStateNN_->size();
 
             if (useKNearest_ == true)
@@ -1804,21 +1821,6 @@ namespace ompl
             //Check if there's things to update
             if (this->isSetup() == true)
             {
-                //Variables
-                //The number of states in my current planner
-                unsigned int N;
-
-                //Update the counter
-                N = 0u;
-                if (vertexNN_)
-                {
-                    N = N + vertexNN_->size();
-                }
-                if (freeStateNN_)
-                {
-                    N = N + freeStateNN_->size();
-                }
-
                 //Update the terms:
                 this->initializeNearestTerms();
 
@@ -1867,21 +1869,6 @@ namespace ompl
                 //Check if there's things to update
                 if (this->isSetup() == true)
                 {
-                    //Variables
-                    //The number of states in my current planner
-                    unsigned int N;
-
-                    //Update the counter
-                    N = 0u;
-                    if (vertexNN_)
-                    {
-                        N = N + vertexNN_->size();
-                    }
-                    if (freeStateNN_)
-                    {
-                        N = N + freeStateNN_->size();
-                    }
-
                     //Update the terms:
                     this->initializeNearestTerms();
 

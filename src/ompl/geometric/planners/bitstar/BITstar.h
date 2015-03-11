@@ -236,7 +236,6 @@ namespace ompl
             as a planner-progress property. (numSamples_) */
             std::string totalStatesCreatedProgressProperty() const;
 
-
             /** \brief Retrieve the \e total number of vertices added to the graph
             as a planner-progress property. (numVertices_) */
             std::string verticesConstructedProgressProperty() const;
@@ -294,12 +293,8 @@ namespace ompl
             /** \brief Update the list of free samples */
             void updateSamples(const VertexPtr& vertex);
 
-            /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
-            void pruneSamples();
-
-            /** \brief Prune all vertices with a solution heuristic that is greater than the bestCost_ */
-            void pruneGraph();
-
+            /** \brief Prune the problem */
+            void prune();
 
             /** \brief Publish the found solution to the ProblemDefinition*/
             void publishSolution();
@@ -307,6 +302,12 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for data manipulation and other low-level functions
+            /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
+            void pruneSamples();
+
+            /** \brief Prune all vertices with a solution heuristic that is greater than the bestCost_ */
+            void pruneGraph();
+
             /** \brief Checks an edge for collision. A wrapper to SpaceInformation->checkMotion that tracks number of collision checks. */
             bool checkEdge(const vertex_pair_t& edge);
 
