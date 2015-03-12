@@ -82,7 +82,7 @@ namespace ompl
             In doing so, it strikes a balance between algorithms like RRT* and FMT*.
 
             @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
-            Submitted to ICRA 2015. <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
+            To appear at ICRA 2015. <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
             <a href="http://www.youtube.com/watch?v=MRzSfLpNBmA">Illustration video</a>.
 
             @par TODO:
