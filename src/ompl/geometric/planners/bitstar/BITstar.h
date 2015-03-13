@@ -51,10 +51,8 @@
 
 //My vertex class:
 #include "ompl/geometric/planners/bitstar/Vertex.h"
-//My vertex-queue class
-#include "ompl/geometric/planners/bitstar/VertexQueue.h"
-//My edge-queue class
-#include "ompl/geometric/planners/bitstar/EdgeQueue.h"
+//My queue class
+#include "ompl/geometric/planners/bitstar/IntegratedQueue.h"
 //The base-class of planners:
 #include "ompl/base/Planner.h"
 //The nearest neighbours structure
@@ -107,20 +105,17 @@ namespace ompl
 
             virtual void getPlannerData(base::PlannerData& data) const;
 
-            /** \brief Get the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
+            /** \brief Get the next edge to be processed. Causes vertices in the queue to be expanded (if necessary) and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             std::pair<ompl::base::State*, ompl::base::State*> getNextEdgeInQueue();
 
-            /** \brief Get the next edge to be processed given the current queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
-            std::pair<ompl::base::State*, ompl::base::State*> getApproxNextEdgeInQueue() const;
-
-            /** \brief Get the value of the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
+            /** \brief Get the value of the next edge to be processed. Causes vertices in the queue to be expanded (if necessary) and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             ompl::base::Cost getNextEdgeValueInQueue();
 
-            /** \brief Get the value of the next edge to be processed given the current queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
-            ompl::base::Cost getApproxNextEdgeValueInQueue() const;
+            /** \brief Get the whole messy set of edges in the queue. Expensive but helpful for some videos */
+            void getEdgeQueue(std::vector<std::pair<VertexPtr, VertexPtr> >& edgesInQueue);
 
-            /** \brief Get the whole messy queue. Expensive but helpful for some videos */
-            void getQueue(std::vector<std::pair<VertexPtr, VertexPtr> >& edgesInQueue);
+            /** \brief Get the whole set of vertices to be expanded. Expensive but helpful for some videos */
+            void getVertexQueue(std::vector<VertexPtr>& verticesInQueue);
 
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
@@ -210,11 +205,11 @@ namespace ompl
             std::string currentVertexProgressProperty() const;
 
             /** \brief Retrieve the current number of vertices in the expansion queue
-            as a planner-progress property. (Size of vertexQueue_) */
+            as a planner-progress property. (The position of the vertex subqueue of intQueue_) */
             std::string vertexQueueSizeProgressProperty() const;
 
             /** \brief Retrieve the current number of edges in the search queue
-            as a planner-progress property. (Size of edgeQueue_) */
+            as a planner-progress property. (The size of the edge subqueue of intQueue_) */
             std::string edgeQueueSizeProgressProperty() const;
 
             /** \brief Retrieve the number of iterations
@@ -274,6 +269,8 @@ namespace ompl
         private:
             //Typedefs:
             typedef std::pair<VertexPtr, VertexPtr> vertex_pair_t;
+            typedef std::pair<ompl::base::Cost, ompl::base::Cost> cost_pair_t;
+            typedef boost::shared_ptr< NearestNeighbors<VertexPtr> > vertex_nn_ptr_t;
 
             //Functions:
             /** \brief A debug function: Estimate the measure of the free/obstace space via sampling. */
@@ -283,12 +280,6 @@ namespace ompl
             //BIT* primitives:
             /** \brief Initialize variables for a new batch */
             void newBatch();
-
-            /** \brief Make sure that all vertices in our tree with a cost-to-come less than the minimum cost in our edge queue has been expanded. Finds all potential edges from the vertices to nearby free states and adds those edges to the queue. */
-            void updateQueue();
-
-            /** \brief Update the edge queue by adding all the potential edges from the vertex to nearby free states */
-            void expandVertex(const VertexPtr& vertex);
 
             /** \brief Update the list of free samples */
             void updateSamples(const VertexPtr& vertex);
@@ -331,53 +322,33 @@ namespace ompl
 
             /** \brief Add a vertex to the graph */
             void addVertex(const VertexPtr& newVertex, const bool& removeFromFree, const bool& updateExpansionQueue);
-
-            /** \brief Attempt to add an edge to the queue. Checks that the edge meets the queue condition and that it is not in the failed set. */
-            bool queueupEdge(const VertexPtr& parent, const VertexPtr& child);
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for sorting queues/nearest-neighbour structures and the related calculations. Some of these should probably be generalized into OptimizationObjective?
-            typedef std::pair<ompl::base::Cost, ompl::base::Cost> cost_pair_t;
-
             /** \brief The distance function used for nearest neighbours. Calculates the distance directionally from the given state to all the other states (can be used on states either in our out of the graph).*/
             double nnDistance(const VertexPtr& a, const VertexPtr& b) const;
 
-            /** \brief A convenience function for the value of a vertex in the queue, uses currentHeuristicVertex */
-            ompl::base::Cost vertexQueueValue(const VertexPtr& vertex) const;
-
-            /** \brief A convenience function for the value of an edge in the queue, uses currentHeuristicEdge */
-            cost_pair_t edgeQueueValue(const vertex_pair_t& edge) const;
-
-            /** \brief The comparison function for two vertices in the expansion queue. Uses vertexQueueValue. */
-            bool vertexQueueComparison(const ompl::base::Cost& lhs, const ompl::base::Cost& rhs) const;
-
-            /** A comparison function for two edges (i.e., vertex-pairs) in the graph. Uses edgeQueueValue. */
-            bool edgeQueueComparison(const cost_pair_t& lhs, const cost_pair_t& rhs) const;
-
-            /** The condition for a sample to be in the sample list. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is less than the threshold. */
-            bool sampleQueueCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const;
-
-            /** The condition for a vertex to be in the state list. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is less than or equal to the threshold. */
-            bool vertexQueueCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const;
-
-            /** The condition for an edge (i.e., vertex-pair) to be in the edge queue. Compares lowerBoundHeuristicEdge to the given threshold. Returns true if the edge's best cost is less than the threshold. */
-            bool edgeQueueCondition(const vertex_pair_t& edge, const ompl::base::Cost& threshold) const;
+            /** \brief Whether a sample should be pruned or remain in the sample list. Compares lowerBoundHeuristicVertex to the given threshold and returns true if the vertex's best cost is better than or equal to the threshold. */
+            bool samplePruneCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const;
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for various heuristics.
-            /** \brief Calculates the heuristic estimate of a cost constrained to pass through a vertex, independent of the current cost-to-come. I.e., combines the heuristic estimates of the cost-to-come and cost-to-go. */
+            /** \brief Calculates the heuristic estimate of a solution constrained to pass through a vertex, independent of the current cost-to-come. I.e., combines the heuristic estimates of the cost-to-come and cost-to-go. */
             ompl::base::Cost lowerBoundHeuristicVertex(const VertexPtr& edgePair) const;
 
-            /** \brief Calculates the heuristic estimate of a cost constrained to pass through a vertex, dependent on the current cost-to-come. I.e., combines the current cost-to-come with a heuristic estimate of the cost-to-go. */
+            /** \brief Calculates the heuristic estimate of a solution constrained to pass through a vertex, dependent on the current cost-to-come. I.e., combines the current cost-to-come with a heuristic estimate of the cost-to-go. */
             ompl::base::Cost currentHeuristicVertex(const VertexPtr& edgePair) const;
 
-            /** \brief Calculates the heuristic estimate of a cost constrained to go through an edge, independent of the cost-to-come of the parent state. I.e., combines the heuristic estimates of the cost-to-come, edge cost, and cost-to-go. */
+            /** \brief Calculates the heuristic estimate of a solution constrained to go through an edge, independent of the cost-to-come of the parent state. I.e., combines the heuristic estimates of the cost-to-come, edge cost, and cost-to-go. */
             ompl::base::Cost lowerBoundHeuristicEdge(const vertex_pair_t& edgePair) const;
 
-            /** \brief Calculates the heuristic estimate of a cost constrained to go through an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost, and cost-to-go. */
+            /** \brief Calculates the heuristic estimate of a solution constrained to go through an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost, and cost-to-go. */
             ompl::base::Cost currentHeuristicEdge(const vertex_pair_t& edgePair) const;
+
+            /** \brief Calculates the heuristic estimate of a path to the \e target of an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost. */
+            ompl::base::Cost currentHeuristicEdgeTarget(const vertex_pair_t& edgePair) const;
 
             /** \brief Calculate a heuristic estimate of the cost-to-come for a Vertex */
             ompl::base::Cost costToComeHeuristic(const VertexPtr& vertex) const;
@@ -467,17 +438,13 @@ namespace ompl
             VertexPtr                                                goalVertex_;
 
             /** \brief The unconnected samples as a nearest-neighbours datastructure. Sorted by nnDistance. Size accessible via currentFreeProgressProperty */
-            boost::shared_ptr< NearestNeighbors<VertexPtr> >         freeStateNN_;
+            vertex_nn_ptr_t                                          freeStateNN_;
 
             /** \brief The vertices as a nearest-neighbours data structure. Sorted by nnDistance. Size accessible via currentVertexProgressProperty */
-            boost::shared_ptr< NearestNeighbors<VertexPtr> >         vertexNN_;
+            vertex_nn_ptr_t                                          vertexNN_;
 
-            /** \brief The planning graph as a queue sorted on f-value (total heuristic cost). Sorted by vertexComparison. Size accessible via vertexQueueSizeProgressProperty */
-            VertexQueue                                              vertexQueue_;
-
-            /** \brief The queue of new edges to process. Sorted by edgeComparison. Size accessible via edgeQueueSizeProgressProperty */
-            EdgeQueue                                                edgeQueue_;
-
+            /** \brief The integrated queue of vertices to expand and edges to process ordered on "f-value", i.e., estimated solution cost. Remaining vertex queue "size" and edge queue size are accessible via vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
+            boost::shared_ptr<IntegratedQueue>                       intQueue_;
 
             /** \brief The resulting sampling density for a batch */
             double                                                   sampleDensity_;

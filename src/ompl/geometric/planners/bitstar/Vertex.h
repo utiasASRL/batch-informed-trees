@@ -137,6 +137,12 @@ namespace ompl
             /** \brief Mark the vertex as old. */
             void markOld();
 
+            /** \brief Whether the vertex has been pruned */
+            bool isPruned() const;
+
+            /** \brief Mark the vertex as pruned. */
+            void markPruned();
+
             /** \brief Mark the given vertex as a \e failed connection from this vertex */
             void markAsFailedChild(const VertexPtr& failedChild);
 
@@ -163,6 +169,9 @@ namespace ompl
             /** \brief Whether the vertex is a new. Vertices are new until marked old. */
             bool isNew_;
 
+            /** \brief Whether the vertex is pruned. Vertices throw if any member function other than isPruned() is access after they are pruned. */
+            bool isPruned_;
+
             /** \brief The parent state as a shared pointer such that the parent will not be deleted until all the children are. */
             VertexPtr parentSPtr_;
 
@@ -177,6 +186,10 @@ namespace ompl
 
             /** \brief The unordered set of failed child vertices*/
             std::set<vertex_weak_ptr_t>                      failedWPtrs_;
+
+
+            /** \brief A helper function to check that the vertex is not pruned and throw if so */
+            void assertNotPruned() const;
         }; //class: Vertex
     } //geometric
 } //ompl
