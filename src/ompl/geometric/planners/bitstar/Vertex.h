@@ -40,12 +40,15 @@
 //vector
 #include <vector>
 //std::set and std::multiset
-#include <set>
+//#include <set>
 
-//Boost shared and weak pointers
+
+//Boost
+//shared and weak pointers
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
-
+//For unordered sets of failed children:
+#include <boost/unordered_set.hpp>
 //For locking the ID generator:
 #include <boost/thread/mutex.hpp>
 
@@ -200,7 +203,7 @@ namespace ompl
             std::vector< vertex_weak_ptr_t > childWPtrs_;
 
             /** \brief The unordered set of failed child vertices*/
-            std::set<id_t>                      failedVIds_;
+            boost::unordered_set<id_t>                      failedVIds_;
 
 
             /** \brief A helper function to check that the vertex is not pruned and throw if so */

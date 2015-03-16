@@ -26,7 +26,5 @@
 ../src/ompl/datastructures/NearestNeighborsLinear.h
 ../src/ompl/geometric/planners/bitstar/BITstar.h
 ../src/ompl/geometric/planners/bitstar/Vertex.h
-../src/ompl/geometric/planners/bitstar/EdgeQueue.h
-../src/ompl/geometric/planners/bitstar/VertexQueue.h
 ../src/ompl/geometric/planners/bitstar/IntegratedQueue.h
 ompl_py_geometric.h

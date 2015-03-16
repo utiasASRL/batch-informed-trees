@@ -529,17 +529,6 @@ namespace ompl
 
 
 
-        void IntegratedQueue::reset()
-        {
-            //Make sure the queue is "finished":
-            this->finish();
-
-            //Restart the expansion queue:
-            vertexToExpand_ = vertexQueue_.begin();
-        }
-
-
-
         void IntegratedQueue::finish()
         {
             //Clear the edge containers:
@@ -550,6 +539,17 @@ namespace ompl
             //Do NOT clear:
             //  -  resortVertices_ (they may still need to be resorted)
             //  - vertexIterLookup_ (it's still valid)
+        }
+
+
+
+        void IntegratedQueue::reset()
+        {
+            //Make sure the queue is "finished":
+            this->finish();
+
+            //Restart the expansion queue:
+            vertexToExpand_ = vertexQueue_.begin();
         }
 
 
@@ -827,6 +827,7 @@ namespace ompl
         }
 
 
+
         void IntegratedQueue::expandNextVertex()
         {
             //Should we expand the next vertex? Will it be pruned?
@@ -843,8 +844,8 @@ namespace ompl
                 //The next vertex would get pruned, so just jump to the end:
                 vertexToExpand_ = vertexQueue_.end();
             }
-
         }
+
 
 
         void IntegratedQueue::expandVertex(const VertexPtr& vertex)

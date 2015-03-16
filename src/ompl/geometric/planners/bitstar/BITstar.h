@@ -347,11 +347,11 @@ namespace ompl
             /** \brief Calculate a heuristic estimate of the cost-to-go for a Vertex */
             ompl::base::Cost costToGoHeuristic(const VertexPtr& vertex) const;
 
-            /** \brief Calculate the max req'd cost to define a neighbourhood around a state. I.e., For path-length problems, the cost equivalent of +2*r. */
-            ompl::base::Cost neighbourhoodCost() const;
-
             /** \brief The true cost of an edge, including collisions.*/
             ompl::base::Cost trueEdgeCost(const vertex_pair_t& edgePair) const;
+
+            /** \brief Calculate the max req'd cost to define a neighbourhood around a state. I.e., For path-length problems, the cost equivalent of +2*r. */
+            ompl::base::Cost neighbourhoodCost() const;
 
             /** \brief Compare whether cost a is better than cost b. Ignores the tolerances used by OptimizationObjective::isCostBetterThan */
             bool isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;

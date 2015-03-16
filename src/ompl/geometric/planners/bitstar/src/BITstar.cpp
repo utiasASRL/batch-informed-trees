@@ -252,69 +252,6 @@ namespace ompl
 //            this->estimateMeasures();
         }
 
-        void BITstar::estimateMeasures()
-        {
-            OMPL_INFORM("%s: Estimating the measure of the planning domain. This is a debugging function that does not have any effect on the planner.", Planner::getName().c_str());
-            //Variables:
-            //The total number of samples:
-            unsigned int numTotalSamples;
-            //The resulting samples in free:
-            unsigned int numFreeSamples;
-            //The resulting samples in obs:
-            unsigned int numObsSamples;
-            //The sample fraction of free:
-            double fractionFree;
-            //The sample fraction of obs:
-            double fractionObs;
-            //The total measure of the space:
-            double totalMeasure;
-            //The resulting estimate of the free measure
-            double freeMeasure;
-            //The resulting estimate of the obs measure
-            double obsMeasure;
-
-            //Set the total number of samples
-            numTotalSamples = 100000u;
-            numFreeSamples = 0u;
-            numObsSamples = 0u;
-
-            //Draw samples, classifying each one
-            for (unsigned int i = 0u; i < numTotalSamples; ++i)
-            {
-                //Allocate a state
-                ompl::base::State* aState = Planner::si_->allocState();
-
-                //Sample:
-                sampler_->sampleUniform(aState);
-
-                //Check if collision free
-                if (Planner::si_->isValid(aState) == true)
-                {
-                    ++numFreeSamples;
-                }
-                else
-                {
-                    ++numObsSamples;
-                }
-            }
-
-            //Calculate the fractions:
-            fractionFree = static_cast<double>(numFreeSamples)/static_cast<double>(numTotalSamples);
-
-            fractionObs = static_cast<double>(numObsSamples)/static_cast<double>(numTotalSamples);
-
-            //Get the total measure of the space
-            totalMeasure = Planner::si_->getSpaceMeasure();
-
-            //Calculate the measure of the free space
-            freeMeasure = fractionFree*totalMeasure;
-
-            //Calculate the measure of the obs space
-            obsMeasure = fractionObs*totalMeasure;
-
-            //Announce
-            OMPL_INFORM("%s: %u samples (%u free, %u in collision) from a space with measure %.4f estimates %.2f%% free and %.2f%% in collision (measures of %.4f and %.4f, respectively).", Planner::getName().c_str(), numTotalSamples, numFreeSamples, numObsSamples, totalMeasure, 100.0*fractionFree, 100.0*fractionObs, freeMeasure, obsMeasure);
-        }
 
 
         void BITstar::clear()
@@ -703,6 +640,88 @@ namespace ompl
                 freeStateNN_ = boost::make_shared< NN<VertexPtr> >();
                 vertexNN_ = boost::make_shared< NN<VertexPtr> >();
             }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        void BITstar::estimateMeasures()
+        {
+            OMPL_INFORM("%s: Estimating the measure of the planning domain. This is a debugging function that does not have any effect on the planner.", Planner::getName().c_str());
+            //Variables:
+            //The total number of samples:
+            unsigned int numTotalSamples;
+            //The resulting samples in free:
+            unsigned int numFreeSamples;
+            //The resulting samples in obs:
+            unsigned int numObsSamples;
+            //The sample fraction of free:
+            double fractionFree;
+            //The sample fraction of obs:
+            double fractionObs;
+            //The total measure of the space:
+            double totalMeasure;
+            //The resulting estimate of the free measure
+            double freeMeasure;
+            //The resulting estimate of the obs measure
+            double obsMeasure;
+
+            //Set the total number of samples
+            numTotalSamples = 100000u;
+            numFreeSamples = 0u;
+            numObsSamples = 0u;
+
+            //Draw samples, classifying each one
+            for (unsigned int i = 0u; i < numTotalSamples; ++i)
+            {
+                //Allocate a state
+                ompl::base::State* aState = Planner::si_->allocState();
+
+                //Sample:
+                sampler_->sampleUniform(aState);
+
+                //Check if collision free
+                if (Planner::si_->isValid(aState) == true)
+                {
+                    ++numFreeSamples;
+                }
+                else
+                {
+                    ++numObsSamples;
+                }
+            }
+
+            //Calculate the fractions:
+            fractionFree = static_cast<double>(numFreeSamples)/static_cast<double>(numTotalSamples);
+
+            fractionObs = static_cast<double>(numObsSamples)/static_cast<double>(numTotalSamples);
+
+            //Get the total measure of the space
+            totalMeasure = Planner::si_->getSpaceMeasure();
+
+            //Calculate the measure of the free space
+            freeMeasure = fractionFree*totalMeasure;
+
+            //Calculate the measure of the obs space
+            obsMeasure = fractionObs*totalMeasure;
+
+            //Announce
+            OMPL_INFORM("%s: %u samples (%u free, %u in collision) from a space with measure %.4f estimates %.2f%% free and %.2f%% in collision (measures of %.4f and %.4f, respectively).", Planner::getName().c_str(), numTotalSamples, numFreeSamples, numObsSamples, totalMeasure, 100.0*fractionFree, 100.0*fractionObs, freeMeasure, obsMeasure);
         }
 
 
