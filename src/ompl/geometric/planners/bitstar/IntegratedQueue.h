@@ -107,21 +107,12 @@ namespace ompl
             typedef boost::function<void (const VertexPtr&, std::vector<VertexPtr>*)> neighbourhood_func_t;
             ////////////////////////////////
 
-            ////////////////////////////////
-            //The underlying-queue-datastructure typedefs:
-            /** \brief A typedef to the underlying queue as a multiset */
-            typedef std::multimap<ompl::base::Cost, VertexPtr, boost::function<bool (const ompl::base::Cost&, const ompl::base::Cost&)> > cost_vertex_multimap_t;
-
-            /** \brief A typedef to the underlying queue as a multimap. The advantage to a multimap over a multiset is that a copy of the key is stored with the value, which guarantees that the ordering remains sane. Even if the inherent key for a value has changed, it will still be sorted under the old key until manually updated and the map will be sorted */
-            typedef std::multimap<cost_pair_t, vertex_pair_t, boost::function<bool (const cost_pair_t&, const cost_pair_t&)> > cost_pair_vertex_pair_multimap_t;
-            ////////////////////////////////
-
 
 
             ////////////////////////////////
             //Public functions:
             /** \brief Construct an integrated queue. */
-            IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget);
+            IntegratedQueue(const VertexPtr& startVertex, const VertexPtr& goalVertex, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget);
 
             /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
             void setUseFailureTracking(bool trackFailures);
@@ -137,8 +128,8 @@ namespace ompl
             /** \brief Insert an edge into the edge processing queue. Edges are removed from the processing queue. This is only valid if the source vertex is already in the expansion queue (though it may already be expanded). */
             void insertEdge(const vertex_pair_t& newEdge);
 
-            /** \brief Erase a vertex from the vertex expansion queue if it exists. Will remove the associated incoming and outgoing edges as requested. */
-            void eraseVertex(const VertexPtr& oldVertex, bool removeIncomingEdges, bool removeOutgoingEdges);
+            /** \brief Erase a vertex from the vertex expansion queue. Will disconnect the vertex from its parent and remove the associated incoming and outgoing edges from the edge queue as requested. Assumes you've already dealt with removing from the NN structures.*/
+            void eraseVertex(const VertexPtr& oldVertex, bool disconnectParent);
             //////////////////
 
             //////////////////
@@ -182,8 +173,11 @@ namespace ompl
             /** \brief Mark the queue as requiring resorting */
             void markVertexUnsorted(const VertexPtr& vertex);
 
-            /** \brief Resort the queue, only reinserting edges/vertices if their lower-bound heuristic is less then the threshold. Requires first marking the queue as unsorted */
-            void resort();
+            /** \brief Prune the vertex queue of vertices whose their lower-bound heuristic is greater then the threshold. Descendents of pruned vertices that are not pruned themselves are returned to the set of free states. Returns the number of vertices pruned (either removed completely or moved to the set of free states). */
+            std::pair<unsigned int, unsigned int> prune(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN);
+
+            /** \brief Resort the queue, only reinserting edges/vertices if their lower-bound heuristic is less then the threshold. Descendents of pruned vertices that are not pruned themselves are returned to the set of free states. Requires first marking the queue as unsorted. Returns the number of vertices pruned (either removed completely or moved to the set of free states). */
+            std::pair<unsigned int, unsigned int> resort(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN);
 
             /** \brief Finish the queue, clearing all the edge containers and moving the vertex expansion token to the end. After a call to finish, isEmpty() will return true. Keeps threshold, list of unsorted vertices, etc.*/
             void finish();
@@ -199,6 +193,9 @@ namespace ompl
             //Queue info:
             /** \brief The condition used to prune vertices out of the queue. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is greater than the internally set threshold. Used internally during resort()*/
             bool vertexPruneCondition(const VertexPtr& vertex) const;
+
+            /** \brief The condition used to prune disconnected samples from the free set. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is greater than or equal to the internally set threshold. Used internally during resort()*/
+            bool samplePruneCondition(const VertexPtr& vertex) const;
 
             /** \brief The condition used to prune edge (i.e., vertex-pair) out of the queue. Compares lowerBoundHeuristicEdge to the given threshold. Returns true if the edge's best cost is greater than the internally set threshold. Used internally during resort()*/
             bool edgePruneCondition(const vertex_pair_t& edge) const;
@@ -234,12 +231,18 @@ namespace ompl
 
         private:
             ////////////////////////////////
-            //Typedefs:
+            //Helpful typedefs:
+            /** \brief A typedef to the underlying queue as a multiset */
+            typedef std::multimap<ompl::base::Cost, VertexPtr, boost::function<bool (const ompl::base::Cost&, const ompl::base::Cost&)> > cost_vertex_multimap_t;
+
+            /** \brief A typedef to the underlying queue as a multimap. The advantage to a multimap over a multiset is that a copy of the key is stored with the value, which guarantees that the ordering remains sane. Even if the inherent key for a value has changed, it will still be sorted under the old key until manually updated and the map will be sorted */
+            typedef std::multimap<cost_pair_t, vertex_pair_t, boost::function<bool (const cost_pair_t&, const cost_pair_t&)> > cost_pair_vertex_pair_multimap_t;
+
             /** \brief A typedef for an iterator into the vertex queue multimap */
             typedef cost_vertex_multimap_t::iterator vertex_queue_iter_t;
 
             /** \brief A typedef for an unordered_map of vertex queue iterators indexed on vertex*/
-            typedef boost::unordered_map<VertexPtr, vertex_queue_iter_t> vertex_vertex_queue_iter_umap_t;
+            typedef boost::unordered_map<Vertex::id_t, vertex_queue_iter_t> vid_vertex_queue_iter_umap_t;
 
             /** \brief A typedef for an iterator into the edge queue multimap */
             typedef cost_pair_vertex_pair_multimap_t::iterator edge_queue_iter_t;
@@ -248,13 +251,21 @@ namespace ompl
             typedef std::list<edge_queue_iter_t> edge_queue_iter_list_t;
 
             /** \brief A typedef for an unordered_map of edge queue iterators indexed by vertex*/
-            typedef boost::unordered_map<VertexPtr, edge_queue_iter_list_t> vertex_edge_queue_iter_umap_t;
+            typedef boost::unordered_map<Vertex::id_t, edge_queue_iter_list_t> vid_edge_queue_iter_umap_t;
             ////////////////////////////////
 
             ////////////////////////////////
             //Member variables:
-            /** \brief My optimization objective: */
+
+            /** \brief My optimization objective. */
             ompl::base::OptimizationObjectivePtr                     opt_;
+
+            /** \brief My start vertex. */
+            VertexPtr                                                startVertex_;
+
+            /** \brief My goal vertex */
+            VertexPtr                                                goalVertex_;
+
             /** \brief The function to find nearby samples. */
             neighbourhood_func_t                                     nearSamplesFunc_;
 
@@ -295,13 +306,13 @@ namespace ompl
             cost_pair_vertex_pair_multimap_t                         edgeQueue_;
 
             /** \brief A lookup from vertex to iterator in the vertex queue */
-            vertex_vertex_queue_iter_umap_t                          vertexIterLookup_;
+            vid_vertex_queue_iter_umap_t                             vertexIterLookup_;
 
             /** \brief A unordered map from a vertex to all the edges in the queue emanating from the vertex: */
-            vertex_edge_queue_iter_umap_t                            outgoingEdges_;
+            vid_edge_queue_iter_umap_t                               outgoingEdges_;
 
             /** \brief A unordered map from a vertex to all the edges in the queue leading into the vertex: */
-            vertex_edge_queue_iter_umap_t                            incomingEdges_;
+            vid_edge_queue_iter_umap_t                               incomingEdges_;
 
             /** \brief A list of vertices that we will need to process when resorting the queue: */
             std::list<VertexPtr>                                     resortVertices_;
@@ -328,13 +339,26 @@ namespace ompl
 
 
             ////////////////////////////////
-            //Base-queue high-level helper functions:
+            //Vertex helper functions:
+            /** \brief Reinsert a vertex and its associated queue edges. This is the main workhorse of resorting. */
+            void reinsertVertex(const VertexPtr& unorderedVertex);
+
+            /** \brief Prune a branch of the graph. Returns the number of vertices removed, and the number of said vertices that are completely thrown away (i.e., are not even useful as a sample) */
+            std::pair<unsigned int, unsigned int> pruneBranch(const VertexPtr& branchBase, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN);
+
+            /** \brief Disconnect a vertex from its parent by removing the edges stored in itself, and its parents. Cascades cost updates if requested.*/
+            void disconnectParent(const VertexPtr& oldVertex, bool cascadeCostUpdates);
+
             /** \brief Insert a vertex into the queue and lookups. Expands vertex into edges if it comes before the expansion token and expandIfBeforeToken is true. */
             void vertexInsertHelper(const VertexPtr& newVertex, bool expandIfBeforeToken);
 
-            /** \brief Remove a vertex from the queue and optionally its position in the resorting list. Pass resortVertices_.end() as the iterator if not needed. */
-            void vertexRemoveHelper(const VertexPtr& oldVertex, bool removeIncomingEdges, bool removeOutgoingEdges, std::list<VertexPtr>::iterator resortIter);
+            /** \brief Remove a vertex from the queue and optionally its entries in the various lookups. */
+            //This is *NOT* by const-reference so that the oldVertex pointer doesn't go out of scope on me... which was happening if it was being called with an iter->second where the iter gets deleted in this function...
+            unsigned int vertexRemoveHelper(VertexPtr oldVertex, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN, bool removeLookups);
+            ////////////////////////////////
 
+            ////////////////////////////////
+            //Edge helper functions:
             /** \brief Insert an edge into the queue and lookups with an optional hint. Pass edgeQueue_.end() as the iterator if the hint is not needed. */
             void edgeInsertHelper(const vertex_pair_t& newEdge, edge_queue_iter_t positionHint);
 
@@ -348,7 +372,7 @@ namespace ompl
             void rmOutgoingLookup(const edge_queue_iter_t& mmapIterToRm);
 
             /** \brief Erase an edge from the given lookup container at the specified index */
-            void rmLookup(vertex_edge_queue_iter_umap_t& lookup, const VertexPtr& idx, const edge_queue_iter_t& mmapIterToRm);
+            void rmEdgeLookupHelper(vid_edge_queue_iter_umap_t& lookup, const Vertex::id_t& idx, const edge_queue_iter_t& mmapIterToRm);
             ////////////////////////////////
 
 

@@ -45,8 +45,10 @@ namespace ompl
 {
     namespace geometric
     {
-        IntegratedQueue::IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget)
-            :   opt_(opt),
+        IntegratedQueue::IntegratedQueue(const VertexPtr& startVertex, const VertexPtr& goalVertex, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget)
+            :   opt_(startVertex->getOpt()),
+                startVertex_(startVertex),
+                goalVertex_(goalVertex),
                 nearSamplesFunc_(nearSamplesFunc),
                 nearVerticesFunc_(nearVerticesFunc),
                 lowerBoundHeuristicVertexFunc_(lowerBoundHeuristicVertex),
@@ -88,9 +90,13 @@ namespace ompl
 
 
 
-        void IntegratedQueue::eraseVertex(const VertexPtr& oldVertex, bool removeIncomingEdges, bool removeOutgoingEdges)
+        void IntegratedQueue::eraseVertex(const VertexPtr& oldVertex, bool disconnectParent)
         {
-            this->vertexRemoveHelper(oldVertex, removeIncomingEdges, removeOutgoingEdges, resortVertices_.end());
+            //If requested, disconnect from parent, cascading cost updates:
+            this->disconnectParent(oldVertex, true);
+
+            //Remove it from vertx queue and lookup, and edge queues (as requested):
+            this->vertexRemoveHelper(oldVertex, vertex_nn_ptr_t(), vertex_nn_ptr_t(), true);
         }
 
 
@@ -204,10 +210,10 @@ namespace ompl
                 {
                     //Variable:
                     //The iterator to the vector of edges to the child:
-                    vertex_edge_queue_iter_umap_t::iterator toDeleteIter;
+                    vid_edge_queue_iter_umap_t::iterator toDeleteIter;
 
                     //Get the vector of iterators
-                    toDeleteIter = incomingEdges_.find(cVertex);
+                    toDeleteIter = incomingEdges_.find(cVertex->getId());
 
                     //Make sure it was found before we start dereferencing it:
                     if (toDeleteIter != incomingEdges_.end())
@@ -242,10 +248,10 @@ namespace ompl
                 {
                     //Variable:
                     //The iterator to the vector of edges from the parent:
-                    vertex_edge_queue_iter_umap_t::iterator toDeleteIter;
+                    vid_edge_queue_iter_umap_t::iterator toDeleteIter;
 
                     //Get the vector of iterators
-                    toDeleteIter = outgoingEdges_.find(pVertex);
+                    toDeleteIter = outgoingEdges_.find(pVertex->getId());
 
                     //Make sure it was found before we start dereferencing it:
                     if (toDeleteIter != outgoingEdges_.end())
@@ -280,10 +286,10 @@ namespace ompl
                 {
                     //Variable:
                     //The iterator to the key,value of the child-lookup map, i.e., an iterator to a pair whose second is a list of edges to the child (which are actually iterators to the queue):
-                    vertex_edge_queue_iter_umap_t::iterator itersToVertex;
+                    vid_edge_queue_iter_umap_t::iterator itersToVertex;
 
                     //Get my incoming edges as a vector of iterators
-                    itersToVertex = incomingEdges_.find(cVertex);
+                    itersToVertex = incomingEdges_.find(cVertex->getId());
 
                     //Make sure it was found before we start dereferencing it:
                     if (itersToVertex != incomingEdges_.end())
@@ -333,10 +339,10 @@ namespace ompl
                 {
                     //Variable:
                     //The iterator to the key, value of the parent-lookup map, i.e., an iterator to a pair whose second is a list of edges from the child (which are actually iterators to the queue):
-                    vertex_edge_queue_iter_umap_t::iterator itersFromVertex;
+                    vid_edge_queue_iter_umap_t::iterator itersFromVertex;
 
                     //Get my outgoing edges as a vector of iterators
-                    itersFromVertex = outgoingEdges_.find(pVertex);
+                    itersFromVertex = outgoingEdges_.find(pVertex->getId());
 
                     //Make sure it was found before we start dereferencing it:
                     if (itersFromVertex != outgoingEdges_.end())
@@ -382,107 +388,143 @@ namespace ompl
         void IntegratedQueue::markVertexUnsorted(const VertexPtr& vertex)
         {
             resortVertices_.push_back(vertex);
+
+            //This is the idea for a future assert:
+//            if (vertexIterLookup_.find(vertex->getId()) == vertexIterLookup_.end())
+//            {
+//                throw ompl::Exception("A vertex was marked that was not in the queue...");
+//            }
         }
 
 
 
-        void IntegratedQueue::resort()
+        std::pair<unsigned int, unsigned int> IntegratedQueue::prune(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
         {
-            if (outgoingLookupTables_ == true)
+            if (this->isSorted() == false)
             {
-                //Iterate over the vector of vertices to resort, reinserting each flagged vertex, all its outgoing edges, and marking all its descendents for resorting as well.
-                while (resortVertices_.empty() == false)
+                throw ompl::Exception("Prune cannot be called on an unsorted queue.");
+            }
+            //The vertex expansion queue is sorted on an estimated solution cost considering the *current* cost-to-come of the vertices, while we prune by considering the best-case cost-to-come.
+            //This means that the value of the vertices in the queue are an upper-bounding estimate of the value we will use to prune them.
+            //Therefore, we can start our pruning at the goal vertex and iterate forward through the queue from there.
+
+            //Variables:
+            //The number of vertices and samples pruned:
+            std::pair<unsigned int, unsigned int> numPruned;
+            //The iterator into the lookup helper:
+            vid_vertex_queue_iter_umap_t::iterator lookupIter;
+            //The iterator into the queue:
+            vertex_queue_iter_t queueIter;
+
+            //Initialize the counters:
+            numPruned = std::make_pair(0u, 0u);
+
+            //Get the iterator to the queue to the goal.
+            lookupIter = vertexIterLookup_.find(goalVertex_->getId());
+
+            //Check that it was found
+            if (lookupIter == vertexIterLookup_.end())
+            {
+                //Complain
+                throw ompl::Exception("The goal vertex is not in the queue?");
+            }
+
+            //Get the iterator to the goal vertex in the queue:
+            queueIter = lookupIter->second;
+
+            //Move to the one after:
+            ++queueIter;
+
+            //Iterate through to the end of the queue
+            while (queueIter != vertexQueue_.end())
+            {
+                //Check if it should be pruned (value) or has lost its parent.
+                if (this->vertexPruneCondition(queueIter->second) == true)
                 {
-                    //Variables:
-                    //The vertex to reinsert:
-                    VertexPtr unorderedVertex;
-                    //The list of children:
-                    std::vector<VertexPtr> resortChildren;
+                    //The vertex should be pruned.
+                    //Variables
+                    //An iter to the vertex to prune:
+                    vertex_queue_iter_t pruneIter;
 
-                    //Get the vertex:
-                    unorderedVertex = resortVertices_.front();
+                    //Copy the iterator to prune:
+                    pruneIter = queueIter;
 
-                    //Get the children:
-                    unorderedVertex->getChildren(resortChildren);
+                    //Move the queue iterator back one so we can step to the next *valid* vertex after pruning:
+                    --queueIter;
 
-                    //Append the children to the resort list:
-                    std::copy( resortChildren.begin(), resortChildren.end(), std::back_inserter( resortVertices_ ) );
-
-                    //Check if the vertex will be reinserted
-                    if ( this->vertexPruneCondition(unorderedVertex) == false )
-                    {
-                        //It will be reinserted
-
-                        //Variables:
-                        //Whether the vertex is currently expanded
-                        bool expanded;
-                        //The list of iterators from the vertex:
-                        vertex_edge_queue_iter_umap_t::iterator itersFromVertex;
-
-                        //Test if I have been expanded:
-                        if (vertexToExpand_ == vertexQueue_.end())
-                        {
-                            //The token is at the end, therefore this vertex is in front of it:
-                            expanded = true;
-                        }
-                        else if ( this->vertexQueueComparison(vertexIterLookup_.find(unorderedVertex)->second->first, vertexToExpand_->first) == true )
-                        {
-                            //The vertexQueueCondition says that this vertex is in front of the current token:
-                            expanded = true;
-                        }
-
-                        //Remove myself from the queue and my entry in the resorting list, but do not touch my edges:
-                        this->vertexRemoveHelper(unorderedVertex, false, false, resortVertices_.begin());
-
-                        //Reinsert me. If I have not yet been expanded, then I should be when I cross the token:
-                        this->vertexInsertHelper(unorderedVertex, expanded == false);
-
-                        //Get my list of outgoing edges
-                        itersFromVertex = outgoingEdges_.find(unorderedVertex);
-
-                        //Reinsert the edges:
-                        if (itersFromVertex != outgoingEdges_.end())
-                        {
-                            //Variables
-                            //The iterators to the edge queue from this vertex
-                            edge_queue_iter_list_t itersToResort;
-
-                            //Copy the iters to resort
-                            itersToResort = itersFromVertex->second;
-
-                            //Clear the outgoing lookup
-                            itersFromVertex->second =  edge_queue_iter_list_t();
-
-                            //Iterate over the list of iters to resort, inserting each one as a new edge, and then removing it as an iterator from the edge queue and the incoming lookup
-                            for (edge_queue_iter_list_t::iterator resortIter = itersToResort.begin(); resortIter != itersToResort.end(); ++resortIter)
-                            {
-                                //Check if the edge should be reinserted
-                                if ( this->edgePruneCondition((*resortIter)->second) == false )
-                                {
-                                    //Call helper to reinsert. Looks after lookups, hint at the location it's coming out of
-                                    this->edgeInsertHelper( (*resortIter)->second, *resortIter );
-                                }
-                                //No else, prune.
-
-                                //Remove the old edge and its entry in the incoming lookup. No need to remove from this lookup, as that's been cleared:
-                                this->edgeRemoveHelper(*resortIter, true, false);
-                            }
-                        }
-                        //No else, no edges from this vertex to requeue
-                    }
-                    else
-                    {
-                        //It will not be reinserted
-                        //Remove everything about myself:
-                        this->vertexRemoveHelper(unorderedVertex, true, true, resortVertices_.begin());
-                    }
+                    //Prune the branch:
+                    numPruned = this->pruneBranch(pruneIter->second, vertexNN, freeStateNN);
                 }
-                //Done sorting or empty to star
+                //No else, skip this vertex.
+
+                //Iterate forward to the next value in the queue
+                ++queueIter;
             }
-            else
+
+            //Return the number of vertices and samples pruned.
+            return numPruned;
+        }
+
+
+
+        std::pair<unsigned int, unsigned int> IntegratedQueue::resort(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
+        {
+            //Variable:
+            //The number of vertices and samples pruned, respectively:
+            std::pair<unsigned int, unsigned int> numPruned;
+
+            //Iterate through every vertex listed for resorting:
+            while (resortVertices_.empty() == false)
             {
-                throw ompl::Exception("Parent lookup is required for edge queue resorting, but is not enabled for this instance of the container.");
+                //Variable:
+                //The vertex being processed:
+                VertexPtr unorderedVertex;
+
+                //Initialize the counters:
+                numPruned = std::make_pair(0u, 0u);
+
+                //Take a vertex out:
+                unorderedVertex = resortVertices_.front();
+                resortVertices_.pop_front();
+
+                //Make sure it has not already been pruned:
+                if (unorderedVertex->isPruned() == false)
+                {
+                    //Make sure it has not already been returned to the set of samples:
+                    if (unorderedVertex->isConnected() == true)
+                    {
+                        //Are we pruning the vertex from the queue?
+                        if (this->vertexPruneCondition(unorderedVertex) == true)
+                        {
+                            //The vertex should just be pruned and forgotten about.
+                            //Prune the branch:
+                            numPruned = this->pruneBranch(unorderedVertex, vertexNN, freeStateNN);
+                        }
+                        else
+                        {
+                            //The vertex is going to be kept.
+                            //Variables:
+                            //The list of children:
+                            std::vector<VertexPtr> resortChildren;
+
+                            //Put its children in the list to be resorted:
+                            //Get the children:
+                            unorderedVertex->getChildren(resortChildren);
+
+                            //Append the children to the resort list:
+                            std::copy( resortChildren.begin(), resortChildren.end(), std::back_inserter( resortVertices_ ) );
+
+                            //Reinsert the vertex:
+                            this->reinsertVertex(unorderedVertex);
+                        }
+                    }
+                    //No else, this vertex was a child of a vertex pruned during the resort. It has been returned to the set of free samples.
+                }
+                //No else, this vertex was a child of a vertex pruned during the resort. It has been deleted.
             }
+
+            //Return the number of vertices pruned.
+            return numPruned;
         }
 
 
@@ -543,6 +585,15 @@ namespace ompl
             //As the sample is in the graph (and therefore could be part of g_t), prune iff g^(v) + h^(v) > g_t(x_g)
             //g^(v) + h^(v) <= g_t(x_g)
             return this->isCostWorseThan(lowerBoundHeuristicVertexFunc_(state), costThreshold_);
+        }
+
+
+
+        bool IntegratedQueue::samplePruneCondition(const VertexPtr& state) const
+        {
+            //Threshold should always be g_t(x_g)
+            //As the sample is not in the graph (and therefore not part of g_t), prune if g^(v) + h^(v) >= g_t(x_g)
+            return this->isCostWorseThanOrEquivalentTo(lowerBoundHeuristicVertexFunc_(state), costThreshold_);
         }
 
 
@@ -615,10 +666,10 @@ namespace ompl
                 {
                     //Variable:
                     //The iterator to the vector of edges to the child:
-                    vertex_edge_queue_iter_umap_t::const_iterator toIter;
+                    vid_edge_queue_iter_umap_t::const_iterator toIter;
 
                     //Get the vector of iterators
-                    toIter = incomingEdges_.find(cVertex);
+                    toIter = incomingEdges_.find(cVertex->getId());
 
                     //Make sure it was found before we dereferencing it:
                     if (toIter != incomingEdges_.end())
@@ -656,10 +707,10 @@ namespace ompl
                 {
                     //Variable:
                     //The iterator to the vector of edges from the parent:
-                    vertex_edge_queue_iter_umap_t::const_iterator toIter;
+                    vid_edge_queue_iter_umap_t::const_iterator toIter;
 
                     //Get the vector of iterators
-                    toIter = outgoingEdges_.find(pVertex);
+                    toIter = outgoingEdges_.find(pVertex->getId());
 
                     //Make sure it was found before we dereferencing it:
                     if (toIter != outgoingEdges_.end())
@@ -784,22 +835,8 @@ namespace ompl
                 //Expand the vertex in the front:
                 this->expandVertex(vertexToExpand_->second);
 
-//                unsigned int beforeEdge = edgeQueue_.size();
-//                std::cout << "Expanding: " << vertexToExpand_->first.value() << " -> ";
-
                 //Increment the vertex token:
                 ++vertexToExpand_;
-
-//                if (vertexToExpand_ != vertexQueue_.end())
-//                {
-//                    std::cout << vertexToExpand_->first.value();
-//                }
-//                else
-//                {
-//                    std::cout << "infty";
-//                }
-//
-//                std::cout << " creating " << edgeQueue_.size() - beforeEdge << " new edges." << std::endl;
             }
             else
             {
@@ -904,6 +941,169 @@ namespace ompl
 
 
 
+
+
+        void IntegratedQueue::reinsertVertex(const VertexPtr& unorderedVertex)
+        {
+            //Variables:
+            //Whether the vertex is expanded.
+            bool alreadyExpanded;
+            //My entry in the vertex lookup:
+            vid_vertex_queue_iter_umap_t::iterator myLookup;
+            //The list of edges from the vertex:
+            vid_edge_queue_iter_umap_t::iterator edgeItersFromVertex;
+
+            //Get my iterator:
+            myLookup = vertexIterLookup_.find(unorderedVertex->getId());
+
+            //Assert
+            if (myLookup == vertexIterLookup_.end())
+            {
+                throw ompl::Exception("Vertex to reinsert is not in the lookup. Something went wrong.");
+            }
+
+            //Test if it I am currently expanded.
+            if (vertexToExpand_ == vertexQueue_.end())
+            {
+                //The token is at the end, therefore this vertex is in front of it:
+                alreadyExpanded = true;
+            }
+            else if ( this->vertexQueueComparison(myLookup->second->first, vertexToExpand_->first) == true )
+            {
+                //The vertexQueueCondition says that this vertex was enterted with a cost that is in front of the current token:
+                alreadyExpanded = true;
+            }
+            else
+            {
+                //Otherwise I have not been expanded yet.
+                alreadyExpanded = false;
+            }
+
+            //Remove myself, not touching my lookup entries
+            this->vertexRemoveHelper(unorderedVertex, vertex_nn_ptr_t(), vertex_nn_ptr_t(), false);
+
+            //Reinsert myself, expanding if I cross the token if I am not already expanded
+            this->vertexInsertHelper(unorderedVertex, alreadyExpanded == false);
+
+            //Iterate over my outgoing edges and reinsert them in the queue:
+            //Get my list of outgoing edges
+            edgeItersFromVertex = outgoingEdges_.find(unorderedVertex->getId());
+
+            //Reinsert the edges:
+            if (edgeItersFromVertex != outgoingEdges_.end())
+            {
+                //Variables
+                //The iterators to the edge queue from this vertex
+                edge_queue_iter_list_t edgeItersToResort;
+
+                //Copy the iters to resort
+                edgeItersToResort = edgeItersFromVertex->second;
+
+                //Clear the outgoing lookup
+                edgeItersFromVertex->second =  edge_queue_iter_list_t();
+
+                //Iterate over the list of iters to resort, inserting each one as a new edge, and then removing it as an iterator from the edge queue and the incoming lookup
+                for (edge_queue_iter_list_t::iterator resortIter = edgeItersToResort.begin(); resortIter != edgeItersToResort.end(); ++resortIter)
+                {
+                    //Check if the edge should be reinserted
+                    if ( this->edgePruneCondition((*resortIter)->second) == false )
+                    {
+                        //Call helper to reinsert. Looks after lookups, hint at the location it's coming out of
+                        this->edgeInsertHelper( (*resortIter)->second, *resortIter );
+                    }
+                    //No else, prune.
+
+                    //Remove the old edge and its entry in the incoming lookup. No need to remove from this lookup, as that's been cleared:
+                    this->edgeRemoveHelper(*resortIter, true, false);
+                }
+            }
+            //No else, no edges from this vertex to requeue
+        }
+
+
+
+        std::pair<unsigned int, unsigned int> IntegratedQueue::pruneBranch(const VertexPtr& branchBase, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
+        {
+            //We must iterate over the children of this vertex and prune each one.
+            //Then we must decide if this vertex (a) gets deleted or (b) placed back on the sample set.
+            //(a) occurs if it has a lower-bound heuristic greater than the current solution
+            //(b) occurs if it doesn't.
+
+            //Some asserts:
+            if (branchBase == goalVertex_)
+            {
+                throw ompl::Exception("Trying to prune goal vertex. Something went wrong.");
+            }
+
+            if (branchBase == startVertex_ )
+            {
+                throw ompl::Exception("Trying to prune start vertex. Something went wrong.");
+            }
+
+            if (branchBase->isConnected() == false)
+            {
+                throw ompl::Exception("Trying to prune a disconnected vertex. Something went wrong.");
+            }
+
+            //Variables:
+            //The counter of vertices and samples pruned:
+            std::pair<unsigned int, unsigned int> numPruned;
+            //The vector of my children:
+            std::vector<VertexPtr> children;
+
+            //Initialize the counter:
+            numPruned = std::make_pair(1u, 0u);
+
+            //Disconnect myself from my parent, not cascading costs as I know my children are also being disconnected:
+            this->disconnectParent(branchBase, false);
+
+            //Get the vector of children
+            branchBase->getChildren(children);
+
+            //Remove myself from everything:
+            numPruned.second = this->vertexRemoveHelper(branchBase, vertexNN, freeStateNN, true);
+
+            //Prune my children:
+            for (unsigned int i = 0u; i < children.size(); ++i)
+            {
+                //Variable:
+                //The number pruned by my children:
+                std::pair<unsigned int, unsigned int> childNumPruned;
+
+                //Prune my children:
+                childNumPruned = this->pruneBranch(children.at(i), vertexNN, freeStateNN);
+
+                //Update my counter:
+                numPruned.first = numPruned.first + childNumPruned.first;
+                numPruned.second = numPruned.second + childNumPruned.second;
+            }
+
+            //Return the number pruned
+            return numPruned;
+        }
+
+
+
+        void IntegratedQueue::disconnectParent(const VertexPtr& oldVertex, bool cascadeCostUpdates)
+        {
+            if (oldVertex->hasParent() == false)
+            {
+                throw ompl::Exception("An orphaned vertex has been passed for disconnection. Something went wrong.");
+            }
+
+            //Check if my parent has already been pruned. This can occur if we're cascading vertex disconnections.
+            if (oldVertex->getParent()->isPruned() == false)
+            {
+                //If not, remove my child link, not updating down-stream costs
+                oldVertex->getParent()->removeChild(oldVertex, false);
+            }
+
+            //Remove my parent link, cascading cost updates if requested:
+            oldVertex->removeParent(cascadeCostUpdates);
+        }
+
+
+
         void IntegratedQueue::vertexInsertHelper(const VertexPtr& newVertex, bool expandIfBeforeToken)
         {
             //Variable:
@@ -913,8 +1113,8 @@ namespace ompl
             //Insert into the order map, getting the interator
             vertexIter = vertexQueue_.insert( std::make_pair(this->vertexQueueValue(newVertex), newVertex) );
 
-            //Store the iterator in the lookup
-            vertexIterLookup_.insert( std::make_pair(newVertex, vertexIter) );
+            //Store the iterator in the lookup. This will create insert if necessary and otherwise lookup
+            vertexIterLookup_[newVertex->getId()] = vertexIter;
 
             //Check if we are in front of the token and expand if so:
             if (vertexQueue_.size() == 1u)
@@ -1000,68 +1200,98 @@ namespace ompl
 
 
 
-        void IntegratedQueue::vertexRemoveHelper(const VertexPtr& oldVertex, bool removeIncomingEdges, bool removeOutgoingEdges, std::list<VertexPtr>::iterator resortIter)
+        unsigned int IntegratedQueue::vertexRemoveHelper(VertexPtr oldVertex, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN, bool removeLookups)
         {
+            //Variable
+            //The number of samples deleted (i.e., if this vertex is NOT moved to a sample, this is a 1)
+            unsigned int deleted;
+
+            //Check that the vertex is not connected to a parent:
+            if (oldVertex->hasParent() == true && removeLookups == true)
+            {
+                throw ompl::Exception("Cannot delete a vertex connected to a parent unless the vertex is being immediately reinserted, in which case removeLookups should be false.");
+            }
+
+            //Start undeleted:
+            deleted = 0u;
+
             //Check if there's anything to delete:
             if (vertexQueue_.empty() == false)
             {
                 //Variable
-                //The entry in the ordered map
-                vertex_vertex_queue_iter_umap_t::iterator umapIter;
+                //The iterator into the lookup:
+                vid_vertex_queue_iter_umap_t::iterator lookupIter;
 
-                //Lookup the multimap iterator for this vertex
-                umapIter = vertexIterLookup_.find(oldVertex);
+                //Get my lookup iter:
+                lookupIter = vertexIterLookup_.find(oldVertex->getId());
 
-                //Check if it was found
-                if (umapIter != vertexIterLookup_.end())
+                //Assert
+                if (lookupIter == vertexIterLookup_.end())
                 {
-                    //Check if we need to move the expansion token:
-                    if (umapIter->second == vertexToExpand_)
+                    std::cout << std::endl << "vId: " << oldVertex->getId() << std::endl;
+                    throw ompl::Exception("Deleted vertex is not found in lookup. Something went wrong.");
+                }
+
+                //Check if we need to move the expansion token:
+                if (lookupIter->second == vertexToExpand_)
+                {
+                    //It is the token, move it to the next:
+                    ++vertexToExpand_;
+                }
+                //No else, not the token.
+
+                //Remove myself from the vertex queue:
+                vertexQueue_.erase(lookupIter->second);
+
+                //Remove from lookups map as requested
+                if (removeLookups == true)
+                {
+                    vertexIterLookup_.erase(lookupIter);
+                    this->removeEdgesFrom(oldVertex);
+                }
+
+                //Check if I have been given permission to change sets:
+                if (bool(vertexNN) == true && bool(freeStateNN) == true)
+                {
+                    //Check if I should be discarded completely:
+                    if (this->samplePruneCondition(oldVertex) == true)
                     {
-                        //It is the token, move it to the next:
-                        ++vertexToExpand_;
+                        //Yes, the vertex isn't even useful as a sample
+                        //Update the counter:
+                        deleted = 1u;
+
+                        //Remove from the incoming edge container if requested:
+                        if (removeLookups == true)
+                        {
+                            this->removeEdgesTo(oldVertex);
+                        }
+
+                        //Remove myself from the nearest neighbour structure:
+                        vertexNN->remove(oldVertex);
+
+                        //Finally, mark as pruned. This is a lock that can never be undone and prevents accessing anything about the vertex.
+                        oldVertex->markPruned();
                     }
-                    //No else, not the token.
-
-                    //Remove from the multimap
-                    vertexQueue_.erase( umapIter->second );
-
-                    //Remove from lookup map
-                    vertexIterLookup_.erase(umapIter);
-
-                    //Remove all edges from the state if requested;
-                    if (removeOutgoingEdges == true)
+                    else
                     {
-                        this->removeEdgesFrom(oldVertex);
-                    }
+                        //No, the vertex is still useful as a sample:
+                        //Remove myself from the nearest neighbour structure:
+                        vertexNN->remove(oldVertex);
 
-                    //Also Remove from the incoming edge container if requested:
-                    if (removeIncomingEdges == true)
-                    {
-                        this->removeEdgesTo(oldVertex);
-                    }
-
-                    //Check if we've been given a listing in the resort list to remove:
-                    if (resortIter != resortVertices_.end())
-                    {
-                        //Remove it:
-                        resortVertices_.erase(resortIter);
-                    }
-                    else if (resortVertices_.empty() == false)
-                    {
-                        //Throw a complaint:
-                        throw ompl::Exception("Removing a vertex from a non-sorted queue without specifying the resort element to remove.");
+                        //And add the vertex to the set of samples, keeping the incoming edges:
+                        freeStateNN->add(oldVertex);
                     }
                 }
-                else
-                {
-                    throw ompl::Exception("Removing a nonexistent vertex.");
-                }
+                //Else, if I was given null pointers to the NN structs, that's because this sample is not allowed to change sets.
             }
             else
             {
+                std::cout << std::endl << "vId: " << oldVertex->getId() << std::endl;
                 throw ompl::Exception("Removing a nonexistent vertex.");
             }
+
+            //Return if the sample was deleted:
+            return deleted;
         }
 
 
@@ -1088,16 +1318,16 @@ namespace ompl
             {
                 //Variable:
                 //The iterator to the parent in the lookup map:
-                vertex_edge_queue_iter_umap_t::iterator pIter;
+                vid_edge_queue_iter_umap_t::iterator pIter;
 
                 //Find the list of edges from the parent:
-                pIter = outgoingEdges_.find(newEdge.first);
+                pIter = outgoingEdges_.find(newEdge.first->getId());
 
                 //Was it not found?
                 if (pIter == outgoingEdges_.end())
                 {
                     //Make an empty vector under this parent:
-                    pIter = outgoingEdges_.insert( std::make_pair(newEdge.first, edge_queue_iter_list_t()) ).first;
+                    pIter = outgoingEdges_.insert( std::make_pair(newEdge.first->getId(), edge_queue_iter_list_t()) ).first;
                 }
 
                 //Push the newly created edge back on the vector:
@@ -1108,16 +1338,16 @@ namespace ompl
             {
                 //Variable:
                 //The iterator to the child in the lookup map:
-                vertex_edge_queue_iter_umap_t::iterator cIter;
+                vid_edge_queue_iter_umap_t::iterator cIter;
 
                 //Find the list of edges from the child:
-                cIter = incomingEdges_.find(newEdge.second);
+                cIter = incomingEdges_.find(newEdge.second->getId());
 
                 //Was it not found?
                 if (cIter == incomingEdges_.end())
                 {
                     //Make an empty vector under this parent:
-                    cIter = incomingEdges_.insert( std::make_pair(newEdge.second, edge_queue_iter_list_t()) ).first;
+                    cIter = incomingEdges_.insert( std::make_pair(newEdge.second->getId(), edge_queue_iter_list_t()) ).first;
                 }
 
                 //Push the newly created edge back on the vector:
@@ -1154,7 +1384,7 @@ namespace ompl
         {
             if (incomingLookupTables_ == true)
             {
-                this->rmLookup(incomingEdges_, mmapIterToRm->second.second, mmapIterToRm);
+                this->rmEdgeLookupHelper(incomingEdges_, mmapIterToRm->second.second->getId(), mmapIterToRm);
             }
             //No else
         }
@@ -1165,18 +1395,18 @@ namespace ompl
         {
             if (outgoingLookupTables_ == true)
             {
-                this->rmLookup(outgoingEdges_, mmapIterToRm->second.first, mmapIterToRm);
+                this->rmEdgeLookupHelper(outgoingEdges_, mmapIterToRm->second.first->getId(), mmapIterToRm);
             }
             //No else
         }
 
 
 
-        void IntegratedQueue::rmLookup(vertex_edge_queue_iter_umap_t& lookup, const VertexPtr& idx, const edge_queue_iter_t& mmapIterToRm)
+        void IntegratedQueue::rmEdgeLookupHelper(vid_edge_queue_iter_umap_t& lookup, const Vertex::id_t& idx, const edge_queue_iter_t& mmapIterToRm)
         {
             //Variable:
             //An iterator to the vertex,list pair in the lookup
-            vertex_edge_queue_iter_umap_t::iterator iterToVertexListPair;
+            vid_edge_queue_iter_umap_t::iterator iterToVertexListPair;
 
             //Get the list in the lookup for the given index:
             iterToVertexListPair = lookup.find(idx);

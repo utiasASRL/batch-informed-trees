@@ -37,13 +37,17 @@
 #include "ompl/geometric/planners/bitstar/Vertex.h"
 
 
-
 namespace ompl
 {
     namespace geometric
     {
+        //The ID generator for making unique (in program instance) ids for vertices.
+        //As this is *static*, one instance exists across the entire program:
+        static idGenerator IDGEN;
+
         Vertex::Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root /*= false*/)
-          : si_(si),
+          : vId_(IDGEN.getNextId()),
+            si_(si),
             opt_(opt),
             state_( si_->allocState() ),
             isRoot_(root),
@@ -52,7 +56,7 @@ namespace ompl
             parentSPtr_( VertexPtr() ),
             edgeCost_( opt_->infiniteCost() ),
             childWPtrs_(),
-            failedWPtrs_()
+            failedVIds_()
         {
             if (this->isRoot() == true)
             {
@@ -68,6 +72,20 @@ namespace ompl
         {
             //Free the state on destruction
             si_->freeState(state_);
+        }
+
+        Vertex::id_t Vertex::getId() const
+        {
+            this->assertNotPruned();
+            return vId_;
+        }
+
+
+        ompl::base::OptimizationObjectivePtr Vertex::getOpt() const
+        {
+            this->assertNotPruned();
+
+            return opt_;
         }
 
         ompl::base::State* Vertex::state()
@@ -178,7 +196,7 @@ namespace ompl
             //No else, leave the costs out of date.
         }
 
-        void Vertex::removeChild(const VertexPtr& oldChild, bool updateChildCosts /*= true*/)
+        void Vertex::removeChild(VertexPtr oldChild, bool updateChildCosts /*= true*/)
         {
             this->assertNotPruned();
 
@@ -288,7 +306,7 @@ namespace ompl
         {
             this->assertNotPruned();
 
-            failedWPtrs_.insert( static_cast<vertex_weak_ptr_t>(failedChild) );
+            failedVIds_.insert( failedChild->getId() );
         }
 
 
@@ -297,7 +315,7 @@ namespace ompl
             this->assertNotPruned();
 
             //Return true if there is more than 0 of this pointer.
-            return failedWPtrs_.count( static_cast<vertex_weak_ptr_t>(potentialChild) ) > 0u;
+            return failedVIds_.count( potentialChild->getId() ) > 0u;
         }
 
         void Vertex::updateCost(bool cascadeUpdates /*= true*/)
@@ -325,8 +343,7 @@ namespace ompl
                 else
                 {
                     //I have children (as I am not disconnected) but no parent. Set my cost to infinity, but assert that I'm not updating my children.
-//                    cost_ = opt_->infiniteCost();
-                    cost_ = opt_->identityCost();
+                    cost_ = opt_->infiniteCost();
 
                     if (cascadeUpdates == true)
                     {

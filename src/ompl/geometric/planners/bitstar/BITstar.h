@@ -235,17 +235,14 @@ namespace ompl
             as a planner-progress property. (numVertices_) */
             std::string verticesConstructedProgressProperty() const;
 
-            /** \brief Retrieve the \e total number of states pruned from the problem
-            as a planner-progress property. (numFreeStatesPruned_ + numVerticesPruned_) */
+            /** \brief Retrieve the number of states pruned from the problem
+            as a planner-progress property. (numFreeStatesPruned_) */
             std::string statesPrunedProgressProperty() const;
 
-            /** \brief Retrieve the number of free states pruned from the problem
-            as a planner-progress property. (numFreeStatesPruned_) */
-            std::string freeStatesPrunedProgressProperty() const;
-
-            /** \brief Retrieve the number of graph vertices pruned from the problem
-            as a planner-progress property. (numVerticesPruned_) */
-            std::string verticesPrunedProgressProperty() const;
+            /** \brief Retrieve the number of graph vertices that are disconnected and
+            either retunred to the set of free samples or deleted completely
+            as a planner-progress property. (numVerticesDisconnected_) */
+            std::string verticesDisconnectedProgressProperty() const;
 
             /** \brief Retrieve the number of global-search edges that rewired the graph
             as a planner-progress property. (numRewirings_) */
@@ -287,6 +284,9 @@ namespace ompl
             /** \brief Prune the problem */
             void prune();
 
+            /** \brief Resort the queue */
+            void resort();
+
             /** \brief Publish the found solution to the ProblemDefinition*/
             void publishSolution();
             ///////////////////////////////////////////////////////////////////
@@ -296,20 +296,11 @@ namespace ompl
             /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
             void pruneSamples();
 
-            /** \brief Prune all vertices with a solution heuristic that is greater than the bestCost_ */
-            void pruneGraph();
-
             /** \brief Checks an edge for collision. A wrapper to SpaceInformation->checkMotion that tracks number of collision checks. */
             bool checkEdge(const vertex_pair_t& edge);
 
-            /** \brief Prune a vertex, recursively pruning its children and either (a) deleting them (b) placing them back as disconnected states depending on their heuristic value compared to the best solution*/
-            void pruneVertex(const VertexPtr& oldVertex);
-
-            /** \brief Actually remove a vertex from the graph */
-            void removeVertex(const VertexPtr& oldVertex, bool recycleVertex);
-
-            /** \brief Disconnect a vertex, removing it from the graph but not touching the edge queue. */
-            void disconnectVertex(const VertexPtr& oldVertex);
+            /** \brief Actually remove a sample from its NN struct: */
+            void dropSample(VertexPtr oldSample);
 
             /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. */
             void addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateExpansionQueue);
@@ -325,12 +316,9 @@ namespace ompl
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
-            //Helper functions for sorting queues/nearest-neighbour structures and the related calculations. Some of these should probably be generalized into OptimizationObjective?
+            //Helper functions for sorting queues/nearest-neighbour structures and the related calculations.
             /** \brief The distance function used for nearest neighbours. Calculates the distance directionally from the given state to all the other states (can be used on states either in our out of the graph).*/
             double nnDistance(const VertexPtr& a, const VertexPtr& b) const;
-
-            /** \brief Whether a sample should be pruned or remain in the sample list. Compares lowerBoundHeuristicVertex to the given threshold and returns true if the vertex's best cost is better than or equal to the threshold. */
-            bool samplePruneCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const;
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
@@ -385,6 +373,9 @@ namespace ompl
 
             /** \brief Returns whether the cost is finite or not. By default calls std::isfinite on Cost::value(). */
             bool isFinite(const ompl::base::Cost& cost) const;
+
+            /** \brief The better of two costs.*/
+            ompl::base::Cost betterCost(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
 
             /** \brief Calculate the fractional change of cost "newCost" relative to cost "oldCost". */
             double fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost);
@@ -500,11 +491,11 @@ namespace ompl
             /** \brief The number of vertices ever added to the graph. Will count vertices twice if they spend any time disconnected. Accessible via verticesConstructedProgressProperty */
             unsigned int                                             numVertices_;
 
-            /** \brief The number of free states that have been pruned. Accessible via freeStatesPrunedProgressProperty */
+            /** \brief The number of free states that have been pruned. Accessible via statesPrunedProgressProperty */
             unsigned int                                             numFreeStatesPruned_;
 
-            /** \brief The number of graph vertices that have been pruned. Accessible via verticesPrunedProgressProperty */
-            unsigned int                                             numVerticesPruned_;
+            /** \brief The number of graph vertices that get disconnected. These either return to being free samples or are pruned completely. Accessible via verticesDisconnectedProgressProperty */
+            unsigned int                                             numVerticesDisconnected_;
 
             /** \brief The number of times a state in the graph was rewired. Accessible via rewiringProgressProperty */
             unsigned int                                             numRewirings_;

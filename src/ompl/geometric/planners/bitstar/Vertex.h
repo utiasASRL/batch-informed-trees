@@ -46,6 +46,9 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
 
+//For locking the ID generator:
+#include <boost/thread/mutex.hpp>
+
 //Forward declarations:
 #include "ompl/util/ClassForward.h"
 //The space information
@@ -81,13 +84,22 @@ namespace ompl
             /** \brief A boost::weak_ptr to a Vertex */
             typedef boost::weak_ptr<Vertex> vertex_weak_ptr_t;
 
+            /** \brief A typedef to the id type */
+            typedef unsigned int id_t;
 
 
-            /** \brief Constructor */
+
+            /** \brief Constructor. The ID should be unique */
             Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root = false);
 
             /** \brief Destructor */
             ~Vertex();
+
+            /** \brief The (unique) vertex ID */
+            id_t getId() const;
+
+            /** \brief The optimization objective used by the vertex. */
+            ompl::base::OptimizationObjectivePtr getOpt() const;
 
             /** \brief The state of a vertex */
             ompl::base::State* state();
@@ -117,7 +129,7 @@ namespace ompl
             void addChild(const VertexPtr& newChild, bool updateChildCosts = true);
 
             /** \brief Remove a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs. Will throw an exception if the given vertex pointer is not in the list of children */
-            void removeChild(const VertexPtr& oldChild, bool updateChildCosts = true);
+            void removeChild(VertexPtr oldChild, bool updateChildCosts = true);
 
             /** \brief Get the cost-to-come of a vertex. Return infinity if the edge is disconnected */
             ompl::base::Cost getCost() const;
@@ -154,6 +166,9 @@ namespace ompl
             void updateCost(bool cascadeUpdates = true);
 
         private:
+            /** \brief The vertex ID */
+            id_t vId_;
+
             /** \brief The state space used by the planner */
             ompl::base::SpaceInformationPtr si_;
 
@@ -185,12 +200,36 @@ namespace ompl
             std::vector< vertex_weak_ptr_t > childWPtrs_;
 
             /** \brief The unordered set of failed child vertices*/
-            std::set<vertex_weak_ptr_t>                      failedWPtrs_;
+            std::set<id_t>                      failedVIds_;
 
 
             /** \brief A helper function to check that the vertex is not pruned and throw if so */
             void assertNotPruned() const;
         }; //class: Vertex
+
+        //A generator class for vertex ids. I'm not sure that the mutex is right (or that it has the right effect) as I haven't had a need to test it.
+        //This is not actually used yet.
+        class idGenerator
+        {
+        public:
+            inline idGenerator()
+            {
+                nextVId_ = 0u;
+            }
+
+            inline Vertex::id_t getNextId()
+            {
+                //Create a scoped mutex copy of mutex_ that unlocks when it goes out of scope:
+                boost::mutex::scoped_lock scoped_lock(mutex_);
+
+                //Return the current ID and increment:
+                return nextVId_++;
+            }
+
+        private:
+            Vertex::id_t nextVId_;
+            boost::mutex mutex_;
+        }; //class: idGenerator
     } //geometric
 } //ompl
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_VERTEX_
