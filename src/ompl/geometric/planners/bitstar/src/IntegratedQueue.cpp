@@ -829,7 +829,7 @@ namespace ompl
             expand = true;
             while ( expand == true )
             {
-                //Check that there are vertices to expand
+                //Check if there are any vertices to expand:
                 if (vertexToExpand_ != vertexQueue_.end())
                 {
                     //Expand a vertex if the edge queue is empty, or the vertex could place a better edge into it:
@@ -854,6 +854,22 @@ namespace ompl
                     //There are no vertices left to expand
                     expand = false;
                 }
+
+
+//                //Prune back any edges in the front that have previously failed:
+//                if (useFailureTracking_ == true)
+//                {
+//                    if (edgeQueue_.begin()->second.first->hasAlreadyFailed(edgeQueue_.begin()->second.second) == true)
+//                    {
+//                        //Remove the edge from the queue:
+//                        this->edgeRemoveHelper(edgeQueue_.begin(), true, true);
+//
+//                        //Mark that we may need to expand a new vertex:
+//                        expand = true;
+//                    }
+//                    //No else
+//                }
+//                //No else
             }
         }
 
