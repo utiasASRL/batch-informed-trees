@@ -37,21 +37,27 @@
 #include "ompl/geometric/planners/bitstar/Vertex.h"
 
 
-
 namespace ompl
 {
     namespace geometric
     {
+        //The ID generator for making unique (in program instance) ids for vertices.
+        //As this is *static*, one instance exists across the entire program:
+        static idGenerator IDGEN;
+
         Vertex::Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root /*= false*/)
-          : si_(si),
+          : vId_(IDGEN.getNextId()),
+            si_(si),
             opt_(opt),
             state_( si_->allocState() ),
             isRoot_(root),
             isNew_(true),
+            isPruned_(false),
+            depth_(0u),
             parentSPtr_( VertexPtr() ),
             edgeCost_( opt_->infiniteCost() ),
             childWPtrs_(),
-            failedWPtrs_()
+            failedVIds_()
         {
             if (this->isRoot() == true)
             {
@@ -69,28 +75,64 @@ namespace ompl
             si_->freeState(state_);
         }
 
+        Vertex::id_t Vertex::getId() const
+        {
+            this->assertNotPruned();
+            return vId_;
+        }
+
+
+        ompl::base::OptimizationObjectivePtr Vertex::getOpt() const
+        {
+            this->assertNotPruned();
+
+            return opt_;
+        }
+
         ompl::base::State* Vertex::state()
         {
+            this->assertNotPruned();
+
             return state_;
         }
 
         bool Vertex::isRoot() const
         {
+            this->assertNotPruned();
+
             return isRoot_;
+        }
+
+        unsigned int Vertex::getDepth() const
+        {
+            this->assertNotPruned();
+
+            if (this->isRoot() == false && this->hasParent() == false)
+            {
+                throw ompl::Exception("The vertex is not root and does not have a parent.");
+            }
+
+            return depth_;
         }
 
         bool Vertex::hasParent() const
         {
+            this->assertNotPruned();
+
             return bool(parentSPtr_);
         }
 
         VertexPtr Vertex::getParent() const
         {
+            this->assertNotPruned();
+
             return parentSPtr_;
         }
 
         void Vertex::addParent(const VertexPtr& newParent, const ompl::base::Cost& edgeInCost, bool updateChildCosts /*= true*/)
         {
+            this->assertNotPruned();
+
             if (this->hasParent() == true)
             {
                 throw ompl::Exception("The vertex already has a parent.");
@@ -108,11 +150,13 @@ namespace ompl
             edgeCost_ = edgeInCost;
 
             //Update my cost
-            this->updateCost(updateChildCosts);
+            this->updateCostAndDepth(updateChildCosts);
         }
 
         void Vertex::removeParent(bool updateChildCosts /*= true*/)
         {
+            this->assertNotPruned();
+
             if (this->isRoot() == true)
             {
                 throw ompl::Exception("The root vertex cannot have a parent.");
@@ -122,17 +166,23 @@ namespace ompl
             parentSPtr_.reset();
 
             //Update costs:
-            this->updateCost(updateChildCosts);
+            this->updateCostAndDepth(updateChildCosts);
         }
 
 
         bool Vertex::hasChildren() const
         {
+            this->assertNotPruned();
+
             return !childWPtrs_.empty();
         }
 
-        void Vertex::getChildren(std::vector<VertexPtr>& children) const
+        void Vertex::getChildren(std::vector<VertexPtr>* children) const
         {
+            this->assertNotPruned();
+
+            children->clear();
+
             for (std::vector<vertex_weak_ptr_t>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
             {
                 //Check that the weak pointer hasn't expired
@@ -142,25 +192,29 @@ namespace ompl
                 }
                 else
                 {
-                    children.push_back(cIter->lock());
+                    children->push_back(cIter->lock());
                 }
             }
         }
 
         void Vertex::addChild(const VertexPtr& newChild, bool updateChildCosts /*= true*/)
         {
+            this->assertNotPruned();
+
             //Push back the shared_ptr into the vector of weak_ptrs, this makes a weak_ptr copy
             childWPtrs_.push_back( static_cast<vertex_weak_ptr_t>(newChild) );
 
             if (updateChildCosts == true)
             {
-                newChild->updateCost(true);
+                newChild->updateCostAndDepth(true);
             }
             //No else, leave the costs out of date.
         }
 
-        void Vertex::removeChild(const VertexPtr& oldChild, bool updateChildCosts /*= true*/)
+        void Vertex::removeChild(VertexPtr oldChild, bool updateChildCosts /*= true*/)
         {
+            this->assertNotPruned();
+
             //Variables
             //Whether the child has been found (and then deleted);
             bool foundChild;
@@ -188,7 +242,7 @@ namespace ompl
                     //Update the child cost if appropriate
                     if (updateChildCosts == true)
                     {
-                        oldChild->updateCost(true);
+                        oldChild->updateCostAndDepth(true);
                     }
                     //No else, leave the costs out of date.
                 }
@@ -206,12 +260,16 @@ namespace ompl
 
         ompl::base::Cost Vertex::getCost() const
         {
+            this->assertNotPruned();
+
             return cost_;
         }
 
 
         ompl::base::Cost Vertex::getEdgeInCost() const
         {
+            this->assertNotPruned();
+
             if (this->hasParent() == false)
             {
                 throw ompl::Exception("The vertex does not have a parent.");
@@ -222,68 +280,90 @@ namespace ompl
 
         bool Vertex::isConnected() const
         {
+            this->assertNotPruned();
+
             //I am connected if I have a parent or children.
             return this->hasParent() || this->hasChildren();
         }
 
         bool Vertex::isNew() const
         {
+            this->assertNotPruned();
+
             return isNew_;
         }
 
         void Vertex::markNew()
         {
+            this->assertNotPruned();
+
             isNew_ = true;
         }
 
         void Vertex::markOld()
         {
+            this->assertNotPruned();
+
             isNew_ = false;
+        }
+
+        bool Vertex::isPruned() const
+        {
+            return isPruned_;
+        }
+
+        void Vertex::markPruned()
+        {
+            isPruned_ = true;
         }
 
         void Vertex::markAsFailedChild(const VertexPtr& failedChild)
         {
-            failedWPtrs_.insert( static_cast<vertex_weak_ptr_t>(failedChild) );
+            this->assertNotPruned();
+
+            failedVIds_.insert( failedChild->getId() );
         }
 
 
         bool Vertex::hasAlreadyFailed(const VertexPtr& potentialChild) const
         {
+            this->assertNotPruned();
+
             //Return true if there is more than 0 of this pointer.
-            return failedWPtrs_.count( static_cast<vertex_weak_ptr_t>(potentialChild) ) > 0u;
+            return failedVIds_.count( potentialChild->getId() ) > 0u;
         }
 
-        void Vertex::updateCost(bool cascadeUpdates /*= true*/)
+        void Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
         {
+            this->assertNotPruned();
+
             if (this->isRoot() == true)
             {
                 //Am I root? -- I don't really know how this would ever be called, but ok.
                 cost_ = opt_->identityCost();
+                depth_ = 0u;
             }
-            else if (this->isConnected() == false)
+            else if (this->hasParent() == false)
             {
                 //Am I disconnected?
                 cost_ = opt_->infiniteCost();
+
+                //Set the depth to 0u, getDepth will throw in this condition
+                depth_ = 0u;
+
+                //Assert that I have not been asked to cascade this bad data to my children:
+                if (this->hasChildren() == true && cascadeUpdates == true)
+                {
+                    throw ompl::Exception("A non-root vertex with no parent, but with children, is having it's cost updated and being told to cascade it's updates.");
+                }
             }
             else
             {
-                //Do I have a parent?
-                if (this->hasParent() == true)
-                {
-                    //I have a parent, so my cost is my parent cost + my edge cost to the parent
-                    cost_ = opt_->combineCosts(parentSPtr_->getCost(), edgeCost_);
-                }
-                else
-                {
-                    //I have children (as I am not disconnected) but no parent. Set my cost to infinity, but assert that I'm not updating my children.
-//                    cost_ = opt_->infiniteCost();
-                    cost_ = opt_->identityCost();
+                //I have a parent, so my cost is my parent cost + my edge cost to the parent
+                cost_ = opt_->combineCosts(parentSPtr_->getCost(), edgeCost_);
 
-                    if (cascadeUpdates == true)
-                    {
-                        throw ompl::Exception("A non-root vertex with no parent, but with children, is having it's cost updated and being told to cascade it's updates.");
-                    }
-                }
+                //I am one more than my parent's depth:
+                depth_ = (parentSPtr_->getDepth() + 1u);
             }
 
             //Am I updating my children?
@@ -300,10 +380,18 @@ namespace ompl
                     //No else, weak pointer is valid
 
                     //Get a lock and tell the child to update:
-                    childWPtrs_.at(i).lock()->updateCost(true);
+                    childWPtrs_.at(i).lock()->updateCostAndDepth(true);
                 }
             }
             //No else, do not update the children. I hope the caller knows what they're doing.
+        }
+
+        void Vertex::assertNotPruned() const
+        {
+            if (isPruned_ == true)
+            {
+                throw ompl::Exception("Attempting to access a pruned vertex.");
+            }
         }
     }//geometric
 }//ompl

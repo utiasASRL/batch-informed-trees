@@ -40,11 +40,17 @@
 //vector
 #include <vector>
 //std::set and std::multiset
-#include <set>
+//#include <set>
 
-//Boost shared and weak pointers
+
+//Boost
+//shared and weak pointers
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
+//For unordered sets of failed children:
+#include <boost/unordered_set.hpp>
+//For locking the ID generator:
+#include <boost/thread/mutex.hpp>
 
 //Forward declarations:
 #include "ompl/util/ClassForward.h"
@@ -81,19 +87,31 @@ namespace ompl
             /** \brief A boost::weak_ptr to a Vertex */
             typedef boost::weak_ptr<Vertex> vertex_weak_ptr_t;
 
+            /** \brief A typedef to the id type */
+            typedef unsigned int id_t;
 
 
-            /** \brief Constructor */
+
+            /** \brief Constructor. The ID should be unique */
             Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root = false);
 
             /** \brief Destructor */
             ~Vertex();
+
+            /** \brief The (unique) vertex ID */
+            id_t getId() const;
+
+            /** \brief The optimization objective used by the vertex. */
+            ompl::base::OptimizationObjectivePtr getOpt() const;
 
             /** \brief The state of a vertex */
             ompl::base::State* state();
 
             /** \brief Whether the vertex is root */
             bool isRoot() const;
+
+            /** \brief Get the "depth" of the vertex from the root. A root vertex is at depth 0, a direct descendent of the root 1, etc. */
+            unsigned int getDepth() const;
 
             /** \brief Get whether this vertex has a parent */
             bool hasParent() const;
@@ -111,13 +129,13 @@ namespace ompl
             bool hasChildren() const;
 
             /** \brief Get the children of a vertex */
-            void getChildren(std::vector<VertexPtr>& children) const;
+            void getChildren(std::vector<VertexPtr>* children) const;
 
             /** \brief Add a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs */
             void addChild(const VertexPtr& newChild, bool updateChildCosts = true);
 
             /** \brief Remove a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs. Will throw an exception if the given vertex pointer is not in the list of children */
-            void removeChild(const VertexPtr& oldChild, bool updateChildCosts = true);
+            void removeChild(VertexPtr oldChild, bool updateChildCosts = true);
 
             /** \brief Get the cost-to-come of a vertex. Return infinity if the edge is disconnected */
             ompl::base::Cost getCost() const;
@@ -137,6 +155,12 @@ namespace ompl
             /** \brief Mark the vertex as old. */
             void markOld();
 
+            /** \brief Whether the vertex has been pruned */
+            bool isPruned() const;
+
+            /** \brief Mark the vertex as pruned. */
+            void markPruned();
+
             /** \brief Mark the given vertex as a \e failed connection from this vertex */
             void markAsFailedChild(const VertexPtr& failedChild);
 
@@ -144,40 +168,78 @@ namespace ompl
             bool hasAlreadyFailed(const VertexPtr& potentialChild) const;
 
         protected:
-            /** \brief Calculates the updated cost of the current state, as well as calling all children's updateCost() functions and thus updating everything down-stream (if desired).*/
-            void updateCost(bool cascadeUpdates = true);
+            /** \brief Calculates the updated cost and depth of the current state, as well as calling all children's updateCostAndDepth() functions and thus updating everything down-stream (if desired).*/
+            void updateCostAndDepth(bool cascadeUpdates = true);
 
         private:
+            /** \brief The vertex ID */
+            id_t                                                     vId_;
+
             /** \brief The state space used by the planner */
-            ompl::base::SpaceInformationPtr si_;
+            ompl::base::SpaceInformationPtr                          si_;
 
             /** \brief The optimization objective used by the planner */
-            ompl::base::OptimizationObjectivePtr opt_;
+            ompl::base::OptimizationObjectivePtr                     opt_;
 
             /** \brief The state itself */
-            ompl::base::State* state_;
+            ompl::base::State*                                       state_;
 
             /** \brief Whether the vertex is a root */
-            bool isRoot_;
+            bool                                                     isRoot_;
 
             /** \brief Whether the vertex is a new. Vertices are new until marked old. */
-            bool isNew_;
+            bool                                                     isNew_;
+
+            /** \brief Whether the vertex is pruned. Vertices throw if any member function other than isPruned() is access after they are pruned. */
+            bool                                                     isPruned_;
+
+            /** \brief The depth of the state  */
+            unsigned int                                             depth_;
 
             /** \brief The parent state as a shared pointer such that the parent will not be deleted until all the children are. */
-            VertexPtr parentSPtr_;
+            VertexPtr                                                parentSPtr_;
 
             /** \brief The incremental cost to get to the state. I.e., the cost of the parent -> state edge */
-            ompl::base::Cost edgeCost_;
+            ompl::base::Cost                                         edgeCost_;
 
             /** \brief The cost of the state  */
-            ompl::base::Cost cost_;
+            ompl::base::Cost                                         cost_;
 
             /** \brief The child states as weak pointers, such that the ownership loop is broken and a state can be deleted once it's children are.*/
-            std::vector< vertex_weak_ptr_t > childWPtrs_;
+            std::vector<vertex_weak_ptr_t>                           childWPtrs_;
 
             /** \brief The unordered set of failed child vertices*/
-            std::set<vertex_weak_ptr_t>                      failedWPtrs_;
+            //std::set<id_t>                                           failedVIds_;
+            boost::unordered_set<id_t>                               failedVIds_;
+
+
+            /** \brief A helper function to check that the vertex is not pruned and throw if so */
+            void assertNotPruned() const;
         }; //class: Vertex
+
+        //A generator class for vertex ids. I'm not sure that the mutex is right (or that it has the right effect) as I haven't had a need to test it.
+        //This is not actually used yet.
+        class idGenerator
+        {
+        public:
+            inline idGenerator()
+            {
+                nextVId_ = 0u;
+            }
+
+            inline Vertex::id_t getNextId()
+            {
+                //Create a scoped mutex copy of mutex_ that unlocks when it goes out of scope:
+                boost::mutex::scoped_lock scoped_lock(mutex_);
+
+                //Return the current ID and increment:
+                return nextVId_++;
+            }
+
+        private:
+            Vertex::id_t                                             nextVId_;
+            boost::mutex                                             mutex_;
+        }; //class: idGenerator
     } //geometric
 } //ompl
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_VERTEX_
