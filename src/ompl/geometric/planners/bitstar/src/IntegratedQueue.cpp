@@ -93,7 +93,10 @@ namespace ompl
         void IntegratedQueue::eraseVertex(const VertexPtr& oldVertex, bool disconnectParent)
         {
             //If requested, disconnect from parent, cascading cost updates:
-            this->disconnectParent(oldVertex, true);
+            if (disconnectParent == true)
+            {
+                this->disconnectParent(oldVertex, true);
+            }
 
             //Remove it from vertx queue and lookup, and edge queues (as requested):
             this->vertexRemoveHelper(oldVertex, vertex_nn_ptr_t(), vertex_nn_ptr_t(), true);
@@ -470,57 +473,85 @@ namespace ompl
         std::pair<unsigned int, unsigned int> IntegratedQueue::resort(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
         {
             //Variable:
+            typedef boost::unordered_map<Vertex::id_t, VertexPtr> id_ptr_umap_t;
+            typedef std::map<unsigned int, id_ptr_umap_t> depth_id_ptr_map_t;
             //The number of vertices and samples pruned, respectively:
             std::pair<unsigned int, unsigned int> numPruned;
 
+            //Initialize the counters:
+            numPruned = std::make_pair(0u, 0u);
+
             //Iterate through every vertex listed for resorting:
-            while (resortVertices_.empty() == false)
+            if (resortVertices_.empty() == false)
             {
                 //Variable:
-                //The vertex being processed:
-                VertexPtr unorderedVertex;
+                //The container ordered on vertex depth:
+                depth_id_ptr_map_t uniqueResorts;
 
-                //Initialize the counters:
-                numPruned = std::make_pair(0u, 0u);
-
-                //Take a vertex out:
-                unorderedVertex = resortVertices_.front();
-                resortVertices_.pop_front();
-
-                //Make sure it has not already been pruned:
-                if (unorderedVertex->isPruned() == false)
+                //Iterate over the vector and place into the unique queue indexed on *depth*. This guarantees that we won't process a branch multiple times by being given different vertices down its chain
+                for (std::list<VertexPtr>::iterator vIter = resortVertices_.begin(); vIter != resortVertices_.end(); ++vIter)
                 {
-                    //Make sure it has not already been returned to the set of samples:
-                    if (unorderedVertex->isConnected() == true)
-                    {
-                        //Are we pruning the vertex from the queue?
-                        if (this->vertexPruneCondition(unorderedVertex) == true)
-                        {
-                            //The vertex should just be pruned and forgotten about.
-                            //Prune the branch:
-                            numPruned = this->pruneBranch(unorderedVertex, vertexNN, freeStateNN);
-                        }
-                        else
-                        {
-                            //The vertex is going to be kept.
-                            //Variables:
-                            //The list of children:
-                            std::vector<VertexPtr> resortChildren;
-
-                            //Put its children in the list to be resorted:
-                            //Get the children:
-                            unorderedVertex->getChildren(resortChildren);
-
-                            //Append the children to the resort list:
-                            std::copy( resortChildren.begin(), resortChildren.end(), std::back_inserter( resortVertices_ ) );
-
-                            //Reinsert the vertex:
-                            this->reinsertVertex(unorderedVertex);
-                        }
-                    }
-                    //No else, this vertex was a child of a vertex pruned during the resort. It has been returned to the set of free samples.
+                    //Add the vertex to the unordered map stored at the given depth.
+                    //The [] return an reference to the existing entry, or create a new entry:
+                    uniqueResorts[(*vIter)->getDepth()].emplace((*vIter)->getId(), *vIter);
                 }
-                //No else, this vertex was a child of a vertex pruned during the resort. It has been deleted.
+
+                //Clear the list of vertices to resort from:
+                resortVertices_.clear();
+
+                //Now process the vertices in order of depth.
+                for (depth_id_ptr_map_t::iterator deepIter = uniqueResorts.begin(); deepIter != uniqueResorts.end(); ++deepIter)
+                {
+                    for (id_ptr_umap_t::iterator vIter = deepIter->second.begin(); vIter != deepIter->second.end(); ++vIter)
+                    {
+                        //Make sure it has not already been pruned:
+                        if (vIter->second->isPruned() == false)
+                        {
+                            //Make sure it has not already been returned to the set of samples:
+                            if (vIter->second->isConnected() == true)
+                            {
+                                //Are we pruning the vertex from the queue?
+                                if (this->vertexPruneCondition(vIter->second) == true)
+                                {
+                                    //The vertex should just be pruned and forgotten about.
+                                    //Prune the branch:
+                                    numPruned = this->pruneBranch(vIter->second, vertexNN, freeStateNN);
+                                }
+                                else
+                                {
+                                    //The vertex is going to be kept.
+
+                                    //Does it have any children?
+                                    if (vIter->second->hasChildren() == true)
+                                    {
+                                        //Variables:
+                                        //The list of children:
+                                        std::vector<VertexPtr> resortChildren;
+
+                                        //Put its children in the list to be resorted:
+                                        //Get the list of children:
+                                        vIter->second->getChildren(&resortChildren);
+
+                                        //Get a reference to the container for the children, all children are 1 level deeper than their parent.:
+                                        //The [] return an reference to the existing entry, or create a new entry:
+                                        id_ptr_umap_t& depthContainer = uniqueResorts[vIter->second->getDepth() + 1u];
+
+                                        //Place the children into the container, as the container is a map, it will not allow the children to be entered twice.
+                                        for (unsigned int i = 0u; i < resortChildren.size(); ++i)
+                                        {
+                                            depthContainer.emplace(resortChildren.at(i)->getId(), resortChildren.at(i));
+                                        }
+                                    }
+
+                                    //Reinsert the vertex:
+                                    this->reinsertVertex(vIter->second);
+                                }
+                            }
+                            //No else, this vertex was a child of a vertex pruned during the resort. It has been returned to the set of free samples.
+                        }
+                        //No else, this vertex was a child of a vertex pruned during the resort. It has been deleted.
+                    }
+                }
             }
 
             //Return the number of vertices pruned.
@@ -1059,7 +1090,7 @@ namespace ompl
             this->disconnectParent(branchBase, false);
 
             //Get the vector of children
-            branchBase->getChildren(children);
+            branchBase->getChildren(&children);
 
             //Remove myself from everything:
             numPruned.second = this->vertexRemoveHelper(branchBase, vertexNN, freeStateNN, true);
@@ -1095,7 +1126,7 @@ namespace ompl
             //Check if my parent has already been pruned. This can occur if we're cascading vertex disconnections.
             if (oldVertex->getParent()->isPruned() == false)
             {
-                //If not, remove my child link, not updating down-stream costs
+                //If not, remove myself from my parent's list of children, not updating down-stream costs
                 oldVertex->getParent()->removeChild(oldVertex, false);
             }
 
@@ -1317,42 +1348,16 @@ namespace ompl
 
             if (outgoingLookupTables_ == true)
             {
-                //Variable:
-                //The iterator to the parent in the lookup map:
-                vid_edge_queue_iter_umap_t::iterator pIter;
-
-                //Find the list of edges from the parent:
-                pIter = outgoingEdges_.find(newEdge.first->getId());
-
-                //Was it not found?
-                if (pIter == outgoingEdges_.end())
-                {
-                    //Make an empty vector under this parent:
-                    pIter = outgoingEdges_.insert( std::make_pair(newEdge.first->getId(), edge_queue_iter_list_t()) ).first;
-                }
-
-                //Push the newly created edge back on the vector:
-                pIter->second.push_back(edgeIter);
+                //Push the newly created edge back on the list of edges from the parent.
+                //The [] return an reference to the existing entry, or create a new entry:
+                outgoingEdges_[newEdge.first->getId()].push_back(edgeIter);
             }
 
             if (incomingLookupTables_ == true)
             {
-                //Variable:
-                //The iterator to the child in the lookup map:
-                vid_edge_queue_iter_umap_t::iterator cIter;
-
-                //Find the list of edges from the child:
-                cIter = incomingEdges_.find(newEdge.second->getId());
-
-                //Was it not found?
-                if (cIter == incomingEdges_.end())
-                {
-                    //Make an empty vector under this parent:
-                    cIter = incomingEdges_.insert( std::make_pair(newEdge.second->getId(), edge_queue_iter_list_t()) ).first;
-                }
-
-                //Push the newly created edge back on the vector:
-                cIter->second.push_back(edgeIter);
+                //Push the newly created edge back on the list of edges from the child.
+                //The [] return an reference to the existing entry, or create a new entry:
+                incomingEdges_[newEdge.second->getId()].push_back(edgeIter);
             }
         }
 

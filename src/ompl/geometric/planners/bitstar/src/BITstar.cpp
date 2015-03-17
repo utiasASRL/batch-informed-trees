@@ -1036,11 +1036,11 @@ namespace ompl
             {
                 //If not, we just add the vertex, first connect:
 
-                //Add a parent to the child, not updating costs:
-                newEdge.second->addParent(newEdge.first, edgeCost, false);
+                //Add a child to the parent, not updating costs:
+                newEdge.first->addChild(newEdge.second, false);
 
-                //Add a child to the parent, updating costs:
-                newEdge.first->addChild(newEdge.second, true);
+                //Add a parent to the child, updating costs:
+                newEdge.second->addParent(newEdge.first, edgeCost, true);
 
                 //Then add to the queues as necessary
                 this->addVertex(newEdge.second, removeFromFree, updateExpansionQueue);

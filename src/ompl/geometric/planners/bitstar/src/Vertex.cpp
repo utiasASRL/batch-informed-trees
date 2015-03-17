@@ -53,6 +53,7 @@ namespace ompl
             isRoot_(root),
             isNew_(true),
             isPruned_(false),
+            depth_(0u),
             parentSPtr_( VertexPtr() ),
             edgeCost_( opt_->infiniteCost() ),
             childWPtrs_(),
@@ -102,6 +103,18 @@ namespace ompl
             return isRoot_;
         }
 
+        unsigned int Vertex::getDepth() const
+        {
+            this->assertNotPruned();
+
+            if (this->isRoot() == false && this->hasParent() == false)
+            {
+                throw ompl::Exception("The vertex is not root and does not have a parent.");
+            }
+
+            return depth_;
+        }
+
         bool Vertex::hasParent() const
         {
             this->assertNotPruned();
@@ -137,7 +150,7 @@ namespace ompl
             edgeCost_ = edgeInCost;
 
             //Update my cost
-            this->updateCost(updateChildCosts);
+            this->updateCostAndDepth(updateChildCosts);
         }
 
         void Vertex::removeParent(bool updateChildCosts /*= true*/)
@@ -153,7 +166,7 @@ namespace ompl
             parentSPtr_.reset();
 
             //Update costs:
-            this->updateCost(updateChildCosts);
+            this->updateCostAndDepth(updateChildCosts);
         }
 
 
@@ -164,9 +177,11 @@ namespace ompl
             return !childWPtrs_.empty();
         }
 
-        void Vertex::getChildren(std::vector<VertexPtr>& children) const
+        void Vertex::getChildren(std::vector<VertexPtr>* children) const
         {
             this->assertNotPruned();
+
+            children->clear();
 
             for (std::vector<vertex_weak_ptr_t>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
             {
@@ -177,7 +192,7 @@ namespace ompl
                 }
                 else
                 {
-                    children.push_back(cIter->lock());
+                    children->push_back(cIter->lock());
                 }
             }
         }
@@ -191,7 +206,7 @@ namespace ompl
 
             if (updateChildCosts == true)
             {
-                newChild->updateCost(true);
+                newChild->updateCostAndDepth(true);
             }
             //No else, leave the costs out of date.
         }
@@ -227,7 +242,7 @@ namespace ompl
                     //Update the child cost if appropriate
                     if (updateChildCosts == true)
                     {
-                        oldChild->updateCost(true);
+                        oldChild->updateCostAndDepth(true);
                     }
                     //No else, leave the costs out of date.
                 }
@@ -318,7 +333,7 @@ namespace ompl
             return failedVIds_.count( potentialChild->getId() ) > 0u;
         }
 
-        void Vertex::updateCost(bool cascadeUpdates /*= true*/)
+        void Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
         {
             this->assertNotPruned();
 
@@ -326,30 +341,29 @@ namespace ompl
             {
                 //Am I root? -- I don't really know how this would ever be called, but ok.
                 cost_ = opt_->identityCost();
+                depth_ = 0u;
             }
-            else if (this->isConnected() == false)
+            else if (this->hasParent() == false)
             {
                 //Am I disconnected?
                 cost_ = opt_->infiniteCost();
+
+                //Set the depth to 0u, getDepth will throw in this condition
+                depth_ = 0u;
+
+                //Assert that I have not been asked to cascade this bad data to my children:
+                if (this->hasChildren() == true && cascadeUpdates == true)
+                {
+                    throw ompl::Exception("A non-root vertex with no parent, but with children, is having it's cost updated and being told to cascade it's updates.");
+                }
             }
             else
             {
-                //Do I have a parent?
-                if (this->hasParent() == true)
-                {
-                    //I have a parent, so my cost is my parent cost + my edge cost to the parent
-                    cost_ = opt_->combineCosts(parentSPtr_->getCost(), edgeCost_);
-                }
-                else
-                {
-                    //I have children (as I am not disconnected) but no parent. Set my cost to infinity, but assert that I'm not updating my children.
-                    cost_ = opt_->infiniteCost();
+                //I have a parent, so my cost is my parent cost + my edge cost to the parent
+                cost_ = opt_->combineCosts(parentSPtr_->getCost(), edgeCost_);
 
-                    if (cascadeUpdates == true)
-                    {
-                        throw ompl::Exception("A non-root vertex with no parent, but with children, is having it's cost updated and being told to cascade it's updates.");
-                    }
-                }
+                //I am one more than my parent's depth:
+                depth_ = (parentSPtr_->getDepth() + 1u);
             }
 
             //Am I updating my children?
@@ -366,7 +380,7 @@ namespace ompl
                     //No else, weak pointer is valid
 
                     //Get a lock and tell the child to update:
-                    childWPtrs_.at(i).lock()->updateCost(true);
+                    childWPtrs_.at(i).lock()->updateCostAndDepth(true);
                 }
             }
             //No else, do not update the children. I hope the caller knows what they're doing.
