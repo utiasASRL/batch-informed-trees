@@ -455,6 +455,9 @@ namespace ompl
             /** \brief The cost to which the graph has been pruned. We will only prune the graph if bestCost_ is less than this value. */
             ompl::base::Cost                                         prunedCost_;
 
+            /** \brief The measure of the problem domain when we pruned the graph. */
+            double                                                   prunedMeasure_;
+
             /** \brief The minimum possible solution cost. I.e., the heuristic value of the goal. */
             ompl::base::Cost                                         minCost_;
 

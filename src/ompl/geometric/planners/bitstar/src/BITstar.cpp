@@ -84,6 +84,7 @@ namespace ompl
             k_(0u), //Purposeful Gibberish
             bestCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
             prunedCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+            prunedMeasure_(Planner::si_->getSpaceMeasure()),
             minCost_( 0.0 ), //Gets set in setup to the proper calls from OptimizationObjective
             costSampled_(0.0), //Gets set in setup to the proper calls from OptimizationObjective
             hasSolution_(false),
@@ -304,6 +305,7 @@ namespace ompl
             k_ = 0u;
             bestCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
             prunedCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
+            prunedMeasure_ = Planner::si_->getSpaceMeasure();
             minCost_ = ompl::base::Cost(0.0);
             costSampled_ = ompl::base::Cost(0.0);
             hasSolution_ = false;
@@ -751,7 +753,7 @@ namespace ompl
             this->prune();
 
             //Calculate the sampling density (currently unused but for eventual JIT sampling)
-            sampleDensity_ = static_cast<double>(samplesPerBatch_)/sampler_->getInformedMeasure();
+            sampleDensity_ = static_cast<double>(samplesPerBatch_)/prunedMeasure_;
 
             this->statusMessage(ompl::msg::LOG_DEBUG, "End new batch.");
         }
@@ -902,6 +904,9 @@ namespace ompl
 
                     //Store the cost at which we pruned:
                     prunedCost_ = bestCost_;
+
+                    //And the measure:
+                    prunedMeasure_ = sampler_->getInformedMeasure();
                 }
                 //No else, it's not worth the work to prune...
             }
@@ -1386,9 +1391,9 @@ namespace ompl
             double dimDbl = static_cast<double>(Planner::si_->getStateDimension());
 
             //Calculate the term and return
-            return rewireFactor_*2.0*std::pow( (1.0 + 1.0/dimDbl)*( sampler_->getInformedMeasure()/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRG radius (biggest for unit-volume problem)
-            //return rewireFactor_*std::pow( 2.0*(1.0 + 1.0/dimDbl)*( sampler_->getInformedMeasure()/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRT* radius (smaller for unit-volume problem)
-            //return rewireFactor_*2.0*std::pow( (1.0/dimDbl)*( sampler_->getInformedMeasure()/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //FMT* radius (smallest for R2, equiv to RRT* for R3 and then middle for higher d. All unit-volume)
+            return rewireFactor_*2.0*std::pow( (1.0 + 1.0/dimDbl)*( prunedMeasure_/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRG radius (biggest for unit-volume problem)
+            //return rewireFactor_*std::pow( 2.0*(1.0 + 1.0/dimDbl)*( prunedMeasure_/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRT* radius (smaller for unit-volume problem)
+            //return rewireFactor_*2.0*std::pow( (1.0/dimDbl)*( prunedMeasure_/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //FMT* radius (smallest for R2, equiv to RRT* for R3 and then middle for higher d. All unit-volume)
         }
 
 
