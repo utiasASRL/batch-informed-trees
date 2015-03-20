@@ -567,6 +567,9 @@ namespace ompl
             outgoingEdges_.clear();
             incomingEdges_.clear();
 
+            //Move the token to the end:
+            vertexToExpand_ = vertexQueue_.end();
+
             //Do NOT clear:
             //  -  resortVertices_ (they may still need to be resorted)
             //  - vertexIterLookup_ (it's still valid)
