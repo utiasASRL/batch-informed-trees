@@ -89,6 +89,13 @@ namespace ompl
             return opt_;
         }
 
+        ompl::base::State const* Vertex::stateConst() const
+        {
+            this->assertNotPruned();
+
+            return state_;
+        }
+
         ompl::base::State* Vertex::state()
         {
             this->assertNotPruned();
@@ -103,18 +110,6 @@ namespace ompl
             return isRoot_;
         }
 
-        unsigned int Vertex::getDepth() const
-        {
-            this->assertNotPruned();
-
-            if (this->isRoot() == false && this->hasParent() == false)
-            {
-                throw ompl::Exception("The vertex is not root and does not have a parent.");
-            }
-
-            return depth_;
-        }
-
         bool Vertex::hasParent() const
         {
             this->assertNotPruned();
@@ -122,9 +117,45 @@ namespace ompl
             return bool(parentSPtr_);
         }
 
-        VertexPtr Vertex::getParent() const
+        bool Vertex::isInTree() const
+        {
+            //No need to assert, as the two other functions both do
+
+            return this->isRoot() || this->hasParent();
+        }
+
+        unsigned int Vertex::getDepth() const
         {
             this->assertNotPruned();
+
+            if (this->isRoot() == false && this->hasParent() == false)
+            {
+                throw ompl::Exception("Attempting to get the depth of a vertex that does not have a parent yet is not root.");
+            }
+
+            return depth_;
+        }
+
+        VertexConstPtr Vertex::getParentConst() const
+        {
+            this->assertNotPruned();
+
+            if (this->hasParent() == false)
+            {
+                throw ompl::Exception("Attempting to access the parent of a vertex that does not have one..");
+            }
+
+            return parentSPtr_;
+        }
+
+        VertexPtr Vertex::getParent()
+        {
+            this->assertNotPruned();
+
+            if (this->hasParent() == false)
+            {
+                throw ompl::Exception("Attempting to access the parent of a vertex that does not have one..");
+            }
 
             return parentSPtr_;
         }
@@ -135,11 +166,11 @@ namespace ompl
 
             if (this->hasParent() == true)
             {
-                throw ompl::Exception("The vertex already has a parent.");
+                throw ompl::Exception("Attempting to add a parent to a vertex that already has one.");
             }
             else if (this->isRoot() == true)
             {
-                throw ompl::Exception("The root vertex cannot have a parent.");
+                throw ompl::Exception("Attempting to add a parent to the root vertex, which cannot have a parent.");
             }
             //No else.
 
@@ -157,9 +188,13 @@ namespace ompl
         {
             this->assertNotPruned();
 
-            if (this->isRoot() == true)
+            if (this->hasParent() == false)
             {
-                throw ompl::Exception("The root vertex cannot have a parent.");
+                throw ompl::Exception("Attempting to remove the parent of a vertex that does not have a parent.");
+            }
+            else if (this->isRoot() == true)
+            {
+                throw ompl::Exception("Attempting to remove the parent of the root vertex, which cannot have a parent.");
             }
 
             //Clear my parent
@@ -177,7 +212,7 @@ namespace ompl
             return !childWPtrs_.empty();
         }
 
-        void Vertex::getChildren(std::vector<VertexPtr>* children) const
+        void Vertex::getChildrenConst(std::vector<VertexConstPtr>* children) const
         {
             this->assertNotPruned();
 
@@ -188,7 +223,27 @@ namespace ompl
                 //Check that the weak pointer hasn't expired
                 if (cIter->expired() == true)
                 {
-                    throw ompl::Exception("A (weak) pointer to a child has expired.");
+                    throw ompl::Exception("A (weak) pointer to a child was found to have expired while calculating the children of a vertex.");
+                }
+                else
+                {
+                    children->push_back(cIter->lock());
+                }
+            }
+        }
+
+        void Vertex::getChildren(std::vector<VertexPtr>* children)
+        {
+            this->assertNotPruned();
+
+            children->clear();
+
+            for (std::vector<vertex_weak_ptr_t>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
+            {
+                //Check that the weak pointer hasn't expired
+                if (cIter->expired() == true)
+                {
+                    throw ompl::Exception("A (weak) pointer to a child was found to have expired while calculating the children of a vertex.");
                 }
                 else
                 {
@@ -226,7 +281,7 @@ namespace ompl
                 //Check that the weak pointer hasn't expired
                 if (cIter->expired() == true)
                 {
-                    throw ompl::Exception("A (weak) pointer to a child has expired.");
+                    throw ompl::Exception("A (weak) pointer to a child was found to have expired while removing a child from a vertex.");
                 }
                 //No else, weak pointer is valid
 
@@ -252,7 +307,7 @@ namespace ompl
             //Throw if we did not find the child
             if (foundChild == false)
             {
-                throw ompl::Exception("The given child was not found to be a child of the vertex.");
+                throw ompl::Exception("Attempting to remove a child vertex not present in the list of children stored in the (supposed) parent vertex.");
             }
             //No else, we were successful
         }
@@ -272,18 +327,10 @@ namespace ompl
 
             if (this->hasParent() == false)
             {
-                throw ompl::Exception("The vertex does not have a parent.");
+                throw ompl::Exception("Attempting to access the incoming-edge cost of a vertex without a parent.");
             }
 
             return edgeCost_;
-        }
-
-        bool Vertex::isConnected() const
-        {
-            this->assertNotPruned();
-
-            //I am connected if I have a parent or children.
-            return this->hasParent() || this->hasChildren();
         }
 
         bool Vertex::isNew() const
@@ -314,6 +361,8 @@ namespace ompl
 
         void Vertex::markPruned()
         {
+            this->assertNotPruned();
+
             isPruned_ = true;
         }
 
@@ -354,7 +403,7 @@ namespace ompl
                 //Assert that I have not been asked to cascade this bad data to my children:
                 if (this->hasChildren() == true && cascadeUpdates == true)
                 {
-                    throw ompl::Exception("A non-root vertex with no parent, but with children, is having it's cost updated and being told to cascade it's updates.");
+                    throw ompl::Exception("Attempting to update descendants' costs and depths of a vertex that does not have a parent and is not root. This information would therefore be gibberish.");
                 }
             }
             else
@@ -375,7 +424,7 @@ namespace ompl
                     //Check that it hasn't expired
                     if (childWPtrs_.at(i).expired() == true)
                     {
-                        throw ompl::Exception("A (weak) pointer to a child has expired.");
+                        throw ompl::Exception("A (weak) pointer to a child has was found to have expired while updating the costs and depths of descendant vertices.");
                     }
                     //No else, weak pointer is valid
 

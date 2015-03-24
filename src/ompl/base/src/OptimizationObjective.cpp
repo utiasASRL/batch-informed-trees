@@ -145,7 +145,7 @@ bool ompl::base::OptimizationObjective::isFinite(Cost cost) const
     return std::isfinite(cost.value());
 }
 
-ompl::base::Cost ompl::base::OptimizationObjective::minCost(Cost c1, Cost c2) const
+ompl::base::Cost ompl::base::OptimizationObjective::betterCost(Cost c1, Cost c2) const
 {
     if (isCostBetterThan(c1, c2))
     {

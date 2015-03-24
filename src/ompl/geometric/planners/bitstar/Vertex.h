@@ -66,6 +66,7 @@ namespace ompl
     namespace geometric
     {
         OMPL_CLASS_FORWARD(Vertex);
+        typedef boost::shared_ptr<const Vertex> VertexConstPtr;
 
         /** \brief A class to store a state as a vertex in a (tree) graph.
         Allocates and frees it's own memory on construction/destruction.
@@ -91,8 +92,7 @@ namespace ompl
             typedef unsigned int id_t;
 
 
-
-            /** \brief Constructor. The ID should be unique */
+            /** \brief Constructor */
             Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root = false);
 
             /** \brief Destructor */
@@ -104,20 +104,29 @@ namespace ompl
             /** \brief The optimization objective used by the vertex. */
             ompl::base::OptimizationObjectivePtr getOpt() const;
 
-            /** \brief The state of a vertex */
+            /** \brief The state of a vertex as a constant pointer */
+            ompl::base::State const* stateConst() const;
+
+            /** \brief The state of a vertex as a mutable pointer*/
             ompl::base::State* state();
 
             /** \brief Whether the vertex is root */
             bool isRoot() const;
 
-            /** \brief Get the "depth" of the vertex from the root. A root vertex is at depth 0, a direct descendent of the root 1, etc. */
-            unsigned int getDepth() const;
-
             /** \brief Get whether this vertex has a parent */
             bool hasParent() const;
 
-            /** \brief Get the parent of a vertex, return a null shared_ptr if the vertex has none (always the case for root) */
-            VertexPtr getParent() const;
+            /** \brief Get whether a vertex is "in the graph" or not. This returns true if the vertex is the graph root or is connected to a parent. */
+            bool isInTree() const;
+
+            /** \brief Get the "depth" of the vertex from the root. A root vertex is at depth 0, a direct descendent of the root 1, etc. */
+            unsigned int getDepth() const;
+
+            /** \brief Get the parent of a vertex as a constant pointer */
+            VertexConstPtr getParentConst() const;
+
+            /** \brief Get the parent of a vertex as a mutable pointer*/
+            VertexPtr getParent();
 
             /** \brief Set the parent of a vertex, cannot be used to replace a previous parent. Will update this vertex's cost, and can update descendent costs */
             void addParent(const VertexPtr& newParent, const ompl::base::Cost& edgeInCost, bool updateChildCosts = true);
@@ -128,13 +137,16 @@ namespace ompl
             /** \brief Get whether this vertex has any children */
             bool hasChildren() const;
 
-            /** \brief Get the children of a vertex */
-            void getChildren(std::vector<VertexPtr>* children) const;
+            /** \brief Get the children of a vertex as constant pointers */
+            void getChildrenConst(std::vector<VertexConstPtr>* children) const;
+
+            /** \brief Get the children of a vertex as mutable pointers */
+            void getChildren(std::vector<VertexPtr>* children);
 
             /** \brief Add a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs */
             void addChild(const VertexPtr& newChild, bool updateChildCosts = true);
 
-            /** \brief Remove a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs. Will throw an exception if the given vertex pointer is not in the list of children */
+            /** \brief Remove a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs. Will throw an exception if the given vertex pointer is not in the list of children. The VertexPtr to be removed is \e not passed by const ref to assure that the function cannot delete it out from under itself. */
             void removeChild(VertexPtr oldChild, bool updateChildCosts = true);
 
             /** \brief Get the cost-to-come of a vertex. Return infinity if the edge is disconnected */
@@ -142,9 +154,6 @@ namespace ompl
 
             /** \brief Get the incremental cost-to-come of a vertex */
             ompl::base::Cost getEdgeInCost() const;
-
-            /** \brief Returns true if the vertex has any edges (incoming our outgoing) edges. A root vertex can be disconnected */
-            bool isConnected() const;
 
             /** \brief Returns true if the vertex is marked as new. Vertices are new until marked old. */
             bool isNew() const;

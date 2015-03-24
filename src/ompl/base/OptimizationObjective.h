@@ -117,7 +117,7 @@ namespace ompl
             virtual bool isFinite(Cost cost) const;
 
             /** \brief Return the minimum cost given \e c1 and \e c2. Uses isCostBetterThan. */
-            virtual Cost minCost(Cost c1, Cost c2) const;
+            virtual Cost betterCost(Cost c1, Cost c2) const;
 
             /** \brief Evaluate a cost map defined on the state space at a state \e s. */
             virtual Cost stateCost(const State *s) const = 0;

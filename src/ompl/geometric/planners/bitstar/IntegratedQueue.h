@@ -215,14 +215,17 @@ namespace ompl
             /** \brief Return whether the queue is still sorted */
             bool isSorted() const;
 
+            /** \brief Returns true if the queue is reset. This means that no edges have been expanded and the vertex expansion token is pointing at the start. */
+            bool isReset() const;
+
             /** \brief Returns true if the queue is empty. In the case where the edge queue is empty but the vertex queue is not, this function will expand vertices *until* the edge queue is not empty or there are no vertices to expand. */
             bool isEmpty();
 
             /** \brief Get a copy of the vertices in the vertex queue that are left to be expanded. This is expensive and is only meant for animations/debugging. */
-            void listVertices(std::vector<VertexPtr>* vertexQueue);
+            void listVertices(std::vector<VertexConstPtr>* vertexQueue);
 
             /** \brief Get a copy of the edge queue. This is expensive and is only meant for animations/debugging. */
-            void listEdges(std::vector<vertex_pair_t>* edgeQueue);
+            void listEdges(std::vector<std::pair<VertexConstPtr, VertexConstPtr> >* edgeQueue);
             //////////////////
             ////////////////////////////////
 
@@ -232,10 +235,10 @@ namespace ompl
         private:
             ////////////////////////////////
             //Helpful typedefs:
-            /** \brief A typedef to the underlying queue as a multiset */
+            /** \brief A typedef to the underlying queue as a multiset.  The advantage to a multimap over a multiset is that a copy of the key is stored with the value, which guarantees that the ordering remains sane. Even if the inherent key for a value has changed, it will still be sorted under the old key until manually updated and the map will be sorted */
             typedef std::multimap<ompl::base::Cost, VertexPtr, boost::function<bool (const ompl::base::Cost&, const ompl::base::Cost&)> > cost_vertex_multimap_t;
 
-            /** \brief A typedef to the underlying queue as a multimap. The advantage to a multimap over a multiset is that a copy of the key is stored with the value, which guarantees that the ordering remains sane. Even if the inherent key for a value has changed, it will still be sorted under the old key until manually updated and the map will be sorted */
+            /** \brief A typedef to the underlying queue as a multimap. Multimapped for the same reason as cost_vertex_multimap_t */
             typedef std::multimap<cost_pair_t, vertex_pair_t, boost::function<bool (const cost_pair_t&, const cost_pair_t&)> > cost_pair_vertex_pair_multimap_t;
 
             /** \brief A typedef for an iterator into the vertex queue multimap */

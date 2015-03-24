@@ -508,7 +508,7 @@ namespace ompl
                         if (vIter->second->isPruned() == false)
                         {
                             //Make sure it has not already been returned to the set of samples:
-                            if (vIter->second->isConnected() == true)
+                            if (vIter->second->isInTree() == true)
                             {
                                 //Are we pruning the vertex from the queue?
                                 if (this->vertexPruneCondition(vIter->second) == true)
@@ -773,6 +773,13 @@ namespace ompl
 
 
 
+        bool IntegratedQueue::isReset() const
+        {
+            return (vertexToExpand_ == vertexQueue_.begin() && edgeQueue_.empty());
+        }
+
+
+
         bool IntegratedQueue::isEmpty()
         {
             //Expand if the edge queue is empty but the vertex queue is not:
@@ -788,7 +795,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::listVertices(std::vector<VertexPtr>* vertexQueue)
+        void IntegratedQueue::listVertices(std::vector<VertexConstPtr>* vertexQueue)
         {
             //Clear the given list:
             vertexQueue->clear();
@@ -803,7 +810,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::listEdges(std::vector<vertex_pair_t>* edgeQueue)
+        void IntegratedQueue::listEdges(std::vector<std::pair<VertexConstPtr, VertexConstPtr> >* edgeQueue)
         {
             //Clear the vector
             edgeQueue->clear();
@@ -1091,7 +1098,7 @@ namespace ompl
                 throw ompl::Exception("Trying to prune start vertex. Something went wrong.");
             }
 
-            if (branchBase->isConnected() == false)
+            if (branchBase->isInTree() == false)
             {
                 throw ompl::Exception("Trying to prune a disconnected vertex. Something went wrong.");
             }
@@ -1207,14 +1214,6 @@ namespace ompl
                 //Check if we are immediately before: (1a & 1b)
                 if (preToken == vertexIter)
                 {
-//                    if (vertexToExpand_ != vertexQueue_.end())
-//                    {
-//                        std::cout << "1a: " << vertexToExpand_->first.value() << " -> " << vertexIter->first.value() << std::endl;
-//                    }
-//                    else
-//                    {
-//                        std::cout << "1b: infty  -> " << vertexIter->first.value() << std::endl;
-//                    }
                     //The vertex before the token is the newly added vertex. Therefore we can just move the token up to the newly added vertex:
                     vertexToExpand_ = vertexIter;
                 }
@@ -1227,7 +1226,6 @@ namespace ompl
                     {
                         //It is. We've expanded the whole queue, and the new vertex isn't at the end of the queue. Expand!
                         this->expandVertex(newVertex);
-//                        std::cout << "2a: " << vertexIter->first.value() << " < infty" << std::endl;
                     }
                     else
                     {
@@ -1237,12 +1235,7 @@ namespace ompl
                         {
                             //We're before it, so expand it:
                             this->expandVertex(newVertex);
-//                            std::cout << "2b: " << vertexIter->first.value() << " < " << vertexToExpand_->first.value() << std::endl;
                         }
-//                        else
-//                        {
-//                            std::cout << "3: " << vertexIter->first.value() << " > " << vertexToExpand_->first.value() << std::endl;
-//                        }
                         //No else, the vertex is behind the current token (3) and will get expanded as necessary.
                     }
                 }
@@ -1338,7 +1331,7 @@ namespace ompl
             else
             {
                 std::cout << std::endl << "vId: " << oldVertex->getId() << std::endl;
-                throw ompl::Exception("Removing a nonexistent vertex.");
+                throw ompl::Exception("Removing a nonexistent vertex. Something went wrong.");
             }
 
             //Return if the sample was deleted:
