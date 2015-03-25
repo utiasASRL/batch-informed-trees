@@ -59,14 +59,13 @@
 //The optimization objective
 #include "ompl/base/OptimizationObjective.h"
 
-
+//I am member class of the BITstar class, so I need to include it's definition to be aware of the class BITstar. It has a forward declaration to me.
+#include "ompl/geometric/planners/bitstar/BITstar.h"
 
 namespace ompl
 {
     namespace geometric
     {
-        OMPL_CLASS_FORWARD(Vertex);
-        typedef boost::shared_ptr<const Vertex> VertexConstPtr;
 
         /** \brief A class to store a state as a vertex in a (tree) graph.
         Allocates and frees it's own memory on construction/destruction.
@@ -81,17 +80,9 @@ namespace ompl
         make sure that the last call updates the children and is on the highest ancestor that has been
         changed. Updates only flow downstream.
         */
-        class Vertex
+        class BITstar::Vertex
         {
-
         public:
-            /** \brief A boost::weak_ptr to a Vertex */
-            typedef boost::weak_ptr<Vertex> vertex_weak_ptr_t;
-
-            /** \brief A typedef to the id type */
-            typedef unsigned int id_t;
-
-
             /** \brief Constructor */
             Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root = false);
 
@@ -99,7 +90,7 @@ namespace ompl
             ~Vertex();
 
             /** \brief The (unique) vertex ID */
-            id_t getId() const;
+            BITstar::vid_t getId() const;
 
             /** \brief The optimization objective used by the vertex. */
             ompl::base::OptimizationObjectivePtr getOpt() const;
@@ -182,7 +173,7 @@ namespace ompl
 
         private:
             /** \brief The vertex ID */
-            id_t                                                     vId_;
+            BITstar::vid_t                                           vId_;
 
             /** \brief The state space used by the planner */
             ompl::base::SpaceInformationPtr                          si_;
@@ -215,11 +206,11 @@ namespace ompl
             ompl::base::Cost                                         cost_;
 
             /** \brief The child states as weak pointers, such that the ownership loop is broken and a state can be deleted once it's children are.*/
-            std::vector<vertex_weak_ptr_t>                           childWPtrs_;
+            std::vector<VertexWeakPtr>                           childWPtrs_;
 
             /** \brief The unordered set of failed child vertices*/
-            //std::set<id_t>                                           failedVIds_;
-            boost::unordered_set<id_t>                               failedVIds_;
+            //std::set<BITstar::vid_t>                                 failedVIds_;
+            boost::unordered_set<BITstar::vid_t>                     failedVIds_;
 
 
             /** \brief A helper function to check that the vertex is not pruned and throw if so */
@@ -228,7 +219,7 @@ namespace ompl
 
         //A generator class for vertex ids. I'm not sure that the mutex is right (or that it has the right effect) as I haven't had a need to test it.
         //This is not actually used yet.
-        class idGenerator
+        class BITstar::idGenerator
         {
         public:
             inline idGenerator()
@@ -236,7 +227,7 @@ namespace ompl
                 nextVId_ = 0u;
             }
 
-            inline Vertex::id_t getNextId()
+            inline BITstar::vid_t getNextId()
             {
                 //Create a scoped mutex copy of mutex_ that unlocks when it goes out of scope:
                 boost::mutex::scoped_lock scoped_lock(mutex_);
@@ -246,7 +237,7 @@ namespace ompl
             }
 
         private:
-            Vertex::id_t                                             nextVId_;
+            BITstar::vid_t                                           nextVId_;
             boost::mutex                                             mutex_;
         }; //class: idGenerator
     } //geometric

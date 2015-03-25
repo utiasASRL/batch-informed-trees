@@ -43,9 +43,9 @@ namespace ompl
     {
         //The ID generator for making unique (in program instance) ids for vertices.
         //As this is *static*, one instance exists across the entire program:
-        static idGenerator IDGEN;
+        static BITstar::idGenerator IDGEN;
 
-        Vertex::Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root /*= false*/)
+        BITstar::Vertex::Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root /*= false*/)
           : vId_(IDGEN.getNextId()),
             si_(si),
             opt_(opt),
@@ -69,62 +69,62 @@ namespace ompl
             }
         }
 
-        Vertex::~Vertex()
+        BITstar::Vertex::~Vertex()
         {
             //Free the state on destruction
             si_->freeState(state_);
         }
 
-        Vertex::id_t Vertex::getId() const
+        BITstar::vid_t BITstar::Vertex::getId() const
         {
             this->assertNotPruned();
             return vId_;
         }
 
 
-        ompl::base::OptimizationObjectivePtr Vertex::getOpt() const
+        ompl::base::OptimizationObjectivePtr BITstar::Vertex::getOpt() const
         {
             this->assertNotPruned();
 
             return opt_;
         }
 
-        ompl::base::State const* Vertex::stateConst() const
+        ompl::base::State const* BITstar::Vertex::stateConst() const
         {
             this->assertNotPruned();
 
             return state_;
         }
 
-        ompl::base::State* Vertex::state()
+        ompl::base::State* BITstar::Vertex::state()
         {
             this->assertNotPruned();
 
             return state_;
         }
 
-        bool Vertex::isRoot() const
+        bool BITstar::Vertex::isRoot() const
         {
             this->assertNotPruned();
 
             return isRoot_;
         }
 
-        bool Vertex::hasParent() const
+        bool BITstar::Vertex::hasParent() const
         {
             this->assertNotPruned();
 
             return bool(parentSPtr_);
         }
 
-        bool Vertex::isInTree() const
+        bool BITstar::Vertex::isInTree() const
         {
             //No need to assert, as the two other functions both do
 
             return this->isRoot() || this->hasParent();
         }
 
-        unsigned int Vertex::getDepth() const
+        unsigned int BITstar::Vertex::getDepth() const
         {
             this->assertNotPruned();
 
@@ -136,7 +136,7 @@ namespace ompl
             return depth_;
         }
 
-        VertexConstPtr Vertex::getParentConst() const
+        BITstar::VertexConstPtr BITstar::Vertex::getParentConst() const
         {
             this->assertNotPruned();
 
@@ -148,7 +148,7 @@ namespace ompl
             return parentSPtr_;
         }
 
-        VertexPtr Vertex::getParent()
+        BITstar::VertexPtr BITstar::Vertex::getParent()
         {
             this->assertNotPruned();
 
@@ -160,7 +160,7 @@ namespace ompl
             return parentSPtr_;
         }
 
-        void Vertex::addParent(const VertexPtr& newParent, const ompl::base::Cost& edgeInCost, bool updateChildCosts /*= true*/)
+        void BITstar::Vertex::addParent(const VertexPtr& newParent, const ompl::base::Cost& edgeInCost, bool updateChildCosts /*= true*/)
         {
             this->assertNotPruned();
 
@@ -184,7 +184,7 @@ namespace ompl
             this->updateCostAndDepth(updateChildCosts);
         }
 
-        void Vertex::removeParent(bool updateChildCosts /*= true*/)
+        void BITstar::Vertex::removeParent(bool updateChildCosts /*= true*/)
         {
             this->assertNotPruned();
 
@@ -205,20 +205,20 @@ namespace ompl
         }
 
 
-        bool Vertex::hasChildren() const
+        bool BITstar::Vertex::hasChildren() const
         {
             this->assertNotPruned();
 
             return !childWPtrs_.empty();
         }
 
-        void Vertex::getChildrenConst(std::vector<VertexConstPtr>* children) const
+        void BITstar::Vertex::getChildrenConst(std::vector<VertexConstPtr>* children) const
         {
             this->assertNotPruned();
 
             children->clear();
 
-            for (std::vector<vertex_weak_ptr_t>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
+            for (std::vector<VertexWeakPtr>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
             {
                 //Check that the weak pointer hasn't expired
                 if (cIter->expired() == true)
@@ -232,13 +232,13 @@ namespace ompl
             }
         }
 
-        void Vertex::getChildren(std::vector<VertexPtr>* children)
+        void BITstar::Vertex::getChildren(std::vector<VertexPtr>* children)
         {
             this->assertNotPruned();
 
             children->clear();
 
-            for (std::vector<vertex_weak_ptr_t>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
+            for (std::vector<VertexWeakPtr>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
             {
                 //Check that the weak pointer hasn't expired
                 if (cIter->expired() == true)
@@ -252,12 +252,12 @@ namespace ompl
             }
         }
 
-        void Vertex::addChild(const VertexPtr& newChild, bool updateChildCosts /*= true*/)
+        void BITstar::Vertex::addChild(const VertexPtr& newChild, bool updateChildCosts /*= true*/)
         {
             this->assertNotPruned();
 
             //Push back the shared_ptr into the vector of weak_ptrs, this makes a weak_ptr copy
-            childWPtrs_.push_back( static_cast<vertex_weak_ptr_t>(newChild) );
+            childWPtrs_.push_back(newChild);
 
             if (updateChildCosts == true)
             {
@@ -266,7 +266,7 @@ namespace ompl
             //No else, leave the costs out of date.
         }
 
-        void Vertex::removeChild(VertexPtr oldChild, bool updateChildCosts /*= true*/)
+        void BITstar::Vertex::removeChild(VertexPtr oldChild, bool updateChildCosts /*= true*/)
         {
             this->assertNotPruned();
 
@@ -276,7 +276,7 @@ namespace ompl
 
             //Iterate over the list of children pointers until the child is found. Iterators make erase easier
             foundChild = false;
-            for (std::vector<vertex_weak_ptr_t>::iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end() && foundChild == false; ++cIter)
+            for (std::vector<VertexWeakPtr>::iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end() && foundChild == false; ++cIter)
             {
                 //Check that the weak pointer hasn't expired
                 if (cIter->expired() == true)
@@ -313,7 +313,7 @@ namespace ompl
         }
 
 
-        ompl::base::Cost Vertex::getCost() const
+        ompl::base::Cost BITstar::Vertex::getCost() const
         {
             this->assertNotPruned();
 
@@ -321,7 +321,7 @@ namespace ompl
         }
 
 
-        ompl::base::Cost Vertex::getEdgeInCost() const
+        ompl::base::Cost BITstar::Vertex::getEdgeInCost() const
         {
             this->assertNotPruned();
 
@@ -333,40 +333,40 @@ namespace ompl
             return edgeCost_;
         }
 
-        bool Vertex::isNew() const
+        bool BITstar::Vertex::isNew() const
         {
             this->assertNotPruned();
 
             return isNew_;
         }
 
-        void Vertex::markNew()
+        void BITstar::Vertex::markNew()
         {
             this->assertNotPruned();
 
             isNew_ = true;
         }
 
-        void Vertex::markOld()
+        void BITstar::Vertex::markOld()
         {
             this->assertNotPruned();
 
             isNew_ = false;
         }
 
-        bool Vertex::isPruned() const
+        bool BITstar::Vertex::isPruned() const
         {
             return isPruned_;
         }
 
-        void Vertex::markPruned()
+        void BITstar::Vertex::markPruned()
         {
             this->assertNotPruned();
 
             isPruned_ = true;
         }
 
-        void Vertex::markAsFailedChild(const VertexPtr& failedChild)
+        void BITstar::Vertex::markAsFailedChild(const VertexPtr& failedChild)
         {
             this->assertNotPruned();
 
@@ -374,7 +374,7 @@ namespace ompl
         }
 
 
-        bool Vertex::hasAlreadyFailed(const VertexPtr& potentialChild) const
+        bool BITstar::Vertex::hasAlreadyFailed(const VertexPtr& potentialChild) const
         {
             this->assertNotPruned();
 
@@ -382,7 +382,7 @@ namespace ompl
             return failedVIds_.count( potentialChild->getId() ) > 0u;
         }
 
-        void Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
+        void BITstar::Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
         {
             this->assertNotPruned();
 
@@ -435,12 +435,12 @@ namespace ompl
             //No else, do not update the children. I hope the caller knows what they're doing.
         }
 
-        void Vertex::assertNotPruned() const
+        void BITstar::Vertex::assertNotPruned() const
         {
             if (isPruned_ == true)
             {
                 throw ompl::Exception("Attempting to access a pruned vertex.");
             }
         }
-    }//geometric
-}//ompl
+    } // geometric
+} // ompl

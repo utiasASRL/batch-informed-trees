@@ -45,7 +45,7 @@ namespace ompl
 {
     namespace geometric
     {
-        IntegratedQueue::IntegratedQueue(const VertexPtr& startVertex, const VertexPtr& goalVertex, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget)
+        BITstar::IntegratedQueue::IntegratedQueue(const VertexPtr& startVertex, const VertexPtr& goalVertex, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget)
             :   opt_(startVertex->getOpt()),
                 startVertex_(startVertex),
                 goalVertex_(goalVertex),
@@ -59,9 +59,9 @@ namespace ompl
                 useFailureTracking_(false),
                 outgoingLookupTables_(true),
                 incomingLookupTables_(true),
-                vertexQueue_( boost::bind(&IntegratedQueue::vertexQueueComparison, this, _1, _2) ), //This tells the vertexQueue_ to use the vertexQueueComparison for sorting
+                vertexQueue_( boost::bind(&BITstar::IntegratedQueue::vertexQueueComparison, this, _1, _2) ), //This tells the vertexQueue_ to use the vertexQueueComparison for sorting
                 vertexToExpand_( vertexQueue_.begin() ),
-                edgeQueue_( boost::bind(&IntegratedQueue::edgeQueueComparison, this, _1, _2) ), //This tells the edgeQueue_ to use the edgeQueueComparison for sorting
+                edgeQueue_( boost::bind(&BITstar::IntegratedQueue::edgeQueueComparison, this, _1, _2) ), //This tells the edgeQueue_ to use the edgeQueueComparison for sorting
                 vertexIterLookup_(),
                 outgoingEdges_(),
                 incomingEdges_(),
@@ -74,7 +74,13 @@ namespace ompl
 
 
 
-        void IntegratedQueue::insertVertex(const VertexPtr& newVertex)
+        BITstar::IntegratedQueue::~IntegratedQueue()
+        {
+        }
+
+
+
+        void BITstar::IntegratedQueue::insertVertex(const VertexPtr& newVertex)
         {
             //Insert the vertex:
             this->vertexInsertHelper(newVertex, true);
@@ -82,7 +88,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::insertEdge(const vertex_pair_t& newEdge)
+        void BITstar::IntegratedQueue::insertEdge(const vertex_pair_t& newEdge)
         {
             //Call my helper function:
             this->edgeInsertHelper(newEdge, edgeQueue_.end());
@@ -90,7 +96,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::eraseVertex(const VertexPtr& oldVertex, bool disconnectParent)
+        void BITstar::IntegratedQueue::eraseVertex(const VertexPtr& oldVertex, bool disconnectParent)
         {
             //If requested, disconnect from parent, cascading cost updates:
             if (disconnectParent == true)
@@ -104,7 +110,7 @@ namespace ompl
 
 
 
-        VertexPtr IntegratedQueue::frontVertex()
+        BITstar::VertexPtr BITstar::IntegratedQueue::frontVertex()
         {
             if (this->isEmpty() == true)
             {
@@ -120,7 +126,7 @@ namespace ompl
 
 
 
-        IntegratedQueue::vertex_pair_t IntegratedQueue::frontEdge()
+        BITstar::IntegratedQueue::vertex_pair_t BITstar::IntegratedQueue::frontEdge()
         {
             if (this->isEmpty() == true)
             {
@@ -136,7 +142,7 @@ namespace ompl
 
 
 
-        ompl::base::Cost IntegratedQueue::frontVertexValue()
+        ompl::base::Cost BITstar::IntegratedQueue::frontVertexValue()
         {
             if (this->isEmpty() == true)
             {
@@ -152,7 +158,7 @@ namespace ompl
 
 
 
-        IntegratedQueue::cost_pair_t IntegratedQueue::frontEdgeValue()
+        BITstar::IntegratedQueue::cost_pair_t BITstar::IntegratedQueue::frontEdgeValue()
         {
             if (this->isEmpty() == true)
             {
@@ -168,7 +174,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::popFrontEdge(vertex_pair_t& bestEdge)
+        void BITstar::IntegratedQueue::popFrontEdge(vertex_pair_t& bestEdge)
         {
             if (this->isEmpty() == true)
             {
@@ -187,7 +193,7 @@ namespace ompl
 
 
 
-        IntegratedQueue::vertex_pair_t IntegratedQueue::popFrontEdge()
+        BITstar::IntegratedQueue::vertex_pair_t BITstar::IntegratedQueue::popFrontEdge()
         {
             vertex_pair_t rval;
 
@@ -198,14 +204,14 @@ namespace ompl
 
 
 
-        void IntegratedQueue::setThreshold(const ompl::base::Cost& costThreshold)
+        void BITstar::IntegratedQueue::setThreshold(const ompl::base::Cost& costThreshold)
         {
             costThreshold_ = costThreshold;
         }
 
 
 
-        void IntegratedQueue::removeEdgesTo(const VertexPtr& cVertex)
+        void BITstar::IntegratedQueue::removeEdgesTo(const VertexPtr& cVertex)
         {
             if (edgeQueue_.empty() == false)
             {
@@ -243,7 +249,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::removeEdgesFrom(const VertexPtr& pVertex)
+        void BITstar::IntegratedQueue::removeEdgesFrom(const VertexPtr& pVertex)
         {
             if (edgeQueue_.empty() == false)
             {
@@ -281,7 +287,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::pruneEdgesTo(const VertexPtr& cVertex)
+        void BITstar::IntegratedQueue::pruneEdgesTo(const VertexPtr& cVertex)
         {
             if (edgeQueue_.empty() == false)
             {
@@ -334,7 +340,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::pruneEdgesFrom(const VertexPtr& pVertex)
+        void BITstar::IntegratedQueue::pruneEdgesFrom(const VertexPtr& pVertex)
         {
             if (edgeQueue_.empty() == false)
             {
@@ -388,7 +394,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::markVertexUnsorted(const VertexPtr& vertex)
+        void BITstar::IntegratedQueue::markVertexUnsorted(const VertexPtr& vertex)
         {
             resortVertices_.push_back(vertex);
 
@@ -401,7 +407,7 @@ namespace ompl
 
 
 
-        std::pair<unsigned int, unsigned int> IntegratedQueue::prune(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
+        std::pair<unsigned int, unsigned int> BITstar::IntegratedQueue::prune(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
         {
             if (this->isSorted() == false)
             {
@@ -470,10 +476,10 @@ namespace ompl
 
 
 
-        std::pair<unsigned int, unsigned int> IntegratedQueue::resort(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
+        std::pair<unsigned int, unsigned int> BITstar::IntegratedQueue::resort(const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
         {
             //Variable:
-            typedef boost::unordered_map<Vertex::id_t, VertexPtr> id_ptr_umap_t;
+            typedef boost::unordered_map<BITstar::vid_t, VertexPtr> id_ptr_umap_t;
             typedef std::map<unsigned int, id_ptr_umap_t> depth_id_ptr_map_t;
             //The number of vertices and samples pruned, respectively:
             std::pair<unsigned int, unsigned int> numPruned;
@@ -560,7 +566,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::finish()
+        void BITstar::IntegratedQueue::finish()
         {
             //Clear the edge containers:
             edgeQueue_.clear();
@@ -577,7 +583,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::reset()
+        void BITstar::IntegratedQueue::reset()
         {
             //Make sure the queue is "finished":
             this->finish();
@@ -588,7 +594,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::clear()
+        void BITstar::IntegratedQueue::clear()
         {
             //Clear:
             //The vertex queue:
@@ -613,7 +619,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::vertexPruneCondition(const VertexPtr& state) const
+        bool BITstar::IntegratedQueue::vertexPruneCondition(const VertexPtr& state) const
         {
             //Threshold should always be g_t(x_g)
             //As the sample is in the graph (and therefore could be part of g_t), prune iff g^(v) + h^(v) > g_t(x_g)
@@ -623,7 +629,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::samplePruneCondition(const VertexPtr& state) const
+        bool BITstar::IntegratedQueue::samplePruneCondition(const VertexPtr& state) const
         {
             //Threshold should always be g_t(x_g)
             //As the sample is not in the graph (and therefore not part of g_t), prune if g^(v) + h^(v) >= g_t(x_g)
@@ -632,7 +638,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::edgePruneCondition(const vertex_pair_t& edge) const
+        bool BITstar::IntegratedQueue::edgePruneCondition(const vertex_pair_t& edge) const
         {
             bool rval;
             //Threshold should always be g_t(x_g)
@@ -655,14 +661,14 @@ namespace ompl
 
 
 
-        unsigned int IntegratedQueue::numEdges() const
+        unsigned int BITstar::IntegratedQueue::numEdges() const
         {
             return edgeQueue_.size();
         }
 
 
 
-        unsigned int IntegratedQueue::numVertices() const
+        unsigned int BITstar::IntegratedQueue::numVertices() const
         {
             //Variables:
             //The number of vertices left to expand:
@@ -684,7 +690,7 @@ namespace ompl
 
 
 
-        unsigned int IntegratedQueue::numEdgesTo(const VertexPtr& cVertex) const
+        unsigned int BITstar::IntegratedQueue::numEdgesTo(const VertexPtr& cVertex) const
         {
             //Variables:
             //The number of edges to:
@@ -725,7 +731,7 @@ namespace ompl
 
 
 
-        unsigned int IntegratedQueue::numEdgesFrom(const VertexPtr& pVertex) const
+        unsigned int BITstar::IntegratedQueue::numEdgesFrom(const VertexPtr& pVertex) const
         {
             //Variables:
             //The number of edges to:
@@ -766,21 +772,21 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::isSorted() const
+        bool BITstar::IntegratedQueue::isSorted() const
         {
             return resortVertices_.empty();
         }
 
 
 
-        bool IntegratedQueue::isReset() const
+        bool BITstar::IntegratedQueue::isReset() const
         {
             return (vertexToExpand_ == vertexQueue_.begin() && edgeQueue_.empty());
         }
 
 
 
-        bool IntegratedQueue::isEmpty()
+        bool BITstar::IntegratedQueue::isEmpty()
         {
             //Expand if the edge queue is empty but the vertex queue is not:
             while (edgeQueue_.empty() && vertexToExpand_ != vertexQueue_.end())
@@ -795,7 +801,37 @@ namespace ompl
 
 
 
-        void IntegratedQueue::listVertices(std::vector<VertexConstPtr>* vertexQueue)
+        bool BITstar::IntegratedQueue::isVertexExpanded(const VertexConstPtr& vertex) const
+        {
+            //Variable
+            //The vertex iterator
+            vid_vertex_queue_iter_umap_t::const_iterator lkupIter;
+
+            //Get the lookup iterator for the provided vertex
+            lkupIter = vertexIterLookup_.find(vertex->getId());
+
+            if (lkupIter == vertexIterLookup_.end())
+            {
+                throw ompl::Exception("Attempting to check the expansion status of a vertex not in the queue");
+            }
+
+            //Compare the value used to currently sort the vertex in the queue to the value of the token.
+            if (vertexToExpand_ == vertexQueue_.end())
+            {
+                //If the token is at the end of the queue, obviously the vertex is expanded:
+                return true;
+            }
+            else
+            {
+                //By virtue of the vertex expansion rules, the token will always sit at the front of a group of equivalent cost vertices (that is to say, all vertices with the same cost get expanded at the same time)
+                //Therefore, the vertex is expanded if it's cost is strictly better than the token.
+                return this->isCostBetterThan(lkupIter->second->first, vertexToExpand_->first);
+            }
+        }
+
+
+
+        void BITstar::IntegratedQueue::listVertices(std::vector<VertexConstPtr>* vertexQueue)
         {
             //Clear the given list:
             vertexQueue->clear();
@@ -810,7 +846,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::listEdges(std::vector<std::pair<VertexConstPtr, VertexConstPtr> >* edgeQueue)
+        void BITstar::IntegratedQueue::listEdges(std::vector<std::pair<VertexConstPtr, VertexConstPtr> >* edgeQueue)
         {
             //Clear the vector
             edgeQueue->clear();
@@ -830,7 +866,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::updateQueue()
+        void BITstar::IntegratedQueue::updateQueue()
         {
             //Variables:
             //Whether to expand:
@@ -848,6 +884,7 @@ namespace ompl
                         //The edge queue is empty, any edge is better than this!
                         this->expandNextVertex();
                     }
+                    //This is isCostBetterThanOrEquivalentTo because of the second ordering criteria. The vertex expanded could match the edge in queue on total cost, but have less cost-to-come.
                     else if (this->isCostBetterThanOrEquivalentTo( vertexToExpand_->first, edgeQueue_.begin()->first.first ) == true)
                     {
                         //The vertex *could* give a better edge than our current best edge:
@@ -885,7 +922,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::expandNextVertex()
+        void BITstar::IntegratedQueue::expandNextVertex()
         {
             //Should we expand the next vertex? Will it be pruned?
             if (this->vertexPruneCondition(vertexToExpand_->second) == false)
@@ -905,7 +942,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::expandVertex(const VertexPtr& vertex)
+        void BITstar::IntegratedQueue::expandVertex(const VertexPtr& vertex)
         {
             //Should we expand this vertex?
             if (this->vertexPruneCondition(vertex) == false)
@@ -961,7 +998,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::queueupEdge(const VertexPtr& parent, const VertexPtr& child)
+        void BITstar::IntegratedQueue::queueupEdge(const VertexPtr& parent, const VertexPtr& child)
         {
             //Variables:
             //A bool to store the conditional failed edge check
@@ -1001,7 +1038,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::reinsertVertex(const VertexPtr& unorderedVertex)
+        void BITstar::IntegratedQueue::reinsertVertex(const VertexPtr& unorderedVertex)
         {
             //Variables:
             //Whether the vertex is expanded.
@@ -1080,7 +1117,7 @@ namespace ompl
 
 
 
-        std::pair<unsigned int, unsigned int> IntegratedQueue::pruneBranch(const VertexPtr& branchBase, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
+        std::pair<unsigned int, unsigned int> BITstar::IntegratedQueue::pruneBranch(const VertexPtr& branchBase, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN)
         {
             //We must iterate over the children of this vertex and prune each one.
             //Then we must decide if this vertex (a) gets deleted or (b) placed back on the sample set.
@@ -1142,7 +1179,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::disconnectParent(const VertexPtr& oldVertex, bool cascadeCostUpdates)
+        void BITstar::IntegratedQueue::disconnectParent(const VertexPtr& oldVertex, bool cascadeCostUpdates)
         {
             if (oldVertex->hasParent() == false)
             {
@@ -1162,7 +1199,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::vertexInsertHelper(const VertexPtr& newVertex, bool expandIfBeforeToken)
+        void BITstar::IntegratedQueue::vertexInsertHelper(const VertexPtr& newVertex, bool expandIfBeforeToken)
         {
             //Variable:
             //The iterator to the new edge in the queue:
@@ -1244,7 +1281,7 @@ namespace ompl
 
 
 
-        unsigned int IntegratedQueue::vertexRemoveHelper(VertexPtr oldVertex, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN, bool removeLookups)
+        unsigned int BITstar::IntegratedQueue::vertexRemoveHelper(VertexPtr oldVertex, const vertex_nn_ptr_t& vertexNN, const vertex_nn_ptr_t& freeStateNN, bool removeLookups)
         {
             //Variable
             //The number of samples deleted (i.e., if this vertex is NOT moved to a sample, this is a 1)
@@ -1340,7 +1377,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::edgeInsertHelper(const vertex_pair_t& newEdge, edge_queue_iter_t positionHint)
+        void BITstar::IntegratedQueue::edgeInsertHelper(const vertex_pair_t& newEdge, edge_queue_iter_t positionHint)
         {
             //Variable:
             //The iterator to the new edge in the queue:
@@ -1375,7 +1412,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::edgeRemoveHelper(const edge_queue_iter_t& oldEdgeIter, bool rmIncomingLookup, bool rmOutgoingLookup)
+        void BITstar::IntegratedQueue::edgeRemoveHelper(const edge_queue_iter_t& oldEdgeIter, bool rmIncomingLookup, bool rmOutgoingLookup)
         {
             //Erase the lookup tables:
             if (rmIncomingLookup == true)
@@ -1398,7 +1435,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::rmIncomingLookup(const edge_queue_iter_t& mmapIterToRm)
+        void BITstar::IntegratedQueue::rmIncomingLookup(const edge_queue_iter_t& mmapIterToRm)
         {
             if (incomingLookupTables_ == true)
             {
@@ -1409,7 +1446,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::rmOutgoingLookup(const edge_queue_iter_t& mmapIterToRm)
+        void BITstar::IntegratedQueue::rmOutgoingLookup(const edge_queue_iter_t& mmapIterToRm)
         {
             if (outgoingLookupTables_ == true)
             {
@@ -1420,7 +1457,7 @@ namespace ompl
 
 
 
-        void IntegratedQueue::rmEdgeLookupHelper(vid_edge_queue_iter_umap_t& lookup, const Vertex::id_t& idx, const edge_queue_iter_t& mmapIterToRm)
+        void BITstar::IntegratedQueue::rmEdgeLookupHelper(vid_edge_queue_iter_umap_t& lookup, const BITstar::vid_t& idx, const edge_queue_iter_t& mmapIterToRm)
         {
             //Variable:
             //An iterator to the vertex,list pair in the lookup
@@ -1491,21 +1528,21 @@ namespace ompl
 
 
 
-        ompl::base::Cost IntegratedQueue::vertexQueueValue(const VertexPtr& vertex) const
+        ompl::base::Cost BITstar::IntegratedQueue::vertexQueueValue(const VertexPtr& vertex) const
         {
             return currentHeuristicVertexFunc_(vertex);
         }
 
 
 
-        IntegratedQueue::cost_pair_t IntegratedQueue::edgeQueueValue(const vertex_pair_t& edge) const
+        BITstar::IntegratedQueue::cost_pair_t BITstar::IntegratedQueue::edgeQueueValue(const vertex_pair_t& edge) const
         {
             return std::make_pair(currentHeuristicEdgeFunc_(edge), edge.first->getCost());
         }
 
 
 
-        bool IntegratedQueue::vertexQueueComparison(const ompl::base::Cost& lhs, const ompl::base::Cost& rhs) const
+        bool BITstar::IntegratedQueue::vertexQueueComparison(const ompl::base::Cost& lhs, const ompl::base::Cost& rhs) const
         {
             //lhs < rhs?
             return this->isCostBetterThan(lhs, rhs);
@@ -1513,7 +1550,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::edgeQueueComparison(const cost_pair_t& lhs, const cost_pair_t& rhs) const
+        bool BITstar::IntegratedQueue::edgeQueueComparison(const cost_pair_t& lhs, const cost_pair_t& rhs) const
         {
             bool lhsLTrhs;
 
@@ -1539,14 +1576,14 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::IntegratedQueue::isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             return a.value() < b.value();
         }
 
 
 
-        bool IntegratedQueue::isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::IntegratedQueue::isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If b is better than a, then a is worse than b
             return this->isCostBetterThan(b, a);
@@ -1554,7 +1591,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::IntegratedQueue::isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is not better than b, and b is not better than a, then they are equal
             return !this->isCostBetterThan(a,b) && !this->isCostBetterThan(b,a);
@@ -1562,7 +1599,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::IntegratedQueue::isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is better than b, or b is better than a, then they are not equal
             return this->isCostBetterThan(a,b) || this->isCostBetterThan(b,a);
@@ -1570,7 +1607,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::IntegratedQueue::isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If b is not better than a, then a is better than, or equal to, b
             return !this->isCostBetterThan(b, a);
@@ -1578,7 +1615,7 @@ namespace ompl
 
 
 
-        bool IntegratedQueue::isCostWorseThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::IntegratedQueue::isCostWorseThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is not better than b, than a is worse than, or equal to, b
             return !this->isCostBetterThan(a,b);
@@ -1586,14 +1623,14 @@ namespace ompl
 
 
 
-        void IntegratedQueue::setUseFailureTracking(bool trackFailures)
+        void BITstar::IntegratedQueue::setUseFailureTracking(bool trackFailures)
         {
             useFailureTracking_ = trackFailures;
         }
 
 
 
-        bool IntegratedQueue::getUseFailureTracking() const
+        bool BITstar::IntegratedQueue::getUseFailureTracking() const
         {
             return useFailureTracking_;
         }

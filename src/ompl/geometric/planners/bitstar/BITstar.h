@@ -42,8 +42,12 @@
 #include <string>
 //std::pair
 #include <utility>
-//std::set and std::multiset
-#include <set>
+//std::vector
+#include <vector>
+//std::list
+#include <list>
+//std::multimap
+#include <map>
 
 //Boost:
 //boost::unordered_set (pre-C++11 std::unordered_set)
@@ -51,22 +55,19 @@
 //For boost::function
 #include <boost/function.hpp>
 
-//My vertex class:
-#include "ompl/geometric/planners/bitstar/Vertex.h"
-//My queue class
-#include "ompl/geometric/planners/bitstar/IntegratedQueue.h"
+//OMPL:
 //The base-class of planners:
 #include "ompl/base/Planner.h"
 //The nearest neighbours structure
 #include "ompl/datastructures/NearestNeighbors.h"
 //The informed sampler structure
 #include "ompl/base/samplers/InformedStateSampler.h"
-
+//Planner includes:
 //#include "ompl/geometric/planners/PlannerIncludes.h"
 
-//#include <limits>
-//#include <vector>
-//#include <utility>
+//BIT*:
+//The helper data classes, Vertex.h and IntegratedQueue.h are included *after* the declaration of the BITstar class as they are member classes of BITstar.
+
 
 
 namespace ompl
@@ -94,6 +95,18 @@ namespace ompl
         class BITstar : public ompl::base::Planner
         {
         public:
+            /// @cond IGNORE
+            class Vertex;
+            class idGenerator;
+            class IntegratedQueue;
+            /// @endcond
+            typedef boost::shared_ptr<Vertex> VertexPtr;
+            typedef boost::shared_ptr<const Vertex> VertexConstPtr;
+            typedef boost::weak_ptr<Vertex> VertexWeakPtr;
+            typedef boost::shared_ptr<IntegratedQueue> IntegratedQueuePtr;
+            /** \brief A typedef to the vertex id type */
+            typedef unsigned int vid_t;
+
             BITstar(const base::SpaceInformationPtr& si, const std::string& name = "BITstar");
 
             virtual ~BITstar();
@@ -448,7 +461,7 @@ namespace ompl
             vertex_nn_ptr_t                                          vertexNN_;
 
             /** \brief The integrated queue of vertices to expand and edges to process ordered on "f-value", i.e., estimated solution cost. Remaining vertex queue "size" and edge queue size are accessible via vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
-            boost::shared_ptr<IntegratedQueue>                       intQueue_;
+            IntegratedQueuePtr                                       intQueue_;
 
             /** \brief The resulting sampling density for a batch */
             double                                                   sampleDensity_;
@@ -562,4 +575,12 @@ namespace ompl
         }; //class: BITstar
     } //geometric
 } //ompl
+
+
+//BIT* Includes:
+//My vertex class:
+#include "ompl/geometric/planners/bitstar/Vertex.h"
+//My queue class
+#include "ompl/geometric/planners/bitstar/IntegratedQueue.h"
+
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_BITSTAR_

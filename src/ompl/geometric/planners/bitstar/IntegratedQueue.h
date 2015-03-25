@@ -60,6 +60,8 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 
 //BIT*:
+//I am member class of the BITstar class, so I need to include it's definition to be aware of the class BITstar. It has a forward declaration to me.
+#include "ompl/geometric/planners/bitstar/BITstar.h"
 //The vertex class:
 #include "ompl/geometric/planners/bitstar/Vertex.h"
 
@@ -78,9 +80,9 @@ namespace ompl
         popping the best value off the front. It is specifically a multimap ordered on std::pair<ompl::base::Cost, ompl::base::Cost>
 
         @par Notes:
-            - An eraseEdge() function could be made by mimicking the vertex->vertexQueue_::iterator datastructure for the edgeQueue_
+            - An eraseEdge() function could be made by mimicking the vertex -> vertexQueue_::iterator lookup datastructure for the edgeQueue_
         */
-        class IntegratedQueue
+        class BITstar::IntegratedQueue
         {
         public:
             ////////////////////////////////
@@ -113,6 +115,8 @@ namespace ompl
             //Public functions:
             /** \brief Construct an integrated queue. */
             IntegratedQueue(const VertexPtr& startVertex, const VertexPtr& goalVertex, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget);
+
+            virtual ~IntegratedQueue();
 
             /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
             void setUseFailureTracking(bool trackFailures);
@@ -221,6 +225,9 @@ namespace ompl
             /** \brief Returns true if the queue is empty. In the case where the edge queue is empty but the vertex queue is not, this function will expand vertices *until* the edge queue is not empty or there are no vertices to expand. */
             bool isEmpty();
 
+            /** \brief Returns whether a given vertex has been expanded or not */
+            bool isVertexExpanded(const VertexConstPtr& vertex) const;
+
             /** \brief Get a copy of the vertices in the vertex queue that are left to be expanded. This is expensive and is only meant for animations/debugging. */
             void listVertices(std::vector<VertexConstPtr>* vertexQueue);
 
@@ -245,7 +252,7 @@ namespace ompl
             typedef cost_vertex_multimap_t::iterator vertex_queue_iter_t;
 
             /** \brief A typedef for an unordered_map of vertex queue iterators indexed on vertex*/
-            typedef boost::unordered_map<Vertex::id_t, vertex_queue_iter_t> vid_vertex_queue_iter_umap_t;
+            typedef boost::unordered_map<BITstar::vid_t, vertex_queue_iter_t> vid_vertex_queue_iter_umap_t;
 
             /** \brief A typedef for an iterator into the edge queue multimap */
             typedef cost_pair_vertex_pair_multimap_t::iterator edge_queue_iter_t;
@@ -254,7 +261,7 @@ namespace ompl
             typedef std::list<edge_queue_iter_t> edge_queue_iter_list_t;
 
             /** \brief A typedef for an unordered_map of edge queue iterators indexed by vertex*/
-            typedef boost::unordered_map<Vertex::id_t, edge_queue_iter_list_t> vid_edge_queue_iter_umap_t;
+            typedef boost::unordered_map<BITstar::vid_t, edge_queue_iter_list_t> vid_edge_queue_iter_umap_t;
             ////////////////////////////////
 
             ////////////////////////////////
@@ -375,7 +382,7 @@ namespace ompl
             void rmOutgoingLookup(const edge_queue_iter_t& mmapIterToRm);
 
             /** \brief Erase an edge from the given lookup container at the specified index */
-            void rmEdgeLookupHelper(vid_edge_queue_iter_umap_t& lookup, const Vertex::id_t& idx, const edge_queue_iter_t& mmapIterToRm);
+            void rmEdgeLookupHelper(vid_edge_queue_iter_umap_t& lookup, const BITstar::vid_t& idx, const edge_queue_iter_t& mmapIterToRm);
             ////////////////////////////////
 
 
@@ -417,7 +424,7 @@ namespace ompl
             bool isCostWorseThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
             ////////////////////////////////
         }; //class: IntegratedQueue
-    } //geometric
-} //ompl
+    } // geometric
+} // ompl
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_INTEGRATEDQUEUE_
 
