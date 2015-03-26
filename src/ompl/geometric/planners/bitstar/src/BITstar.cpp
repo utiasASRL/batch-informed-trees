@@ -438,13 +438,13 @@ namespace ompl
 
             if (hasSolution_ == true)
             {
-                OMPL_INFORM("%s: Found a final solution of cost %.4f from %u samples by using %u vertices and %u rewirings. Final graph has %u vertices.", Planner::getName().c_str(), bestCost_.value(), numSamples_, numVertices_, numRewirings_, vertexNN_->size());
+                this->endSuccessMessage();
 
                 this->publishSolution();
             }
             else
             {
-                OMPL_INFORM("%s: Did not find a solution from %u samples after %u iterations, %u vertices and %u rewirings.", Planner::getName().c_str(), numSamples_, numIterations_, numVertices_, numRewirings_);
+                this->endFailureMessage();
             }
 
             this->statusMessage(ompl::msg::LOG_DEBUG, "End solve");
@@ -853,8 +853,15 @@ namespace ompl
 
 
 
-        void BITstar::prune()
+        bool BITstar::prune()
         {
+            //Variable:
+            //Whether or not we pruned
+            bool rval;
+
+            //Start as unpruned:
+            rval = false;
+
             //Test if we should we do a little tidying up:
             //Is pruning enabled? Do we have a solution? Has the solution changed enough?
             if ( (usePruning_ == true) && (hasSolution_ == true) && (std::abs(this->fractionalChange(bestCost_, prunedCost_)) > pruneFraction_) )
@@ -894,12 +901,17 @@ namespace ompl
 
                     //And the measure:
                     prunedMeasure_ = informedMeasure;
+
+                    //Mark as pruned:
+                    rval = true;
                 }
                 //No else, it's not worth the work to prune...
 
                 this->statusMessage(ompl::msg::LOG_DEBUG, "End pruning.");
             }
             //No else, why was I called?
+
+            return rval;
         }
 
 
@@ -1128,7 +1140,7 @@ namespace ompl
             stopLoop_ = stopOnSolnChange_ ;
 
             //Brag:
-            OMPL_INFORM("%s: Found a solution consisting of %u vertices with a total cost of %.4f in %u iterations (%u vertices, %u rewirings). Graph currently has %u vertices.", Planner::getName().c_str(), bestLength_, bestCost_, numIterations_, numVertices_, numRewirings_, vertexNN_->size());
+            this->goalMessage();
         }
 
 
@@ -1465,6 +1477,27 @@ namespace ompl
         }
 
 
+
+
+
+        void BITstar::goalMessage() const
+        {
+            OMPL_INFORM("%s: Found a solution consisting of %u vertices with a total cost of %.4f in %u iterations (%u vertices, %u rewirings). Graph currently has %u vertices.", Planner::getName().c_str(), bestLength_, bestCost_, numIterations_, numVertices_, numRewirings_, vertexNN_->size());
+        }
+
+
+
+        void BITstar::endSuccessMessage() const
+        {
+            OMPL_INFORM("%s: Found a final solution of cost %.4f from %u samples by using %u vertices and %u rewirings. Final graph has %u vertices.", Planner::getName().c_str(), bestCost_.value(), numSamples_, numVertices_, numRewirings_, vertexNN_->size());
+        }
+
+
+
+        void BITstar::endFailureMessage() const
+        {
+            OMPL_INFORM("%s: Did not find a solution from %u samples after %u iterations, %u vertices and %u rewirings.", Planner::getName().c_str(), numSamples_, numIterations_, numVertices_, numRewirings_);
+        }
 
 
 

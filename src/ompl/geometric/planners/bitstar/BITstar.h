@@ -75,7 +75,7 @@ namespace ompl
     namespace geometric
     {
         /**
-            @anchor gBITTstar
+            @anchor gBITstar
             @par Short description
             \ref gBITstar "BIT*" (Batch Informed Trees) is an anytime asymptotically-optimal sampling-based
             motion planning algorithm that extends Lifelong Planning A* (LPA*) techniques to continuous planning
@@ -247,7 +247,7 @@ namespace ompl
 
             /** \brief Retrieve the \e total number of states generated
             as a planner-progress property. (numSamples_) */
-            std::string totalStatesCreatedProgressProperty() const;
+            virtual std::string totalStatesCreatedProgressProperty() const;
 
             /** \brief Retrieve the \e total number of vertices added to the graph
             as a planner-progress property. (numVertices_) */
@@ -280,8 +280,8 @@ namespace ompl
             ///////////////////////////////////////
 
         protected:
+            //Everything is only protected so we can create modifications without duplicating code by deriving from the class:
 
-        private:
             //Typedefs:
             /** \brief A pair of vertices, i.e., an edge. */
             typedef std::pair<VertexPtr, VertexPtr> vertex_pair_t;
@@ -302,7 +302,7 @@ namespace ompl
             void updateSamples(const VertexPtr& vertex);
 
             /** \brief Prune the problem */
-            void prune();
+            bool prune();
 
             /** \brief Resort the queue */
             void resort();
@@ -435,8 +435,18 @@ namespace ompl
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
-            //Helper function for debug logging
-            void statusMessage(const ompl::msg::LogLevel& msgLevel, const std::string& status) const;
+            //Helper functions for logging
+            /** \brief The message printed when a goal is found/improved */
+            virtual void goalMessage() const;
+
+            /** \brief The message printed when solve finishes successfully */
+            virtual void endSuccessMessage() const;
+
+            /** \brief The message printed when solve finishes unsuccessfully */
+            virtual void endFailureMessage() const;
+
+            /** \brief A debug-level status message for debugging. */
+            virtual void statusMessage(const ompl::msg::LogLevel& msgLevel, const std::string& status) const;
             ///////////////////////////////////////////////////////////////////
 
 
