@@ -369,71 +369,73 @@ namespace ompl
                 {
                     this->newBatch();
                 }
-                //No else, there is existing work to do!
-
-                //Pop the minimum edge
-                intQueue_->popFrontEdge(bestEdge);
-
-                //In the best case, can this edge improve our solution given the current graph?
-                //g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)
-                if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), goalVertex_->getCost() ) == true)
+                else
                 {
-                    //Variables:
-                    //The true cost of the edge:
-                    ompl::base::Cost trueEdgeCost;
+                    //If the edge queue is not empty, then there is work to do!
+                    //Pop the minimum edge
+                    intQueue_->popFrontEdge(bestEdge);
 
-                    //Get the true cost of the edge (Is this the correct way?):
-                    trueEdgeCost = this->trueEdgeCost(bestEdge);
-
-                    //Can this actual edge ever improve our solution?
-                    //g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)
-                    if (this->isCostBetterThan( opt_->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  goalVertex_->getCost() ) == true)
+                    //In the best case, can this edge improve our solution given the current graph?
+                    //g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)
+                    if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), goalVertex_->getCost() ) == true)
                     {
-                        //Does this edge have a collision?
-                        if (this->checkEdge(bestEdge) == true)
+                        //Variables:
+                        //The true cost of the edge:
+                        ompl::base::Cost trueEdgeCost;
+
+                        //Get the true cost of the edge (Is this the correct way?):
+                        trueEdgeCost = this->trueEdgeCost(bestEdge);
+
+                        //Can this actual edge ever improve our solution?
+                        //g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)
+                        if (this->isCostBetterThan( opt_->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  goalVertex_->getCost() ) == true)
                         {
-                            //Does the current edge improve our graph?
-                            //g_t(v) + c(v,x) < g_t(x)
-                            if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), trueEdgeCost), bestEdge.second->getCost() ) == true)
+                            //Does this edge have a collision?
+                            if (this->checkEdge(bestEdge) == true)
                             {
-                                //YAAAAH. Add the edge! Allowing for the sample to be removed from free if it is not currently connected and otherwise propagate cost updates to descendants.
-                                //addEdge will update the queue and handle the extra work that occurs if this edge improves the solution.
-                                this->addEdge(bestEdge, trueEdgeCost, true, true);
+                                //Does the current edge improve our graph?
+                                //g_t(v) + c(v,x) < g_t(x)
+                                if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), trueEdgeCost), bestEdge.second->getCost() ) == true)
+                                {
+                                    //YAAAAH. Add the edge! Allowing for the sample to be removed from free if it is not currently connected and otherwise propagate cost updates to descendants.
+                                    //addEdge will update the queue and handle the extra work that occurs if this edge improves the solution.
+                                    this->addEdge(bestEdge, trueEdgeCost, true, true);
 
-                                //Prune the edge queue of any unnecessary incoming edges
-                                intQueue_->pruneEdgesTo(bestEdge.second);
+                                    //Prune the edge queue of any unnecessary incoming edges
+                                    intQueue_->pruneEdgesTo(bestEdge.second);
 
-                                //We will only prune the whole graph/samples on a new batch.
+                                    //We will only prune the whole graph/samples on a new batch.
+                                }
+                                //No else, this edge may be useful at some later date.
                             }
-                            //No else, this edge may be useful at some later date.
+                            else if (useFailureTracking_ == true)
+                            {
+                                //If the edge failed, and we're tracking failures, record.
+                                //This edge has a collision and can never be helpful. Poor edge. Add the target to the list of failed children for the source:
+                                bestEdge.first->markAsFailedChild(bestEdge.second);
+                            }
+                            //No else, we failed and we're not tracking those
                         }
                         else if (useFailureTracking_ == true)
                         {
                             //If the edge failed, and we're tracking failures, record.
-                            //This edge has a collision and can never be helpful. Poor edge. Add the target to the list of failed children for the source:
+                            //This edge either has a very high edge cost and can never be helpful. Poor edge. Add the target to the list of failed children for the source
                             bestEdge.first->markAsFailedChild(bestEdge.second);
                         }
                         //No else, we failed and we're not tracking those
                     }
-                    else if (useFailureTracking_ == true)
+                    else if (intQueue_->isSorted() == false)
                     {
-                        //If the edge failed, and we're tracking failures, record.
-                        //This edge either has a very high edge cost and can never be helpful. Poor edge. Add the target to the list of failed children for the source
-                        bestEdge.first->markAsFailedChild(bestEdge.second);
+                        //The edge cannot improve our solution, but the queue is imperfectly sorted, so we must resort before we give up.
+                        this->resort();
                     }
-                    //No else, we failed and we're not tracking those
-                }
-                else if (intQueue_->isSorted() == false)
-                {
-                    //The edge cannot improve our solution, but the queue is imperfectly sorted, so we must resort before we give up.
-                    this->resort();
-                }
-                else
-                {
-                    this->statusMessage(ompl::msg::LOG_DEBUG, "Clearing queue!");
-                    //Else, I cannot improve the current solution, and as the queue is perfectly sorted and I am the best edge, no one can improve the current solution . Give up on the batch:
-                    intQueue_->finish();
-                }
+                    else
+                    {
+                        this->statusMessage(ompl::msg::LOG_DEBUG, "Clearing queue!");
+                        //Else, I cannot improve the current solution, and as the queue is perfectly sorted and I am the best edge, no one can improve the current solution . Give up on the batch:
+                        intQueue_->finish();
+                    }
+                } //Integrated queue not empty.
             }
 
             if (hasSolution_ == true)
