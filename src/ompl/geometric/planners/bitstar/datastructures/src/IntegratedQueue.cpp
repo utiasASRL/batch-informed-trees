@@ -35,7 +35,7 @@
 /* Authors: Jonathan Gammell */
 
 //Myself:
-#include "ompl/geometric/planners/bitstar/IntegratedQueue.h"
+#include "ompl/geometric/planners/bitstar/datastructures/IntegratedQueue.h"
 
 //OMPL:
 //For exceptions:

@@ -34,8 +34,8 @@
 
 /* Authors: Jonathan Gammell */
 
-#ifndef OMPL_GEOMETRIC_PLANNERS_BITSTAR_INTEGRATEDQUEUE_
-#define OMPL_GEOMETRIC_PLANNERS_BITSTAR_INTEGRATEDQUEUE_
+#ifndef OMPL_GEOMETRIC_PLANNERS_BITSTAR_DATASTRUCTURES_INTEGRATEDQUEUE_
+#define OMPL_GEOMETRIC_PLANNERS_BITSTAR_DATASTRUCTURES_INTEGRATEDQUEUE_
 
 //STL/Boost/etc.:
 //std::pair
@@ -63,7 +63,7 @@
 //I am member class of the BITstar class, so I need to include it's definition to be aware of the class BITstar. It has a forward declaration to me.
 #include "ompl/geometric/planners/bitstar/BITstar.h"
 //The vertex class:
-#include "ompl/geometric/planners/bitstar/Vertex.h"
+#include "ompl/geometric/planners/bitstar/datastructures/Vertex.h"
 
 namespace ompl
 {
@@ -426,5 +426,5 @@ namespace ompl
         }; //class: IntegratedQueue
     } // geometric
 } // ompl
-#endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_INTEGRATEDQUEUE_
+#endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_DATASTRUCTURES_INTEGRATEDQUEUE_
 

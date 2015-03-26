@@ -579,8 +579,8 @@ namespace ompl
 
 //BIT* Includes:
 //My vertex class:
-#include "ompl/geometric/planners/bitstar/Vertex.h"
+#include "ompl/geometric/planners/bitstar/datastructures/Vertex.h"
 //My queue class
-#include "ompl/geometric/planners/bitstar/IntegratedQueue.h"
+#include "ompl/geometric/planners/bitstar/datastructures/IntegratedQueue.h"
 
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_BITSTAR_
