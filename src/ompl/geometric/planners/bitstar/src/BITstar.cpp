@@ -634,7 +634,6 @@ namespace ompl
 
             //Info:
             ++numIterations_;
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Iterate");
 
             //If we're using strict queue ordering, make sure the queues are up to date
             if(useStrictQueueOrdering_ == true)
