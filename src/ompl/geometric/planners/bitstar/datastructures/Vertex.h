@@ -49,11 +49,8 @@
 #include <boost/weak_ptr.hpp>
 //For unordered sets of failed children:
 #include <boost/unordered_set.hpp>
-//For locking the ID generator:
-#include <boost/thread/mutex.hpp>
 
-//Forward declarations:
-#include "ompl/util/ClassForward.h"
+//OMPL:
 //The space information
 #include "ompl/base/SpaceInformation.h"
 //The optimization objective
@@ -67,19 +64,24 @@ namespace ompl
     namespace geometric
     {
 
-        /** \brief A class to store a state as a vertex in a (tree) graph.
+        /** @anchor gVertex
+        @par Short description
+        A class to store a state as a vertex in a (tree) graph.
         Allocates and frees it's own memory on construction/destruction.
         Parent vertices are owned by their children as shared pointers,
         assuring that a parent vertex will not be deleted while the child exists.
         Child vertices are owned by their parents as weak pointers, assuring
         that the shared-pointer ownership loop is broken.
 
+        @par Note
         Add/Remove functions should almost always update their children's cost.
         The only known exception is when a series of operations are being performed
         and it would be beneficial to delay the update until the last operation. In this case,
         make sure that the last call updates the children and is on the highest ancestor that has been
         changed. Updates only flow downstream.
         */
+
+        /** \brief The vertex of the underlying graphs in \ref gBITstar "BIT*"*/
         class BITstar::Vertex
         {
         public:
@@ -162,16 +164,20 @@ namespace ompl
             void markPruned();
 
             /** \brief Mark the given vertex as a \e failed connection from this vertex */
-            void markAsFailedChild(const VertexPtr& failedChild);
+            void markAsFailedChild(const VertexConstPtr& failedChild);
 
             /** \brief Check if the given vertex has previously been marked as a failed child of this vertex */
-            bool hasAlreadyFailed(const VertexPtr& potentialChild) const;
+            bool hasAlreadyFailed(const VertexConstPtr& potentialChild) const;
 
         protected:
             /** \brief Calculates the updated cost and depth of the current state, as well as calling all children's updateCostAndDepth() functions and thus updating everything down-stream (if desired).*/
             void updateCostAndDepth(bool cascadeUpdates = true);
 
         private:
+            /** \brief The type of container used to store the failed children */
+            //typedef std::set<BITstar::vid_t>                          failedVIdsInTree_;
+            typedef boost::unordered_set<BITstar::vid_t>              failed_id_t;
+
             /** \brief The vertex ID */
             BITstar::vid_t                                           vId_;
 
@@ -209,37 +215,12 @@ namespace ompl
             std::vector<VertexWeakPtr>                           childWPtrs_;
 
             /** \brief The unordered set of failed child vertices*/
-            //std::set<BITstar::vid_t>                                 failedVIds_;
-            boost::unordered_set<BITstar::vid_t>                     failedVIds_;
+            failed_id_t                                              failedVIds_;
 
 
             /** \brief A helper function to check that the vertex is not pruned and throw if so */
             void assertNotPruned() const;
         }; //class: Vertex
-
-        //A generator class for vertex ids. I'm not sure that the mutex is right (or that it has the right effect) as I haven't had a need to test it.
-        //This is not actually used yet.
-        class BITstar::idGenerator
-        {
-        public:
-            inline idGenerator()
-            {
-                nextVId_ = 0u;
-            }
-
-            inline BITstar::vid_t getNextId()
-            {
-                //Create a scoped mutex copy of mutex_ that unlocks when it goes out of scope:
-                boost::mutex::scoped_lock scoped_lock(mutex_);
-
-                //Return the current ID and increment:
-                return nextVId_++;
-            }
-
-        private:
-            BITstar::vid_t                                           nextVId_;
-            boost::mutex                                             mutex_;
-        }; //class: idGenerator
     } //geometric
 } //ompl
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_DATASTRUCTURES_VERTEX_

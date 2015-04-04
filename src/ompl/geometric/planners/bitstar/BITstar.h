@@ -44,16 +44,6 @@
 #include <utility>
 //std::vector
 #include <vector>
-//std::list
-#include <list>
-//std::multimap
-#include <map>
-
-//Boost:
-//boost::unordered_set (pre-C++11 std::unordered_set)
-#include <boost/unordered_set.hpp>
-//For boost::function
-#include <boost/function.hpp>
 
 //OMPL:
 //The base-class of planners:
@@ -77,9 +67,9 @@ namespace ompl
         /**
             @anchor gBITstar
             @par Short description
-            \ref gBITstar "BIT*" (Batch Informed Trees) is an anytime asymptotically-optimal sampling-based
+            BIT* (Batch Informed Trees) is an anytime asymptotically optimal sampling-based
             motion planning algorithm that extends Lifelong Planning A* (LPA*) techniques to continuous planning
-            problems. \ref gBITstar "BIT*" accomplishes this by processing batches of samples with a heuristic.
+            problems. BIT* accomplishes this by processing batches of samples with a heuristic.
             In doing so, it strikes a balance between algorithms like RRT* and FMT*.
 
             @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
@@ -95,28 +85,41 @@ namespace ompl
         class BITstar : public ompl::base::Planner
         {
         public:
-            /// @cond IGNORE
+            //Forward declarations so that the classes belong to BIT*:
+            /** \brief The vertex of implicit and explicit graphs. */
             class Vertex;
-            class idGenerator;
+            /** \brief A generator of unique vertex IDs. */
+            class IdGenerator;
+            /** \brief The queue of edges to process as an integrated dual-stage queue (tracks both the expansion of vertices and the resulting edges) */
             class IntegratedQueue;
-            /// @endcond
+            //Helpful typedefs:
+            /** \brief A vertex shared pointer. */
             typedef boost::shared_ptr<Vertex> VertexPtr;
+            /** \brief A \e constant vertex shared pointer. */
             typedef boost::shared_ptr<const Vertex> VertexConstPtr;
+            /** \brief A vertex weak pointer. */
             typedef boost::weak_ptr<Vertex> VertexWeakPtr;
+            /** \brief An integrated queue shared pointer. */
             typedef boost::shared_ptr<IntegratedQueue> IntegratedQueuePtr;
-            /** \brief A typedef to the vertex id type */
+            /** \brief The vertex id type */
             typedef unsigned int vid_t;
 
+            /** \brief Construct! */
             BITstar(const base::SpaceInformationPtr& si, const std::string& name = "BITstar");
 
+            /** \brief Destruct! */
             virtual ~BITstar();
 
+            /** \brief Setup */
             virtual void setup();
 
+            /** \brief Clear */
             virtual void clear();
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
+            /** \brief Solve */
+            base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
 
+            /** \brief Get results */
             virtual void getPlannerData(base::PlannerData& data) const;
 
             /** \brief Get the next edge to be processed. Causes vertices in the queue to be expanded (if necessary) and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
@@ -131,7 +134,7 @@ namespace ompl
             /** \brief Get the whole set of vertices to be expanded. Expensive but helpful for some videos */
             void getVertexQueue(std::vector<VertexConstPtr>* verticesInQueue);
 
-            /** \brief Set a different nearest neighbors datastructure */
+            /** \brief Set a different nearest neighbours datastructure */
             template<template<typename T> class NN>
             void setNearestNeighbors();
 
@@ -192,6 +195,14 @@ namespace ompl
 
             /** \brief Get the fractional change in the solution cost necessary for pruning to occur. */
             double getPruneThresholdFraction() const;
+
+            /** \brief Delay considering rewiring edges until an initial solution is found. This improves
+            the time required to find an initial solution when doing so requires multiple batches and has
+            no effects on theoretical asymptotic optimality (as the rewiring edges are eventually considered). */
+            void setDelayRewiringUntilInitialSolution(bool delayRewiring);
+
+            /** \brief Get whether BIT* is delaying rewiring until a solution is found. */
+            bool getDelayRewiringUntilInitialSolution() const;
 
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by BIT*. */
@@ -295,17 +306,20 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             //BIT* primitives:
+            /** \brief A single iteration */
+            virtual void iterate();
+
             /** \brief Initialize variables for a new batch */
             void newBatch();
 
             /** \brief Update the list of free samples */
             void updateSamples(const VertexPtr& vertex);
 
-            /** \brief Prune the problem */
-            bool prune();
+            /** \brief Prune the problem. Returns true if pruning was done. */
+            virtual bool prune();
 
-            /** \brief Resort the queue */
-            void resort();
+            /** \brief Resort the queue. Returns true if any pruning was done. */
+            virtual bool resort();
 
             /** \brief Publish the found solution to the ProblemDefinition*/
             void publishSolution();
@@ -419,7 +433,7 @@ namespace ompl
             void initializeNearestTerms();
 
             /** \brief Update the appropriate nearest-neighbour terms, r_ and k_ */
-            void updateNearestTerms();
+            virtual void updateNearestTerms();
 
             /** \brief Calculate the r for r-disc nearest neighbours, a function of the current graph */
             double r(unsigned int N) const;
@@ -579,7 +593,10 @@ namespace ompl
             /** \brief The fractional decrease in solution cost required to trigger pruning (param) */
             double                                                   pruneFraction_;
 
-            /** Whether to stop the planner as soon as the path changes (param) */
+            /** \brief Whether to delay rewiring until a solution is found (param) */
+            bool                                                     delayRewiring_;
+
+            /** \brief Whether to stop the planner as soon as the path changes (param) */
             bool                                                     stopOnSolnChange_;
             ///////////////////////////////////////
         }; //class: BITstar
@@ -588,6 +605,8 @@ namespace ompl
 
 
 //BIT* Includes:
+//The Vertex ID generator class
+#include "ompl/geometric/planners/bitstar/datastructures/IdGenerator.h"
 //My vertex class:
 #include "ompl/geometric/planners/bitstar/datastructures/Vertex.h"
 //My queue class

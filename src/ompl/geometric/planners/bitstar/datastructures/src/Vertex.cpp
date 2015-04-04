@@ -34,19 +34,18 @@
 
 /* Authors: Jonathan Gammell */
 
+//Me!
 #include "ompl/geometric/planners/bitstar/datastructures/Vertex.h"
+//The ID generator class, this is actually included via BITstar, but to be clear.
+#include "ompl/geometric/planners/bitstar/datastructures/IdGenerator.h"
 
 
 namespace ompl
 {
     namespace geometric
     {
-        //The ID generator for making unique (in program instance) ids for vertices.
-        //As this is *static*, one instance exists across the entire program:
-        static BITstar::idGenerator IDGEN;
-
         BITstar::Vertex::Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root /*= false*/)
-          : vId_(IDGEN.getNextId()),
+          : vId_(BITstar::IdGenerator::getNewId()),
             si_(si),
             opt_(opt),
             state_( si_->allocState() ),
@@ -56,6 +55,7 @@ namespace ompl
             depth_(0u),
             parentSPtr_( VertexPtr() ),
             edgeCost_( opt_->infiniteCost() ),
+            cost_( opt_->infiniteCost() ),
             childWPtrs_(),
             failedVIds_()
         {
@@ -63,10 +63,7 @@ namespace ompl
             {
                 cost_ = opt_->identityCost();
             }
-            else
-            {
-                cost_ = opt_->infiniteCost();
-            }
+            //No else, infinite by default
         }
 
         BITstar::Vertex::~Vertex()
@@ -142,7 +139,14 @@ namespace ompl
 
             if (this->hasParent() == false)
             {
-                throw ompl::Exception("Attempting to access the parent of a vertex that does not have one..");
+                if (this->isRoot() == true)
+                {
+                    throw ompl::Exception("Attempting to access the parent of the root vertex.");
+                }
+                else
+                {
+                    throw ompl::Exception("Attempting to access the parent of a vertex that does not have one.");
+                }
             }
 
             return parentSPtr_;
@@ -154,7 +158,14 @@ namespace ompl
 
             if (this->hasParent() == false)
             {
-                throw ompl::Exception("Attempting to access the parent of a vertex that does not have one..");
+                if (this->isRoot() == true)
+                {
+                    throw ompl::Exception("Attempting to access the parent of the root vertex.");
+                }
+                else
+                {
+                    throw ompl::Exception("Attempting to access the parent of a vertex that does not have one.");
+                }
             }
 
             return parentSPtr_;
@@ -366,7 +377,7 @@ namespace ompl
             isPruned_ = true;
         }
 
-        void BITstar::Vertex::markAsFailedChild(const VertexPtr& failedChild)
+        void BITstar::Vertex::markAsFailedChild(const VertexConstPtr& failedChild)
         {
             this->assertNotPruned();
 
@@ -374,7 +385,7 @@ namespace ompl
         }
 
 
-        bool BITstar::Vertex::hasAlreadyFailed(const VertexPtr& potentialChild) const
+        bool BITstar::Vertex::hasAlreadyFailed(const VertexConstPtr& potentialChild) const
         {
             this->assertNotPruned();
 

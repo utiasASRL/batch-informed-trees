@@ -57,6 +57,7 @@ namespace ompl
                 currentHeuristicEdgeFunc_(currentHeuristicEdge),
                 currentHeuristicEdgeTargetFunc_(currentHeuristicEdgeTarget),
                 useFailureTracking_(false),
+                delayRewiring_(true),
                 outgoingLookupTables_(true),
                 incomingLookupTables_(true),
                 vertexQueue_( boost::bind(&BITstar::IntegratedQueue::vertexQueueComparison, this, _1, _2) ), //This tells the vertexQueue_ to use the vertexQueueComparison for sorting
@@ -66,7 +67,8 @@ namespace ompl
                 outgoingEdges_(),
                 incomingEdges_(),
                 resortVertices_(),
-                costThreshold_( std::numeric_limits<double>::infinity() ) //Purposeful gibberish
+                costThreshold_( std::numeric_limits<double>::infinity() ), //Purposeful gibberish
+                hasSolution_(false)
         {
             //The cost threshold:
             costThreshold_ = opt_->infiniteCost();
@@ -174,7 +176,7 @@ namespace ompl
 
 
 
-        void BITstar::IntegratedQueue::popFrontEdge(vertex_pair_t& bestEdge)
+        void BITstar::IntegratedQueue::popFrontEdge(vertex_pair_t* bestEdge)
         {
             if (this->isEmpty() == true)
             {
@@ -185,7 +187,7 @@ namespace ompl
             this->updateQueue();
 
             //Return the front:
-            bestEdge = edgeQueue_.begin()->second;
+            *bestEdge = edgeQueue_.begin()->second;
 
             //Erase the edge:
             this->edgeRemoveHelper(edgeQueue_.begin(), true, true);
@@ -197,9 +199,16 @@ namespace ompl
         {
             vertex_pair_t rval;
 
-            this->popFrontEdge(rval);
+            this->popFrontEdge(&rval);
 
             return rval;
+        }
+
+
+
+        void BITstar::IntegratedQueue::hasSolution()
+        {
+            hasSolution_ = true;
         }
 
 
@@ -614,6 +623,9 @@ namespace ompl
 
             //The cost threshold:
             costThreshold_ = opt_->infiniteCost();
+
+            //The existence of a solution:
+            hasSolution_ = false;
         }
 
 
@@ -961,8 +973,8 @@ namespace ompl
                     this->queueupEdge(vertex, neighbourSamples.at(i));
                 }
 
-                //If it is a new vertex, we also add rewiring candidates:
-                if (vertex->isNew() == true)
+                //If it is a new and we're not delyaing rewiring or do have a solution, we also add rewiring candidates:
+                if (vertex->isNew() == true && (delayRewiring_ == false || hasSolution_ == true))
                 {
                     //Variables:
                     //The vector of vertices within r of the vertexf
@@ -977,11 +989,21 @@ namespace ompl
                         //Make sure it is not the root or myself.
                         if (neighbourVertices.at(i)->isRoot() == false && neighbourVertices.at(i) != vertex)
                         {
-                            //Make sure I am not already the parent or child
-                            if (neighbourVertices.at(i)->getParent() != vertex && neighbourVertices.at(i) != vertex->getParent())
+                            //Make sure I am not already the parent
+                            if (neighbourVertices.at(i)->getParent() != vertex)
                             {
-                                //Attempt to queue the edge:
-                                this->queueupEdge(vertex, neighbourVertices.at(i));
+                                //Make sure the neighbour vertex is not already my parent:
+                                if (vertex->isRoot() == true)
+                                {
+                                    //I am root, I have no parent, so attempt to queue the edge:
+                                    this->queueupEdge(vertex, neighbourVertices.at(i));
+                                }
+                                else if (neighbourVertices.at(i) != vertex->getParent())
+                                {
+                                    //The neighbour is not my parent, attempt to queue the edge:
+                                    this->queueupEdge(vertex, neighbourVertices.at(i));
+                                }
+                                //No else, this vertex is my parent.
                             }
                             //No else
                         }
@@ -1633,6 +1655,20 @@ namespace ompl
         bool BITstar::IntegratedQueue::getUseFailureTracking() const
         {
             return useFailureTracking_;
+        }
+
+
+
+        void BITstar::IntegratedQueue::setDelayedRewiring(bool delayRewiring)
+        {
+            delayRewiring_ = delayRewiring;
+        }
+
+
+
+        bool BITstar::IntegratedQueue::getDelayedRewiring() const
+        {
+            return delayRewiring_;
         }
     } // geometric
 } //ompl

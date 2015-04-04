@@ -70,7 +70,10 @@ namespace ompl
     namespace geometric
     {
 
-        /** \brief An integrated two-stage queue that consists of vertices expanded into edges to be processed.
+
+        /** @anchor IntegratedQueue
+        \par Short Description
+        An integrated two-stage queue that consists of vertices expanded into edges to be processed.
         The integrated queue consists of a vertex expansion queue and an edge processing queue.
         Vertices are expanded as needed from the vertex queue into edges places in the edge queue.
         Edges are removed from the edge queue for processing by BIT*.
@@ -82,6 +85,8 @@ namespace ompl
         @par Notes:
             - An eraseEdge() function could be made by mimicking the vertex -> vertexQueue_::iterator lookup datastructure for the edgeQueue_
         */
+
+        /** \brief A queue of edges to be processed that integrates both the expansion of \ref gVertex "Vertices" and the ordering of the resulting edges. */
         class BITstar::IntegratedQueue
         {
         public:
@@ -114,6 +119,7 @@ namespace ompl
             ////////////////////////////////
             //Public functions:
             /** \brief Construct an integrated queue. */
+            //boost::make_shared can only take 9 arguments, so be careful:
             IntegratedQueue(const VertexPtr& startVertex, const VertexPtr& goalVertex, const neighbourhood_func_t& nearSamplesFunc, const neighbourhood_func_t& nearVerticesFunc, const vertex_heuristic_func_t& lowerBoundHeuristicVertex, const vertex_heuristic_func_t& currentHeuristicVertex, const edge_heuristic_func_t& lowerBoundHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdge, const edge_heuristic_func_t& currentHeuristicEdgeTarget);
 
             virtual ~IntegratedQueue();
@@ -123,6 +129,14 @@ namespace ompl
 
             /** \brief Get whether a failed edge list is in use.*/
             bool getUseFailureTracking() const;
+
+            /** \brief Delay considering rewiring edges until an initial solution is found. This improves
+            the time required to find an initial solution when doing so requires multiple batches and has
+            no effects on theoretical asymptotic optimality (as the rewiring edges are eventually considered). */
+            void setDelayedRewiring(bool delayRewiring);
+
+            /** \brief Get whether BIT* is delaying rewiring until a solution is found. */
+            bool getDelayedRewiring() const;
 
             //////////////////
             //Insert and erase
@@ -151,7 +165,7 @@ namespace ompl
             cost_pair_t frontEdgeValue();
 
             /** \brief Pop the best edge off the queue, removing it from the edge queue in the process. */
-            void popFrontEdge(vertex_pair_t& bestEdge);
+            void popFrontEdge(vertex_pair_t* bestEdge);
 
             /** \brief Pop the best edge off the queue, removing it from the edge queue in the process. */
             vertex_pair_t popFrontEdge();
@@ -159,6 +173,9 @@ namespace ompl
 
             //////////////////
             //Queue maintenance
+            /** \brief Mark that a solution has been found */
+            void hasSolution();
+
             /** \brief Set the threshold of the queue */
             void setThreshold(const ompl::base::Cost& costThreshold);
 
@@ -300,6 +317,9 @@ namespace ompl
             /** \brief Whether to use failure tracking or not */
             bool                                                     useFailureTracking_;
 
+            /** \brief Whether to delay rewiring until an initial solution is found or not */
+            bool                                                     delayRewiring_;
+
             /** \brief Whether to use parent lookup tables or not */
             bool                                                     outgoingLookupTables_;
 
@@ -329,6 +349,9 @@ namespace ompl
 
             /** \brief The maximum heuristic value allowed for vertices/edges in the queue.*/
             ompl::base::Cost                                         costThreshold_;
+
+            /** \brief Whether the problem has a solution */
+            bool                                                    hasSolution_;
             ////////////////////////////////
 
 
