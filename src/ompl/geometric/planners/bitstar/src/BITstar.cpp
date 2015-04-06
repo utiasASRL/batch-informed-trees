@@ -110,7 +110,7 @@ namespace ompl
             useKNearest_(false),
             usePruning_(true),
             pruneFraction_(0.01),
-            delayRewiring_(true),
+            delayRewiring_(false),
             stopOnSolnChange_(false)
         {
             //Specify my planner specs:
