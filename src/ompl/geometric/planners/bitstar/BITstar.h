@@ -37,36 +37,27 @@
 #ifndef OMPL_GEOMETRIC_PLANNERS_BITSTAR_BITSTAR_
 #define OMPL_GEOMETRIC_PLANNERS_BITSTAR_BITSTAR_
 
+//STL:
 //std::string
 #include <string>
 //std::pair
 #include <utility>
-//std::set and std::multiset
-#include <set>
-//boost::unordered_set (pre-C++11 std::unordered_set)
-#include <boost/unordered_set.hpp>
+//std::vector
+#include <vector>
 
-//For boost::function
-#include <boost/function.hpp>
-
-//My vertex class:
-#include "ompl/geometric/planners/bitstar/Vertex.h"
-//My vertex-queue class
-#include "ompl/geometric/planners/bitstar/VertexQueue.h"
-//My edge-queue class
-#include "ompl/geometric/planners/bitstar/EdgeQueue.h"
+//OMPL:
 //The base-class of planners:
 #include "ompl/base/Planner.h"
 //The nearest neighbours structure
 #include "ompl/datastructures/NearestNeighbors.h"
 //The informed sampler structure
 #include "ompl/base/samplers/InformedStateSampler.h"
-
+//Planner includes:
 //#include "ompl/geometric/planners/PlannerIncludes.h"
 
-//#include <limits>
-//#include <vector>
-//#include <utility>
+//BIT*:
+//The helper data classes, Vertex.h and IntegratedQueue.h are included *after* the declaration of the BITstar class as they are member classes of BITstar.
+
 
 
 namespace ompl
@@ -74,15 +65,15 @@ namespace ompl
     namespace geometric
     {
         /**
-            @anchor gBITTstar
+            @anchor gBITstar
             @par Short description
-            \ref gBITstar "BIT*" (Batch Informed Trees) is an anytime asymptotically-optimal sampling-based
+            BIT* (Batch Informed Trees) is an anytime asymptotically optimal sampling-based
             motion planning algorithm that extends Lifelong Planning A* (LPA*) techniques to continuous planning
-            problems. \ref gBITstar "BIT*" accomplishes this by processing batches of samples with a heuristic.
+            problems. BIT* accomplishes this by processing batches of samples with a heuristic.
             In doing so, it strikes a balance between algorithms like RRT* and FMT*.
 
             @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
-            Submitted to ICRA 2015. <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
+            To appear at ICRA 2015. <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
             <a href="http://www.youtube.com/watch?v=MRzSfLpNBmA">Illustration video</a>.
 
             @par TODO:
@@ -90,39 +81,60 @@ namespace ompl
             - Extend beyond single goal states to other samplable goals (i.e., goal sets).
             - Generalize heuristics to make proper use of the optimization class.
         */
-
-        /** \brief Batch Informed Trees */
+        /** \brief Batch Informed Trees (BIT*)*/
         class BITstar : public ompl::base::Planner
         {
         public:
+            //Forward declarations so that the classes belong to BIT*:
+            /** \brief The vertex of implicit and explicit graphs. */
+            class Vertex;
+            /** \brief A generator of unique vertex IDs. */
+            class IdGenerator;
+            /** \brief The queue of edges to process as an integrated dual-stage queue (tracks both the expansion of vertices and the resulting edges) */
+            class IntegratedQueue;
+            //Helpful typedefs:
+            /** \brief A vertex shared pointer. */
+            typedef boost::shared_ptr<Vertex> VertexPtr;
+            /** \brief A \e constant vertex shared pointer. */
+            typedef boost::shared_ptr<const Vertex> VertexConstPtr;
+            /** \brief A vertex weak pointer. */
+            typedef boost::weak_ptr<Vertex> VertexWeakPtr;
+            /** \brief An integrated queue shared pointer. */
+            typedef boost::shared_ptr<IntegratedQueue> IntegratedQueuePtr;
+            /** \brief The vertex id type */
+            typedef unsigned int vid_t;
+
+            /** \brief Construct! */
             BITstar(const base::SpaceInformationPtr& si, const std::string& name = "BITstar");
 
+            /** \brief Destruct! */
             virtual ~BITstar();
 
+            /** \brief Setup */
             virtual void setup();
 
+            /** \brief Clear */
             virtual void clear();
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
+            /** \brief Solve */
+            base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
 
+            /** \brief Get results */
             virtual void getPlannerData(base::PlannerData& data) const;
 
-            /** \brief Get the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
-            std::pair<ompl::base::State*, ompl::base::State*> getNextEdgeInQueue();
+            /** \brief Get the next edge to be processed. Causes vertices in the queue to be expanded (if necessary) and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
+            std::pair<ompl::base::State const*, ompl::base::State const*> getNextEdgeInQueue();
 
-            /** \brief Get the next edge to be processed given the current queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
-            std::pair<ompl::base::State*, ompl::base::State*> getApproxNextEdgeInQueue() const;
-
-            /** \brief Get the value of the next edge to be processed. Causes a call to updateQueue and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
+            /** \brief Get the value of the next edge to be processed. Causes vertices in the queue to be expanded (if necessary) and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             ompl::base::Cost getNextEdgeValueInQueue();
 
-            /** \brief Get the value of the next edge to be processed given the current queue. This may not be the next edge actually processed, as updateQueue may update the queue. */
-            ompl::base::Cost getApproxNextEdgeValueInQueue() const;
+            /** \brief Get the whole messy set of edges in the queue. Expensive but helpful for some videos */
+            void getEdgeQueue(std::vector<std::pair<VertexConstPtr, VertexConstPtr> >* edgesInQueue);
 
-            /** \brief Get the whole messy queue. Expensive but helpful for some videos */
-            void getQueue(std::vector<std::pair<VertexPtr, VertexPtr> >& edgesInQueue);
+            /** \brief Get the whole set of vertices to be expanded. Expensive but helpful for some videos */
+            void getVertexQueue(std::vector<VertexConstPtr>* verticesInQueue);
 
-            /** \brief Set a different nearest neighbors datastructure */
+            /** \brief Set a different nearest neighbours datastructure */
             template<template<typename T> class NN>
             void setNearestNeighbors();
 
@@ -184,6 +196,14 @@ namespace ompl
             /** \brief Get the fractional change in the solution cost necessary for pruning to occur. */
             double getPruneThresholdFraction() const;
 
+            /** \brief Delay considering rewiring edges until an initial solution is found. This improves
+            the time required to find an initial solution when doing so requires multiple batches and has
+            no effects on theoretical asymptotic optimality (as the rewiring edges are eventually considered). */
+            void setDelayRewiringUntilInitialSolution(bool delayRewiring);
+
+            /** \brief Get whether BIT* is delaying rewiring until a solution is found. */
+            bool getDelayRewiringUntilInitialSolution() const;
+
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by BIT*. */
             void setStopOnSolnImprovement(bool stopOnChange);
@@ -201,6 +221,10 @@ namespace ompl
             as a planner-progress property. (bestCost_) */
             std::string bestCostProgressProperty() const;
 
+            /** \brief Retrieve the length of the best exact-solution found
+            as a planner-progress property. (bestLength_) */
+            std::string bestLengthProgressProperty() const;
+
             /** \brief Retrieve the current number of free samples
             as a planner-progress property. (size of freeStateNN_) */
             std::string currentFreeProgressProperty() const;
@@ -210,11 +234,11 @@ namespace ompl
             std::string currentVertexProgressProperty() const;
 
             /** \brief Retrieve the current number of vertices in the expansion queue
-            as a planner-progress property. (Size of vertexQueue_) */
+            as a planner-progress property. (The position of the vertex subqueue of intQueue_) */
             std::string vertexQueueSizeProgressProperty() const;
 
             /** \brief Retrieve the current number of edges in the search queue
-            as a planner-progress property. (Size of edgeQueue_) */
+            as a planner-progress property. (The size of the edge subqueue of intQueue_) */
             std::string edgeQueueSizeProgressProperty() const;
 
             /** \brief Retrieve the number of iterations
@@ -234,24 +258,20 @@ namespace ompl
 
             /** \brief Retrieve the \e total number of states generated
             as a planner-progress property. (numSamples_) */
-            std::string totalStatesCreatedProgressProperty() const;
-
+            virtual std::string totalStatesCreatedProgressProperty() const;
 
             /** \brief Retrieve the \e total number of vertices added to the graph
             as a planner-progress property. (numVertices_) */
             std::string verticesConstructedProgressProperty() const;
 
-            /** \brief Retrieve the \e total number of states pruned from the problem
-            as a planner-progress property. (numFreeStatesPruned_ + numVerticesPruned_) */
+            /** \brief Retrieve the number of states pruned from the problem
+            as a planner-progress property. (numFreeStatesPruned_) */
             std::string statesPrunedProgressProperty() const;
 
-            /** \brief Retrieve the number of free states pruned from the problem
-            as a planner-progress property. (numFreeStatesPruned_) */
-            std::string freeStatesPrunedProgressProperty() const;
-
-            /** \brief Retrieve the number of graph vertices pruned from the problem
-            as a planner-progress property. (numVerticesPruned_) */
-            std::string verticesPrunedProgressProperty() const;
+            /** \brief Retrieve the number of graph vertices that are disconnected and
+            either returned to the set of free samples or deleted completely
+            as a planner-progress property. (numVerticesDisconnected_) */
+            std::string verticesDisconnectedProgressProperty() const;
 
             /** \brief Retrieve the number of global-search edges that rewired the graph
             as a planner-progress property. (numRewirings_) */
@@ -271,10 +291,14 @@ namespace ompl
             ///////////////////////////////////////
 
         protected:
+            //Everything is only protected so we can create modifications without duplicating code by deriving from the class:
 
-        private:
             //Typedefs:
+            /** \brief A pair of vertices, i.e., an edge. */
             typedef std::pair<VertexPtr, VertexPtr> vertex_pair_t;
+
+            /** \brief The OMPL::NearestNeighbors structure. */
+            typedef boost::shared_ptr< NearestNeighbors<VertexPtr> > vertex_nn_ptr_t;
 
             //Functions:
             /** \brief A debug function: Estimate the measure of the free/obstace space via sampling. */
@@ -282,24 +306,20 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             //BIT* primitives:
+            /** \brief A single iteration */
+            virtual void iterate();
+
             /** \brief Initialize variables for a new batch */
             void newBatch();
-
-            /** \brief Make sure that all vertices in our tree with a cost-to-come less than the minimum cost in our edge queue has been expanded. Finds all potential edges from the vertices to nearby free states and adds those edges to the queue. */
-            void updateQueue();
-
-            /** \brief Update the edge queue by adding all the potential edges from the vertex to nearby free states */
-            void expandVertex(const VertexPtr& vertex);
 
             /** \brief Update the list of free samples */
             void updateSamples(const VertexPtr& vertex);
 
-            /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
-            void pruneSamples();
+            /** \brief Prune the problem. Returns true if pruning was done. */
+            virtual bool prune();
 
-            /** \brief Prune all vertices with a solution heuristic that is greater than the bestCost_ */
-            void pruneGraph();
-
+            /** \brief Resort the queue. Returns true if any pruning was done. */
+            virtual bool resort();
 
             /** \brief Publish the found solution to the ProblemDefinition*/
             void publishSolution();
@@ -307,76 +327,59 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for data manipulation and other low-level functions
+            /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
+            void pruneSamples();
+
             /** \brief Checks an edge for collision. A wrapper to SpaceInformation->checkMotion that tracks number of collision checks. */
             bool checkEdge(const vertex_pair_t& edge);
 
-            /** \brief Prune a vertex, recursively pruning its children and either (a) deleting them (b) placing them back as disconnected states depending on their heuristic value compared to the best solution*/
-            void pruneVertex(const VertexPtr& oldVertex);
+            /** \brief Actually remove a sample from its NN struct: */
+            void dropSample(VertexPtr oldSample);
 
-            /** \brief Actually remove a vertex from the graph */
-            void removeVertex(const VertexPtr& oldVertex, bool recycleVertex);
-
-            /** \brief Disconnect a vertex, removing it from the graph but not touching the edge queue. */
-            void disconnectVertex(const VertexPtr& oldVertex);
-
-            /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. */
-            void addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateExpansionQueue);
+            /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. Updates solution information if the solution improves. */
+            void addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateDescendants);
 
             /** \brief Replace the parent edge with the given new edge and cost */
-            void replaceParent(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost);
+            void replaceParent(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& updateDescendants);
+
+            /** \brief The special work that needs to be done to update the goal vertex is the solution has changed. */
+            void updateGoalVertex();
 
             /** \brief Add a sample */
             void addSample(const VertexPtr& newSample);
 
             /** \brief Add a vertex to the graph */
-            void addVertex(const VertexPtr& newVertex, const bool& removeFromFree, const bool& updateExpansionQueue);
+            void addVertex(const VertexPtr& newVertex, const bool& removeFromFree);
 
-            /** \brief Attempt to add an edge to the queue. Checks that the edge meets the queue condition and that it is not in the failed set. */
-            bool queueupEdge(const VertexPtr& parent, const VertexPtr& child);
+            /** \brief Get the nearest samples from the freeStateNN_ using the appropriate "near" definition (i.e., k or r). */
+            void nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples);
+
+            /** \brief Get the nearest samples from the vertexNN_ using the appropriate "near" definition (i.e., k or r). */
+            void nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices);
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
-            //Helper functions for sorting queues/nearest-neighbour structures and the related calculations. Some of these should probably be generalized into OptimizationObjective?
-            typedef std::pair<ompl::base::Cost, ompl::base::Cost> cost_pair_t;
-
+            //Helper functions for sorting queues/nearest-neighbour structures and the related calculations.
             /** \brief The distance function used for nearest neighbours. Calculates the distance directionally from the given state to all the other states (can be used on states either in our out of the graph).*/
             double nnDistance(const VertexPtr& a, const VertexPtr& b) const;
-
-            /** \brief A convenience function for the value of a vertex in the queue, uses currentHeuristicVertex */
-            ompl::base::Cost vertexQueueValue(const VertexPtr& vertex) const;
-
-            /** \brief A convenience function for the value of an edge in the queue, uses currentHeuristicEdge */
-            cost_pair_t edgeQueueValue(const vertex_pair_t& edge) const;
-
-            /** \brief The comparison function for two vertices in the expansion queue. Uses vertexQueueValue. */
-            bool vertexQueueComparison(const ompl::base::Cost& lhs, const ompl::base::Cost& rhs) const;
-
-            /** A comparison function for two edges (i.e., vertex-pairs) in the graph. Uses edgeQueueValue. */
-            bool edgeQueueComparison(const cost_pair_t& lhs, const cost_pair_t& rhs) const;
-
-            /** The condition for a sample to be in the sample list. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is less than the threshold. */
-            bool sampleQueueCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const;
-
-            /** The condition for a vertex to be in the state list. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is less than or equal to the threshold. */
-            bool vertexQueueCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const;
-
-            /** The condition for an edge (i.e., vertex-pair) to be in the edge queue. Compares lowerBoundHeuristicEdge to the given threshold. Returns true if the edge's best cost is less than the threshold. */
-            bool edgeQueueCondition(const vertex_pair_t& edge, const ompl::base::Cost& threshold) const;
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for various heuristics.
-            /** \brief Calculates the heuristic estimate of a cost constrained to pass through a vertex, independent of the current cost-to-come. I.e., combines the heuristic estimates of the cost-to-come and cost-to-go. */
+            /** \brief Calculates a heuristic estimate of the cost of a solution constrained to pass through a vertex, independent of the current cost-to-come. I.e., combines the heuristic estimates of the cost-to-come and cost-to-go. */
             ompl::base::Cost lowerBoundHeuristicVertex(const VertexPtr& edgePair) const;
 
-            /** \brief Calculates the heuristic estimate of a cost constrained to pass through a vertex, dependent on the current cost-to-come. I.e., combines the current cost-to-come with a heuristic estimate of the cost-to-go. */
+            /** \brief Calculates a heuristic estimate of the cost of a solution constrained to pass through a vertex, dependent on the current cost-to-come. I.e., combines the current cost-to-come with a heuristic estimate of the cost-to-go. */
             ompl::base::Cost currentHeuristicVertex(const VertexPtr& edgePair) const;
 
-            /** \brief Calculates the heuristic estimate of a cost constrained to go through an edge, independent of the cost-to-come of the parent state. I.e., combines the heuristic estimates of the cost-to-come, edge cost, and cost-to-go. */
+            /** \brief Calculates a heuristic estimate of the cost of a solution constrained to go through an edge, independent of the cost-to-come of the parent state. I.e., combines the heuristic estimates of the cost-to-come, edge cost, and cost-to-go. */
             ompl::base::Cost lowerBoundHeuristicEdge(const vertex_pair_t& edgePair) const;
 
-            /** \brief Calculates the heuristic estimate of a cost constrained to go through an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost, and cost-to-go. */
+            /** \brief Calculates a heuristic estimate of the cost of a solution constrained to go through an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost, and cost-to-go. */
             ompl::base::Cost currentHeuristicEdge(const vertex_pair_t& edgePair) const;
+
+            /** \brief Calculates a heuristic estimate of the cost of a path to the \e target of an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost. */
+            ompl::base::Cost currentHeuristicEdgeTarget(const vertex_pair_t& edgePair) const;
 
             /** \brief Calculate a heuristic estimate of the cost-to-come for a Vertex */
             ompl::base::Cost costToComeHeuristic(const VertexPtr& vertex) const;
@@ -387,17 +390,11 @@ namespace ompl
             /** \brief Calculate a heuristic estimate of the cost-to-go for a Vertex */
             ompl::base::Cost costToGoHeuristic(const VertexPtr& vertex) const;
 
-            /** \brief Calculate the max req'd cost to define a neighbourhood around a state. I.e., For path-length problems, the cost equivalent of +2*r. */
-            ompl::base::Cost neighbourhoodCost() const;
-
             /** \brief The true cost of an edge, including collisions.*/
             ompl::base::Cost trueEdgeCost(const vertex_pair_t& edgePair) const;
 
-            /** \brief Combine three costs as (a + b) + c */
-            ompl::base::Cost combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c) const;
-
-            /** \brief Combine four costs as ((a + b) + c) + d */
-            ompl::base::Cost combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c, const ompl::base::Cost& d) const;
+            /** \brief Calculate the max req'd cost to define a neighbourhood around a state. I.e., For path-length problems, the cost equivalent of +2*r. */
+            ompl::base::Cost neighbourhoodCost() const;
 
             /** \brief Compare whether cost a is better than cost b. Ignores the tolerances used by OptimizationObjective::isCostBetterThan */
             bool isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
@@ -406,7 +403,10 @@ namespace ompl
             bool isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
 
             /** \brief Compare whether cost a and cost b are equivalent by checking that neither a or b is better than the other. */
-            bool areCostsEquivalent(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+            bool isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Compare whether cost a and cost b are not equivalent by checking if either a or b is better than the other. */
+            bool isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
 
             /** \brief Compare whether cost a is better or equivalent to cost b by checking that b is not better than a. */
             bool isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
@@ -417,23 +417,23 @@ namespace ompl
             /** \brief Returns whether the cost is finite or not. By default calls std::isfinite on Cost::value(). */
             bool isFinite(const ompl::base::Cost& cost) const;
 
-            /** \brief Calculate the fractional change of cost "newCost" relative to cost "oldCost". */
-            double fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost);
+            /** \brief The better of two costs.*/
+            ompl::base::Cost betterCost(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
+
+            /** \brief Calculate the fractional change of cost "newCost" from "oldCost" relative to "oldCost", i.e., (newCost - oldCost)/oldCost. */
+            double fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost) const;
+
+            /** \brief Calculate the fractional change of cost "newCost" from "oldCost" relative to "refCost", i.e., (newCost - oldCost)/refCost. */
+            double fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost, const ompl::base::Cost& refCost) const;
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions to calculate parameters:
-            /** \brief Get the nearest samples from the freeStateNN_ using the appropriate "near" definition (i.e., k or r). */
-            void nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples);
-
-            /** \brief Get the nearest samples from the vertexNN_ using the appropriate "near" definition (i.e., k or r). */
-            void nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices);
-
             /** \brief Initialize the nearest-neighbour terms */
             void initializeNearestTerms();
 
             /** \brief Update the appropriate nearest-neighbour terms, r_ and k_ */
-            void updateNearestTerms();
+            virtual void updateNearestTerms();
 
             /** \brief Calculate the r for r-disc nearest neighbours, a function of the current graph */
             double r(unsigned int N) const;
@@ -449,8 +449,18 @@ namespace ompl
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
-            //Helper function for debug logging
-            void statusMessage(const ompl::msg::LogLevel& msgLevel, const std::string& status) const;
+            //Helper functions for logging
+            /** \brief The message printed when a goal is found/improved */
+            virtual void goalMessage() const;
+
+            /** \brief The message printed when solve finishes successfully */
+            virtual void endSuccessMessage() const;
+
+            /** \brief The message printed when solve finishes unsuccessfully */
+            virtual void endFailureMessage() const;
+
+            /** \brief A debug-level status message for debugging. */
+            virtual void statusMessage(const ompl::msg::LogLevel& msgLevel, const std::string& status) const;
             ///////////////////////////////////////////////////////////////////
 
 
@@ -469,17 +479,13 @@ namespace ompl
             VertexPtr                                                goalVertex_;
 
             /** \brief The unconnected samples as a nearest-neighbours datastructure. Sorted by nnDistance. Size accessible via currentFreeProgressProperty */
-            boost::shared_ptr< NearestNeighbors<VertexPtr> >         freeStateNN_;
+            vertex_nn_ptr_t                                          freeStateNN_;
 
             /** \brief The vertices as a nearest-neighbours data structure. Sorted by nnDistance. Size accessible via currentVertexProgressProperty */
-            boost::shared_ptr< NearestNeighbors<VertexPtr> >         vertexNN_;
+            vertex_nn_ptr_t                                          vertexNN_;
 
-            /** \brief The planning graph as a queue sorted on f-value (total heuristic cost). Sorted by vertexComparison. Size accessible via vertexQueueSizeProgressProperty */
-            VertexQueue                                              vertexQueue_;
-
-            /** \brief The queue of new edges to process. Sorted by edgeComparison. Size accessible via edgeQueueSizeProgressProperty */
-            EdgeQueue                                                edgeQueue_;
-
+            /** \brief The integrated queue of vertices to expand and edges to process ordered on "f-value", i.e., estimated solution cost. Remaining vertex queue "size" and edge queue size are accessible via vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
+            IntegratedQueuePtr                                       intQueue_;
 
             /** \brief The resulting sampling density for a batch */
             double                                                   sampleDensity_;
@@ -487,17 +493,23 @@ namespace ompl
             /** \brief The current r-disc RGG connection radius */
             double                                                   r_;
 
-            /** \brief The minimum k-nearest RGG connection term. Only a function of state dimension, so can be calculated once. Left as a double for later accuracy in calculate k*/
+            /** \brief The minimum k-nearest RGG connection term. Only a function of state dimension, so can be calculated once. Left as a double for later accuracy in calculate k */
             double                                                   k_rgg_;
 
-            /** \brief The current k-nearest RGG connection number*/
+            /** \brief The current k-nearest RGG connection number */
             unsigned int                                            k_;
 
-            /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider. Accessible via bestCostProgressProperty*/
+            /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider. Accessible via bestCostProgressProperty */
             ompl::base::Cost                                         bestCost_;
+
+            /** \brief The number of vertices in the best solution found to date. Accessible via bestLengthProgressProperty */
+            unsigned int                                             bestLength_;
 
             /** \brief The cost to which the graph has been pruned. We will only prune the graph if bestCost_ is less than this value. */
             ompl::base::Cost                                         prunedCost_;
+
+            /** \brief The measure of the problem domain when we pruned the graph. */
+            double                                                   prunedMeasure_;
 
             /** \brief The minimum possible solution cost. I.e., the heuristic value of the goal. */
             ompl::base::Cost                                         minCost_;
@@ -507,6 +519,10 @@ namespace ompl
 
             /** \brief If we've found a solution yet */
             bool                                                     hasSolution_;
+
+            /** \brief A manual stop on the solve loop */
+            bool                                                     stopLoop_;
+
             ///////////////////////////////////////
 
             ///////////////////////////////////////
@@ -535,11 +551,11 @@ namespace ompl
             /** \brief The number of vertices ever added to the graph. Will count vertices twice if they spend any time disconnected. Accessible via verticesConstructedProgressProperty */
             unsigned int                                             numVertices_;
 
-            /** \brief The number of free states that have been pruned. Accessible via freeStatesPrunedProgressProperty */
+            /** \brief The number of free states that have been pruned. Accessible via statesPrunedProgressProperty */
             unsigned int                                             numFreeStatesPruned_;
 
-            /** \brief The number of graph vertices that have been pruned. Accessible via verticesPrunedProgressProperty */
-            unsigned int                                             numVerticesPruned_;
+            /** \brief The number of graph vertices that get disconnected. These either return to being free samples or are pruned completely. Accessible via verticesDisconnectedProgressProperty */
+            unsigned int                                             numVerticesDisconnected_;
 
             /** \brief The number of times a state in the graph was rewired. Accessible via rewiringProgressProperty */
             unsigned int                                             numRewirings_;
@@ -577,10 +593,23 @@ namespace ompl
             /** \brief The fractional decrease in solution cost required to trigger pruning (param) */
             double                                                   pruneFraction_;
 
-            /** Whether to stop the planner as soon as the path changes (param) */
+            /** \brief Whether to delay rewiring until a solution is found (param) */
+            bool                                                     delayRewiring_;
+
+            /** \brief Whether to stop the planner as soon as the path changes (param) */
             bool                                                     stopOnSolnChange_;
             ///////////////////////////////////////
         }; //class: BITstar
     } //geometric
 } //ompl
+
+
+//BIT* Includes:
+//The Vertex ID generator class
+#include "ompl/geometric/planners/bitstar/datastructures/IdGenerator.h"
+//My vertex class:
+#include "ompl/geometric/planners/bitstar/datastructures/Vertex.h"
+//My queue class
+#include "ompl/geometric/planners/bitstar/datastructures/IntegratedQueue.h"
+
 #endif //OMPL_GEOMETRIC_PLANNERS_BITSTAR_BITSTAR_

@@ -77,17 +77,19 @@ namespace ompl
             goalVertex_(),
             freeStateNN_(),
             vertexNN_(),
-            vertexQueue_( boost::bind(&BITstar::vertexQueueValue, this, _1), boost::bind(&BITstar::vertexQueueComparison, this, _1, _2), boost::bind(&BITstar::vertexQueueCondition, this, _1, _2)  ), //This tells the vertexQueue_ to use the member function vertexQueueComparison associated with this instance of the class and prune with vertexQueueCondition
-            edgeQueue_(true, true, boost::bind(&BITstar::edgeQueueValue, this, _1), boost::bind(&BITstar::edgeQueueComparison, this, _1, _2), boost::bind(&BITstar::edgeQueueCondition, this, _1, _2) ), //The graph pruning default: parent and child lookup, sort with edgeComparison, prune with edgeQueueCondition
+            intQueue_(),
             sampleDensity_(0.0),
             r_(0.0), //Purposeful Gibberish
             k_rgg_(0.0), //Purposeful Gibberish
             k_(0u), //Purposeful Gibberish
             bestCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+            bestLength_(0u),
             prunedCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+            prunedMeasure_(Planner::si_->getSpaceMeasure()),
             minCost_( 0.0 ), //Gets set in setup to the proper calls from OptimizationObjective
             costSampled_(0.0), //Gets set in setup to the proper calls from OptimizationObjective
             hasSolution_(false),
+            stopLoop_(false),
             approximateSoln_(false),
             approximateDiff_(-1.0),
             numIterations_(0u),
@@ -96,7 +98,7 @@ namespace ompl
             numSamples_(0u),
             numVertices_(0u),
             numFreeStatesPruned_(0u),
-            numVerticesPruned_(0u),
+            numVerticesDisconnected_(0u),
             numRewirings_(0u),
             numStateCollisionChecks_(0u),
             numEdgeCollisionChecks_(0u),
@@ -108,6 +110,7 @@ namespace ompl
             useKNearest_(false),
             usePruning_(true),
             pruneFraction_(0.01),
+            delayRewiring_(false),
             stopOnSolnChange_(false)
         {
             //Specify my planner specs:
@@ -118,6 +121,7 @@ namespace ompl
             Planner::specs_.directed = true;
             Planner::specs_.provingSolutionNonExistence = false;
 
+            OMPL_INFORM("%s: TODO: Implement goal-region support.", Planner::getName().c_str());
             OMPL_INFORM("%s: TODO: Implement approximate solution support.", Planner::getName().c_str());
 
             //Register my setting callbacks
@@ -128,10 +132,12 @@ namespace ompl
             Planner::declareParam<bool>("use_k_nearest", this, &BITstar::setKNearest, &BITstar::getKNearest, "0,1");
             Planner::declareParam<bool>("use_graph_pruning", this, &BITstar::setPruning, &BITstar::getPruning, "0,1");
             Planner::declareParam<double>("prune_threshold_as_fractional_cost_change", this, &BITstar::setPruneThresholdFraction, &BITstar::getPruneThresholdFraction, "0.0:0.01:1.0");
+            Planner::declareParam<bool>("delay_rewiring_to_first_solution", this, &BITstar::setDelayRewiringUntilInitialSolution, &BITstar::getDelayRewiringUntilInitialSolution, "0,1");
             Planner::declareParam<bool>("stop_on_each_solution_improvement", this, &BITstar::setStopOnSolnImprovement, &BITstar::getStopOnSolnImprovement, "0,1");
 
             //Register my progress info:
             addPlannerProgressProperty("best cost DOUBLE", boost::bind(&BITstar::bestCostProgressProperty, this));
+            addPlannerProgressProperty("length of best solution INTEGER", boost::bind(&BITstar::bestLengthProgressProperty, this));
             addPlannerProgressProperty("current free states INTEGER", boost::bind(&BITstar::currentFreeProgressProperty, this));
             addPlannerProgressProperty("current vertices INTEGER", boost::bind(&BITstar::currentVertexProgressProperty, this));
             addPlannerProgressProperty("vertex queue size INTEGER", boost::bind(&BITstar::vertexQueueSizeProgressProperty, this));
@@ -142,8 +148,7 @@ namespace ompl
             addPlannerProgressProperty("total states generated INTEGER", boost::bind(&BITstar::totalStatesCreatedProgressProperty, this));
             addPlannerProgressProperty("vertices constructed INTEGER", boost::bind(&BITstar::verticesConstructedProgressProperty, this));
             addPlannerProgressProperty("states pruned INTEGER", boost::bind(&BITstar::statesPrunedProgressProperty, this));
-            addPlannerProgressProperty("free states pruned INTEGER", boost::bind(&BITstar::freeStatesPrunedProgressProperty, this));
-            addPlannerProgressProperty("graph vertices pruned INTEGER", boost::bind(&BITstar::verticesPrunedProgressProperty, this));
+            addPlannerProgressProperty("graph vertices disconnected INTEGER", boost::bind(&BITstar::verticesDisconnectedProgressProperty, this));
             addPlannerProgressProperty("rewiring edges INTEGER", boost::bind(&BITstar::rewiringProgressProperty, this));
             addPlannerProgressProperty("state collision checks INTEGER", boost::bind(&BITstar::stateCollisionCheckProgressProperty, this));
             addPlannerProgressProperty("edge collision checks INTEGER", boost::bind(&BITstar::edgeCollisionCheckProgressProperty, this));
@@ -190,41 +195,42 @@ namespace ompl
             //Store the optimization objective for future ease of use
             opt_ = Planner::pdef_->getOptimizationObjective();
 
-            //Configure the nearest-neighbour constructs:
-            freeStateNN_.reset( ompl::tools::SelfConfig::getDefaultNearestNeighbors<VertexPtr>(Planner::si_->getStateSpace()) );
-            freeStateNN_->setDistanceFunction(boost::bind(&BITstar::nnDistance, this, _1, _2));
+            //Configure the nearest-neighbour constructs.
+            //Only allocate if they are empty (as they can be set to a specific version by a call to setNearestNeighbors)
+            if (bool(freeStateNN_) == false)
+            {
+                freeStateNN_.reset( ompl::tools::SelfConfig::getDefaultNearestNeighbors<VertexPtr>(Planner::si_->getStateSpace()) );
+            }
+            //No else, already allocated (by a call to setNearestNeighbors())
 
-            vertexNN_.reset( ompl::tools::SelfConfig::getDefaultNearestNeighbors<VertexPtr>(Planner::si_->getStateSpace()) );
+            if (bool(vertexNN_) == false)
+            {
+                vertexNN_.reset( ompl::tools::SelfConfig::getDefaultNearestNeighbors<VertexPtr>(Planner::si_->getStateSpace()) );
+            }
+            //No else, already allocated (by a call to setNearestNeighbors())
+
+            //Configure:
+            freeStateNN_->setDistanceFunction(boost::bind(&BITstar::nnDistance, this, _1, _2));
             vertexNN_->setDistanceFunction(boost::bind(&BITstar::nnDistance, this, _1, _2));
 
-            //Configure the queue
-            if (usePruning_ == true)
-            {
-                //Parent and child lookup, sort with edgeComparison, prune with edgeQueueCondition
-                edgeQueue_ = EdgeQueue(true, true, boost::bind(&BITstar::edgeQueueValue, this, _1), boost::bind(&BITstar::edgeQueueComparison, this, _1, _2), boost::bind(&BITstar::edgeQueueCondition, this, _1, _2) );
-            }
-            else
-            {
-                //Parent vertex lookup, sort with edgeComparison, prune with edgeQueueCondition
-                //Child vertex lookup could be disabled if you did not prune edges on the addition of a new vertex...
-                edgeQueue_ = EdgeQueue(true, true, boost::bind(&BITstar::edgeQueueValue, this, _1), boost::bind(&BITstar::edgeQueueComparison, this, _1, _2), boost::bind(&BITstar::edgeQueueCondition, this, _1, _2) );
-            }
-
-            //Initialize the nearestNeighbour terms:
-            this->initializeNearestTerms();
-
-            //Store the start into the tree:
+            //Create the start as a vertex:
             startVertex_ = boost::make_shared<Vertex>(Planner::si_, opt_, true);
 
             //Copy the value of the start
             Planner::si_->copyState(startVertex_->state(), pdef_->getStartState(0u));
 
-            //Store the goal into the freeStates
+            //Create the goal as a vertex:
             //Create a vertex
             goalVertex_ = boost::make_shared<Vertex>(Planner::si_, opt_);
 
             //Copy the value of the goal
             Planner::si_->copyState(goalVertex_->state(), Planner::pdef_->getGoal()->as<ompl::base::GoalState>()->getState());
+
+            //Configure the queue
+            //boost::make_shared can only take 9 arguments, so be careful:
+            intQueue_ = boost::make_shared<IntegratedQueue> (startVertex_, goalVertex_, boost::bind(&BITstar::nearestSamples, this, _1, _2), boost::bind(&BITstar::nearestVertices, this, _1, _2), boost::bind(&BITstar::lowerBoundHeuristicVertex, this, _1), boost::bind(&BITstar::currentHeuristicVertex, this, _1), boost::bind(&BITstar::lowerBoundHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdgeTarget, this, _1));
+            intQueue_->setUseFailureTracking(useFailureTracking_);
+            intQueue_->setDelayedRewiring(delayRewiring_);
 
             //Allocate a sampler:
             sampler_ = opt_->allocInformedStateSampler(Planner::si_->getStateSpace().get(), Planner::pdef_, &bestCost_);
@@ -236,19 +242,326 @@ namespace ompl
             //Set the minimum cost as the cost-to-come of the goal:
             minCost_ = this->costToComeHeuristic(goalVertex_);
 
-            //Set the cost sampled to the minimum
-            costSampled_ = minCost_;
+            //Set the cost sampled to the maximum. This forces us to first check the basic start-goal graph.
+            costSampled_ = bestCost_;
 
             //Finally, as they depend on some of the above, insert the start and goal into the proper sets
-            //Store the start into the tree
-            this->addVertex(startVertex_, false, true);
-
-            //Add to the set of samples
+            //Add the goal to the set of samples.:
             this->addSample(goalVertex_);
+
+            //Store the start into the tree and the queue:
+            this->addVertex(startVertex_, false);
+
+            //Finally initialize the nearestNeighbour terms:
+            this->initializeNearestTerms();
 
             //Debug: Output an estimate of the state measure:
 //            this->estimateMeasures();
         }
+
+
+
+        void BITstar::clear()
+        {
+            //Clear all the variables.
+            //Keep this in the order of the constructors list:
+
+            //The various convenience pointers:
+            sampler_.reset();
+            opt_.reset();
+            startVertex_.reset();
+            goalVertex_.reset();
+
+            //The list of samples
+            if (bool(freeStateNN_) == true)
+            {
+                freeStateNN_->clear();
+                freeStateNN_.reset();
+            }
+            //No else, not allocated
+
+            //The list of vertices
+            if (bool(vertexNN_) == true)
+            {
+                vertexNN_->clear();
+                vertexNN_.reset();
+            }
+
+            //The queue:
+            if (bool(intQueue_) == true)
+            {
+                intQueue_->clear();
+                intQueue_.reset();
+            }
+
+            //DO NOT reset the parameters:
+            //useStrictQueueOrdering_
+            //rewireFactor_
+            //samplesPerBatch_
+            //useFailureTracking_
+            //useKNearest_
+            //usePruning_
+            //pruneFraction_
+            //delayRewiring_
+            //stopOnSolnChange_
+
+            //Reset the various calculations? TODO: Should I recalculate them?
+            sampleDensity_ = 0.0;
+            r_ = 0.0;
+            k_rgg_ = 0.0; //This is a double for better rounding later
+            k_ = 0u;
+            bestCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
+            bestLength_ = 0u;
+            prunedCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
+            prunedMeasure_ = Planner::si_->getSpaceMeasure();
+            minCost_ = ompl::base::Cost(0.0);
+            costSampled_ = ompl::base::Cost(0.0);
+            hasSolution_ = false;
+            stopLoop_ = false;
+            approximateSoln_ = false;
+            approximateDiff_ = -1.0;
+            numIterations_ = 0u;
+            numSamples_ = 0u;
+            numVertices_ = 0u;
+            numFreeStatesPruned_ = 0u;
+            numVerticesDisconnected_ = 0u;
+            numStateCollisionChecks_ = 0u;
+            numEdgeCollisionChecks_ = 0u;
+            numNearestNeighbours_ = 0u;
+            numRewirings_ = 0u;
+            numBatches_ = 0u;
+            numPrunings_ = 0u;
+
+            //Mark as not setup:
+            setup_ = false;
+
+            //Call my base clear:
+            Planner::clear();
+        }
+
+
+
+        ompl::base::PlannerStatus BITstar::solve(const ompl::base::PlannerTerminationCondition& ptc)
+        {
+            Planner::checkValidity();
+            OMPL_INFORM("%s: Searching for a solution to the given planning problem.", Planner::getName().c_str());
+            this->statusMessage(ompl::msg::LOG_DEBUG, "Start solve");
+
+            //Reset the manual stop to the iteration loop:
+            stopLoop_ = false;
+
+            //Run the outerloop until we're stopped, a suitable cost is found, or until we find the minimum possible cost within tolerance:
+            while (opt_->isSatisfied(bestCost_) == false && ptc == false && this->isCostBetterThan(minCost_, bestCost_) == true && stopLoop_ == false)
+            {
+                this->iterate();
+            }
+
+            if (hasSolution_ == true)
+            {
+                this->endSuccessMessage();
+
+                this->publishSolution();
+            }
+            else
+            {
+                this->endFailureMessage();
+            }
+
+            this->statusMessage(ompl::msg::LOG_DEBUG, "End solve");
+
+            //PlannerStatus(addedSolution, approximate)
+            return ompl::base::PlannerStatus(hasSolution_, approximateSoln_);
+        }
+
+
+
+        void BITstar::getPlannerData(ompl::base::PlannerData& data) const
+        {
+            //Get the base planner class data:
+            Planner::getPlannerData(data);
+
+            //Add samples
+            if (freeStateNN_)
+            {
+                //Variables:
+                //The list of unused samples:
+                std::vector<VertexPtr> samples;
+
+                //Get the list of samples
+                freeStateNN_->list(samples);
+
+                //Iterate through it turning each into a disconnected vertex
+                for (std::vector<VertexPtr>::const_iterator sIter = samples.begin(); sIter != samples.end(); ++sIter)
+                {
+                    //No, add as a regular vertex:
+                    data.addVertex(ompl::base::PlannerDataVertex((*sIter)->stateConst()));
+                }
+            }
+            //No else.
+
+            //Add vertices
+            if (vertexNN_)
+            {
+                //Variables:
+                //The list of vertices in the graph:
+                std::vector<VertexPtr> vertices;
+
+                //Get the list of vertices
+                vertexNN_->list(vertices);
+
+                //Iterate through it turning each into a vertex with an edge:
+                for (std::vector<VertexPtr>::const_iterator vIter = vertices.begin(); vIter != vertices.end(); ++vIter)
+                {
+                    //Is the vertex the start?
+                    if ((*vIter)->isRoot() == true)
+                    {
+                        //Yes, add as a start vertex:
+                        data.addStartVertex(ompl::base::PlannerDataVertex((*vIter)->stateConst()));
+                    }
+                    else
+                    {
+                        //No, add as a regular vertex:
+                        data.addVertex(ompl::base::PlannerDataVertex((*vIter)->stateConst()));
+
+                        //And as an incoming edge
+                        data.addEdge(ompl::base::PlannerDataVertex((*vIter)->getParentConst()->stateConst()), ompl::base::PlannerDataVertex((*vIter)->stateConst()));
+                    }
+                }
+            }
+            //No else.
+
+            //Did we find a solution?
+            if (hasSolution_ == true)
+            {
+                data.markGoalState(goalVertex_->stateConst());
+            }
+
+            data.properties["best_solution_cost DOUBLE"] = this->bestCostProgressProperty();
+            data.properties["length_best_solution INTEGER"] = this->bestLengthProgressProperty();
+            data.properties["current_number_of_free_states INTEGER"] = this->currentFreeProgressProperty();
+            data.properties["current_number_of_graph_vertices INTEGER"] = this->currentVertexProgressProperty();
+            data.properties["current_vertex_queue_size INTEGER"] = this->vertexQueueSizeProgressProperty();
+            data.properties["current_edge_queue_size INTEGER"] = this->edgeQueueSizeProgressProperty();
+            data.properties["iterations INTEGER"] = this->iterationProgressProperty();
+            data.properties["number_of_batches INTEGER"] = this->batchesProgressProperty();
+            data.properties["number_of_graph_prunings INTEGER"] = this->pruningProgressProperty();
+            data.properties["total_states_generated INTEGER"] = this->totalStatesCreatedProgressProperty();
+            data.properties["total_vertices_added_to_the_graph INTEGER"] = this->verticesConstructedProgressProperty();
+            data.properties["states_pruned_from_problem INTEGER"] = this->statesPrunedProgressProperty();
+            data.properties["graph_vertices_disconnected INTEGER"] = this->verticesDisconnectedProgressProperty();
+            data.properties["rewiring_edges_performed INTEGER"] = this->rewiringProgressProperty();
+            data.properties["number_of_state_collision_checks INTEGER"] = this->stateCollisionCheckProgressProperty();
+            data.properties["number_of_edge_collision_checks INTEGER"] = this->edgeCollisionCheckProgressProperty();
+            data.properties["number_of_nearest_neighbour_calls INTEGER"] = this->nearestNeighbourProgressProperty();
+        }
+
+
+
+        std::pair<ompl::base::State const*, ompl::base::State const*> BITstar::getNextEdgeInQueue()
+        {
+            //Variable:
+            //The next edge as a basic pair of states
+            std::pair<ompl::base::State const*, ompl::base::State const*> nextEdge;
+
+            //If we're using strict queue ordering, make sure the queue is up to date
+            if(useStrictQueueOrdering_ == true)
+            {
+                //Resort the queues as necessary (if the graph has been rewired).
+                this->resort();
+            }
+
+            if (intQueue_->isEmpty() == false)
+            {
+                //The next edge in the queue:
+                nextEdge = std::make_pair(intQueue_->frontEdge().first->state(), intQueue_->frontEdge().second->state());
+            }
+            else
+            {
+                //An empty edge:
+                nextEdge = std::make_pair<ompl::base::State*, ompl::base::State*>(NULL, NULL);
+            }
+
+            return nextEdge;
+        }
+
+
+
+        ompl::base::Cost BITstar::getNextEdgeValueInQueue()
+        {
+            //Variable
+            //The cost of the next edge
+            ompl::base::Cost nextCost;
+
+            //If we're using strict queue ordering, make sure the queue is up to date
+            if(useStrictQueueOrdering_ == true)
+            {
+                //Resort the queues as necessary (if the graph has been rewired).
+                this->resort();
+            }
+
+            if (intQueue_->isEmpty() == false)
+            {
+                //The next cost in the queue:
+                nextCost = intQueue_->frontEdgeValue().first;
+            }
+            else
+            {
+                //An infinite cost:
+                nextCost =  opt_->infiniteCost();
+            }
+
+            return nextCost;
+        }
+
+
+
+        void BITstar::getEdgeQueue(std::vector<std::pair<VertexConstPtr, VertexConstPtr> >* edgesInQueue)
+        {
+            intQueue_->listEdges(edgesInQueue);
+        }
+
+
+
+        void BITstar::getVertexQueue(std::vector<VertexConstPtr>* verticesInQueue)
+        {
+            intQueue_->listVertices(verticesInQueue);
+        }
+
+
+
+        template<template<typename T> class NN>
+        void BITstar::setNearestNeighbors()
+        {
+            //Check if the problem is already setup, if so, the NN structs have data in them and you can't really change them:
+            if (Planner::setup_ == true)
+            {
+                throw ompl::Exception("The type of nearest neighbour datastructure cannot be changed once a planner is setup. ");
+            }
+            else
+            {
+                //The problem isn't setup yet, create NN structs of the specified type:
+                freeStateNN_ = boost::make_shared< NN<VertexPtr> >();
+                vertexNN_ = boost::make_shared< NN<VertexPtr> >();
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         void BITstar::estimateMeasures()
         {
@@ -315,391 +628,97 @@ namespace ompl
         }
 
 
-        void BITstar::clear()
+        void BITstar::iterate()
         {
-            //Clear all the variables.
-            //Keep this in the order of the constructors list:
+            this->statusMessage(ompl::msg::LOG_DEBUG, "Iterate");
 
-            //The various convenience pointers:
-            sampler_.reset();
-            opt_.reset();
-            startVertex_.reset();
-            goalVertex_.reset();
+            //Info:
+            ++numIterations_;
 
-            //The list of samples
-            if (freeStateNN_)
+            //If we're using strict queue ordering, make sure the queues are up to date
+            if(useStrictQueueOrdering_ == true)
             {
-                freeStateNN_->clear();
-                freeStateNN_.reset();
-            }
-            //No else, not allocated
-
-            //The list of vertices
-            if (vertexNN_)
-            {
-                vertexNN_->clear();
-                vertexNN_.reset();
+                //The queues will be resorted if the graph has been rewired.
+                this->resort();
             }
 
-            //The queues:
-            vertexQueue_.clear();
-            edgeQueue_.clear();
-
-            //DO NOT reset the parameters:
-            //useStrictQueueOrdering_
-            //rewireFactor_
-            //samplesPerBatch_
-            //useFailureTracking_
-            //useKNearest_
-            //usePruning_
-            //pruneFraction_
-            //stopOnSolnChange_
-
-            //Reset the various calculations? TODO: Should I recalculate them?
-            sampleDensity_ = 0.0;
-            r_ = 0.0;
-            k_rgg_ = 0.0; //This is a double for better rounding later
-            k_ = 0u;
-            bestCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
-            prunedCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
-            minCost_ = ompl::base::Cost(0.0);
-            costSampled_ = ompl::base::Cost(0.0);
-            hasSolution_ = false;
-            approximateSoln_ = false;
-            approximateDiff_ = -1.0;
-            numIterations_ = 0u;
-            numSamples_ = 0u;
-            numVertices_ = 0u;
-            numFreeStatesPruned_ = 0u;
-            numVerticesPruned_ = 0u;
-            numStateCollisionChecks_ = 0u;
-            numEdgeCollisionChecks_ = 0u;
-            numNearestNeighbours_ = 0u;
-            numRewirings_ = 0u;
-            numBatches_ = 0u;
-            numPrunings_ = 0u;
-
-            //Mark as not setup:
-            setup_ = false;
-
-            //Call my base clear:
-            Planner::clear();
-        }
-
-
-
-        ompl::base::PlannerStatus BITstar::solve(const ompl::base::PlannerTerminationCondition& ptc)
-        {
-            Planner::checkValidity();
-            OMPL_INFORM("%s: Searching for a solution to the given planning problem.", Planner::getName().c_str());
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start solve");
-            //Variable
-            //A manual stop to the iteration loop:
-            bool stopLoop = false;
-
-            //Run the outerloop until we're stopped, a suitable cost is found, or until we find the minimum possible cost within tolerance:
-            while (opt_->isSatisfied(bestCost_) == false && ptc == false && this->isCostBetterThan(minCost_, bestCost_) == true && stopLoop == false)
+            //If the edge queue is empty, that must mean we're either starting from scratch, or just finished a batch. Either way, make a batch of samples and fill the queue for the first time:
+            if (intQueue_->isEmpty() == true)
             {
-                //Info:
-                ++numIterations_;
-                this->statusMessage(ompl::msg::LOG_DEBUG, "Iterate");
+                this->newBatch();
+            }
+            else
+            {
+                //If the edge queue is not empty, then there is work to do!
 
-                //If we're using strict queue ordering, make sure the queues are up to date
-                if(useStrictQueueOrdering_ == true)
-                {
-                    //The queues will be resorted if the graph has been rewired
-                    edgeQueue_.resort(bestCost_);
-                    vertexQueue_.resort(bestCost_);
-                }
+                //Variables:
+                //The current edge:
+                vertex_pair_t bestEdge;
 
-                //If the edge queue is empty, that must mean we're either starting from scratch, or just finished a batch. Either way, make a batch of samples and fill the queue for the first time:
-                if (edgeQueue_.empty() == true && vertexQueue_.empty() == true)
-                {
-                    this->newBatch();
-                }
-                //No else, there is existing work to do!
+                //Pop the minimum edge
+                intQueue_->popFrontEdge(&bestEdge);
 
-                //Expand any states in the tree that could provide a better solution than our current minimum edge
-                this->updateQueue();
-
-                //Did any get expanded or are we done with this batch (and are we still allowed to continue)
-                if (edgeQueue_.empty() == false)
+                //In the best case, can this edge improve our solution given the current graph?
+                //g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)
+                if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), bestCost_ ) == true)
                 {
                     //Variables:
-                    //The current edge:
-                    vertex_pair_t bestEdge;
+                    //The true cost of the edge:
+                    ompl::base::Cost trueEdgeCost;
 
-                    //Pop the minimum edge
-                    edgeQueue_.pop_front(bestEdge);
+                    //Get the true cost of the edge
+                    trueEdgeCost = this->trueEdgeCost(bestEdge);
 
-                    //In the best case, can this edge improve our solution given the current graph?
-                    //g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g) )
-                    if (this->isCostBetterThan( this->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), goalVertex_->getCost() ) == true)
+                    //Can this actual edge ever improve our solution?
+                    //g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)
+                    if (this->isCostBetterThan( opt_->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  bestCost_ ) == true)
                     {
-                        //Variables:
-                        //The true cost of the edge:
-                        ompl::base::Cost trueEdgeCost;
-
-                        //Get the true cost of the edge (Is this the correct way?):
-                        trueEdgeCost = this->trueEdgeCost(bestEdge);
-
-                        //Can this actual edge ever improve our solution?
-                        //g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)
-                        if (this->isCostBetterThan( this->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  goalVertex_->getCost() ) == true)
+                        //Does this edge have a collision?
+                        if (this->checkEdge(bestEdge) == true)
                         {
-                            //Does this edge have a collision?
-                            if (this->checkEdge(bestEdge) == true)
+                            //Does the current edge improve our graph?
+                            //g_t(v) + c(v,x) < g_t(x)
+                            if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), trueEdgeCost), bestEdge.second->getCost() ) == true)
                             {
-                                //Does the current edge improve our graph?
-                                //g_t(v) + c(v,x) < g_t(x)
-                                if (this->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), trueEdgeCost), bestEdge.second->getCost() ) == true)
-                                {
-                                    //YAAAAH. Add the edge! Update the vertex queue
-                                    this->addEdge(bestEdge, trueEdgeCost, true, true);
+                                //YAAAAH. Add the edge! Allowing for the sample to be removed from free if it is not currently connected and otherwise propagate cost updates to descendants.
+                                //addEdge will update the queue and handle the extra work that occurs if this edge improves the solution.
+                                this->addEdge(bestEdge, trueEdgeCost, true, true);
 
-                                    //Check for improved solution
-                                    if (this->isCostBetterThan(goalVertex_->getCost(), bestCost_) == true)
-                                    {
-                                        //We have a better solution!
-                                        if (hasSolution_ == false)
-                                        {
-                                            approximateSoln_ = false;
-                                            approximateDiff_ = -1.0;
-                                        }
+                                //Prune the edge queue of any unnecessary incoming edges
+                                intQueue_->pruneEdgesTo(bestEdge.second);
 
-                                        //Mark that we have a solution
-                                        hasSolution_ = true;
-
-                                        //Update the best cost:
-                                        bestCost_ = goalVertex_->getCost();
-
-                                        //We will only prune the graph/samples on a new batch:
-
-                                        //Mark to stop if necessary
-                                        stopLoop = stopOnSolnChange_;
-
-                                        OMPL_INFORM("%s: Found a solution with a cost of %.4f in %u iterations (%u vertices, %u rewirings). Graph currently has %u vertices.", Planner::getName().c_str(), goalVertex_->getCost(), numIterations_, numVertices_, numRewirings_, vertexNN_->size());
-                                    }
-                                    //No else
-
-                                    //Prune the edge queue of any unnecessary incoming edges
-                                    edgeQueue_.prune_to(bestEdge.second, bestCost_);
-                                }
-                                //No else, this edge may be useful at some later date.
+                                //We will only prune the whole graph/samples on a new batch.
                             }
-                            else if (useFailureTracking_ == true)
-                            {
-                                //If the edge failed, and we're tracking failures, record.
-                                //This edge has a collision and can never be helpful. Poor edge. Add the target to the list of failed children for the source:
-                                bestEdge.first->markAsFailedChild(bestEdge.second);
-                            }
-                            //No else, we failed and we're not tracking those
+                            //No else, this edge may be useful at some later date.
                         }
                         else if (useFailureTracking_ == true)
                         {
                             //If the edge failed, and we're tracking failures, record.
-                            //This edge either has a very high edge cost and can never be helpful. Poor edge. Add the target to the list of failed children for the source
+                            //This edge has a collision and can never be helpful. Poor edge. Add the target to the list of failed children for the source:
                             bestEdge.first->markAsFailedChild(bestEdge.second);
                         }
                         //No else, we failed and we're not tracking those
                     }
-                    else if (edgeQueue_.isSorted() == false)
+                    else if (useFailureTracking_ == true)
                     {
-                        //The edge is imperfectly sorted, we must resort before we give up
-                        edgeQueue_.resort(bestCost_);
-                        vertexQueue_.resort(bestCost_);
+                        //If the edge failed, and we're tracking failures, record.
+                        //This edge either has a very high edge cost and can never be helpful. Poor edge. Add the target to the list of failed children for the source
+                        bestEdge.first->markAsFailedChild(bestEdge.second);
                     }
-                    else
-                     {
-                        this->statusMessage(ompl::msg::LOG_DEBUG, "Clearing edge queue!");
-                        //Else, I cannot improve the current solution, and as the queue is perfectly sorted and I am the best edge, no one can improve the current solution . Give up on the batch:
-                        edgeQueue_.clear();
-                        vertexQueue_.clear();
-                    }
+                    //No else, we failed and we're not tracking those
                 }
-            }
-
-            if (hasSolution_ == true)
-            {
-                OMPL_INFORM("%s: Found a final solution of cost %.4f from %u samples by using %u vertices and %u rewirings. Final graph has %u vertices.", Planner::getName().c_str(), bestCost_.value(), numSamples_, numVertices_, numRewirings_, vertexNN_->size());
-
-                this->publishSolution();
-            }
-            else
-            {
-                OMPL_INFORM("%s: Did not find a solution from %u samples after %u iterations, %u vertices and %u rewirings.", Planner::getName().c_str(), numSamples_, numIterations_, numVertices_, numRewirings_);
-            }
-
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End solve");
-
-            //PlannerStatus(addedSolution, approximate)
-            return ompl::base::PlannerStatus(hasSolution_, approximateSoln_);
-        }
-
-
-
-        void BITstar::getPlannerData(ompl::base::PlannerData& data) const
-        {
-            //Get the base planner class data:
-            Planner::getPlannerData(data);
-
-            //Add samples
-            if (freeStateNN_)
-            {
-                //Variables:
-                //The list of unused samples:
-                std::vector<VertexPtr> samples;
-
-                //Get the list of samples
-                freeStateNN_->list(samples);
-
-                //Iterate through it turning each into a disconnected vertex
-                for (std::vector<VertexPtr>::const_iterator sIter = samples.begin(); sIter != samples.end(); ++sIter)
+                else if (intQueue_->isSorted() == false)
                 {
-                    //No, add as a regular vertex:
-                    data.addVertex(ompl::base::PlannerDataVertex((*sIter)->state()));
+                    //The edge cannot improve our solution, but the queue is imperfectly sorted, so we must resort before we give up.
+                    this->resort();
                 }
-            }
-            //No else.
-
-            //Add vertices
-            if (vertexNN_)
-            {
-                //Variables:
-                //The list of vertices in the graph:
-                std::vector<VertexPtr> vertices;
-
-                //Get the list of vertices
-                vertexNN_->list(vertices);
-
-                //Iterate through it turning each into a vertex with an edge:
-                for (std::vector<VertexPtr>::const_iterator vIter = vertices.begin(); vIter != vertices.end(); ++vIter)
+                else
                 {
-                    //Is the vertex the start?
-                    if ((*vIter)->isRoot() == true)
-                    {
-                        //Yes, add as a start vertex:
-                        data.addStartVertex(ompl::base::PlannerDataVertex((*vIter)->state()));
-                    }
-                    else
-                    {
-                        //No, add as a regular vertex:
-                        data.addVertex(ompl::base::PlannerDataVertex((*vIter)->state()));
-
-                        //And as an incoming edge
-                        data.addEdge(ompl::base::PlannerDataVertex((*vIter)->getParent()->state()), ompl::base::PlannerDataVertex((*vIter)->state()));
-                    }
+                    this->statusMessage(ompl::msg::LOG_DEBUG, "Clearing queue!");
+                    //Else, I cannot improve the current solution, and as the queue is perfectly sorted and I am the best edge, no one can improve the current solution . Give up on the batch:
+                    intQueue_->finish();
                 }
-            }
-            //No else.
-
-            //Did we find a solution?
-            if (hasSolution_ == true)
-            {
-                data.markGoalState(goalVertex_->state());
-            }
-
-            data.properties["best_solution_cost DOUBLE"] = this->bestCostProgressProperty();
-            data.properties["current_number_of_free_states INTEGER"] = this->currentFreeProgressProperty();
-            data.properties["current_number_of_graph_vertices INTEGER"] = this->currentVertexProgressProperty();
-            data.properties["current_vertex_queue_size INTEGER"] = this->vertexQueueSizeProgressProperty();
-            data.properties["current_edge_queue_size INTEGER"] = this->edgeQueueSizeProgressProperty();
-            data.properties["iterations INTEGER"] = this->iterationProgressProperty();
-            data.properties["number_of_batches INTEGER"] = this->batchesProgressProperty();
-            data.properties["number_of_graph_prunings INTEGER"] = this->pruningProgressProperty();
-            data.properties["total_states_generated INTEGER"] = this->totalStatesCreatedProgressProperty();
-            data.properties["total_vertices_added_to_the_graph INTEGER"] = this->verticesConstructedProgressProperty();
-            data.properties["states_pruned_from_problem INTEGER"] = this->statesPrunedProgressProperty();
-            data.properties["free_states_pruned INTEGER"] = this->freeStatesPrunedProgressProperty();
-            data.properties["graph_vertices_pruned INTEGER"] = this->verticesPrunedProgressProperty();
-            data.properties["rewiring_edges_performed INTEGER"] = this->rewiringProgressProperty();
-            data.properties["number_of_state_collision_checks INTEGER"] = this->stateCollisionCheckProgressProperty();
-            data.properties["number_of_edge_collision_checks INTEGER"] = this->edgeCollisionCheckProgressProperty();
-            data.properties["number_of_nearest_neighbour_calls INTEGER"] = this->nearestNeighbourProgressProperty();
-        }
-
-
-
-        std::pair<ompl::base::State*, ompl::base::State*> BITstar::getNextEdgeInQueue()
-        {
-            //If we're using strict queue ordering, make sure the queues are up to date
-            if(useStrictQueueOrdering_ == true)
-            {
-                //The queues will be resorted if the graph has been rewired
-                edgeQueue_.resort(bestCost_);
-                vertexQueue_.resort(bestCost_);
-            }
-
-            //Force the queue to update so that it highlights correctly:
-            this->updateQueue();
-
-            //Return the const version which is now exact
-            return this->getApproxNextEdgeInQueue();
-        }
-
-
-
-        std::pair<ompl::base::State*, ompl::base::State*> BITstar::getApproxNextEdgeInQueue() const
-        {
-            if (edgeQueue_.empty() == false)
-            {
-                return std::make_pair(edgeQueue_.front().first->state(), edgeQueue_.front().second->state());
-            }
-            else
-            {
-                return std::make_pair<ompl::base::State*, ompl::base::State*>(NULL, NULL);
-            }
-        }
-
-
-
-        ompl::base::Cost BITstar::getNextEdgeValueInQueue()
-        {
-            //If we're using strict queue ordering, make sure the queues are up to date
-            if(useStrictQueueOrdering_ == true)
-            {
-                //The queues will be resorted if the graph has been rewired
-                edgeQueue_.resort(bestCost_);
-                vertexQueue_.resort(bestCost_);
-            }
-
-            //Force the queue to update so that it highlights correctly:
-            this->updateQueue();
-
-            //Return the const version which is now exact
-            return this->getApproxNextEdgeValueInQueue();
-        }
-
-
-
-        ompl::base::Cost BITstar::getApproxNextEdgeValueInQueue() const
-        {
-            if (edgeQueue_.empty() == false)
-            {
-                return edgeQueue_.front_value().first;
-            }
-            else
-            {
-                //return minCost_;
-                return opt_->infiniteCost();
-            }
-        }
-
-
-
-        void BITstar::getQueue(std::vector<std::pair<VertexPtr, VertexPtr> >& edgesInQueue)
-        {
-            edgeQueue_.list(edgesInQueue);
-        }
-
-
-
-        template<template<typename T> class NN>
-        void BITstar::setNearestNeighbors()
-        {
-            //Make a new nearest neighbour struct of the specified type:
-            freeStateNN_ = boost::make_shared< NN<VertexPtr> >();
-            vertexNN_ = boost::make_shared< NN<VertexPtr> >();
+            } //Integrated queue not empty.
         }
 
 
@@ -722,173 +741,28 @@ namespace ompl
             freeStateNN_->clear();
             */
 
-            //Clear the existing vertex and edge queue
-            vertexQueue_.clear();
-            edgeQueue_.clear();
+            //Reset the queue:
+            intQueue_->reset();
 
-            //Should we do a little tidying up?
-            if (hasSolution_ == true && usePruning_ == true && std::abs(this->fractionalChange(bestCost_, prunedCost_)) > pruneFraction_)
-            {
-                OMPL_INFORM("%s: Pruning the planning problem from %.4f to %.4f.", Planner::getName().c_str(), prunedCost_, bestCost_);
+            //Prune the graph (if enabled)
+            this->prune();
 
-                //Increment the pruning counter:
-                ++numPrunings_;
-
-                //Prune the samples
-                this->pruneSamples();
-
-                //Prune the graph:
-                this->pruneGraph();
-
-                //Store the cost at which we pruned:
-                prunedCost_ = bestCost_;
-            }
-
-            //Repopulate the vertex expansion queue:
-            //Get the vertices as a std::vector
-            vertexNN_->list(vertices);
-
-            //Copy the vertices into the queue for expansion:
-            for (std::vector<VertexPtr>::const_iterator iter = vertices.begin(); iter != vertices.end(); ++iter)
-            {
-                //Insert:
-                vertexQueue_.insert(*iter);
-            }
-
-            //Calculate the sampling density (currently unused)
-            sampleDensity_ = static_cast<double>(samplesPerBatch_)/sampler_->getInformedMeasure();
-
-            //Update the queue
-            this->updateQueue();
+            //Calculate the sampling density (currently unused but for eventual JIT sampling)
+            sampleDensity_ = static_cast<double>(samplesPerBatch_)/prunedMeasure_;
 
             this->statusMessage(ompl::msg::LOG_DEBUG, "End new batch.");
         }
 
 
 
-        void BITstar::updateQueue()
-        {
-            //Variables:
-            //Whether to expand:
-            bool expand;
-
-            //Info:
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start update queue.");
-
-            expand = true;
-            while ( expand == true )
-            {
-                //Check that there are vertices to expand
-                if (vertexQueue_.empty () == false)
-                {
-                    //Variables:
-                    //The cost of the minimum edge:
-                    ompl::base::Cost bestEdgeCost;
-
-                    //Get the minimum edge cost
-                    if (edgeQueue_.empty() == true)
-                    {
-                        //The minimum of an empty set is infinity:
-                        bestEdgeCost = opt_->infiniteCost();
-                    }
-                    else
-                    {
-                        //Get the best edge and calculate it's cost in the queue.
-                        bestEdgeCost = edgeQueue_.front_value().first;
-                    }
-
-                    //Check if the minimum vertex could provide a better edge than the minimum edge
-                    //I.e., compare the best possible edge our current vertex could add to the tree, g_t(v) + h^(v), to the best edge in the queue which is calculated by g_t(v) + c^(v,x) + h^(x)
-                    if ( this->isCostBetterThan( vertexQueue_.front_value(), bestEdgeCost ) == true )
-                    {
-                        //Expand the front vertex and then expand again:
-                        this->expandVertex(vertexQueue_.pop_front());
-                    }
-                    else
-                    {
-                        //We are done expanding for now:
-                        expand = false;
-                    }
-                }
-                else
-                {
-                    //There are no vertices left to expand
-                    expand = false;
-                }
-            }
-
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End update queue.");
-        }
-
-
-
-        void BITstar::expandVertex(const VertexPtr& vertex)
-        {
-            //Variables:
-            //The vector of samples within r of the vertex
-            std::vector<VertexPtr> neighbourSamples;
-
-            //Info:
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start expand vertex.");
-
-            //Make sure the free queue is up-to-date, performing JIT sampling if necessary
-            this->updateSamples(vertex);
-
-            //Get the set of nearby free states:
-            this->nearestSamples(vertex, &neighbourSamples);
-
-            //Iterate over the vector and add only those who could ever provide a better solution:
-            for (unsigned int i = 0u; i < neighbourSamples.size(); ++i)
-            {
-                //Attempt to queue the edge
-                this->queueupEdge(vertex, neighbourSamples.at(i));
-            }
-
-            //If it is a new vertex, we also add rewiring candidates:
-            if (vertex->isNew() == true)
-            {
-                //Variables:
-                //The vector of vertices within r of the vertexf
-                std::vector<VertexPtr> neighbourVertices;
-
-                //Get the set of nearby free states:
-                this->nearestVertices(vertex, &neighbourVertices);
-
-                //Iterate over the vector and add only those who could ever provide a better solution:
-                for (unsigned int i = 0u; i < neighbourVertices.size(); ++i)
-                {
-                    //Make sure it is not the root or myself.
-                    if (neighbourVertices.at(i)->isRoot() == false && neighbourVertices.at(i) != vertex)
-                    {
-                        //Make sure I am not already the parent or child
-                        if (neighbourVertices.at(i)->getParent() != vertex && neighbourVertices.at(i) != vertex->getParent())
-                        {
-                            //Attempt to queue the edge:
-                            this->queueupEdge(vertex, neighbourVertices.at(i));
-                        }
-                        //No else
-                    }
-                    //No else
-                }
-
-                //Mark as old
-                vertex->markOld();
-            }
-            //No else
-
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End expand vertex.");
-        }
-
-
-
         void BITstar::updateSamples(const VertexPtr& vertex)
         {
-            //Info:
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start update samples");
-
-            //Check if we need to sample:
+            //Check if we need to sample (This is in preparation for JIT sampling:)
             if (this->isCostBetterThan(costSampled_, bestCost_))
             {
+                //Info:
+                this->statusMessage(ompl::msg::LOG_DEBUG, "Start update samples");
+
                 //Update the sampler counter:
                 numSamples_ = numSamples_ + samplesPerBatch_;
 
@@ -905,25 +779,31 @@ namespace ompl
                     //If the state is collision free, add it to the list of free states
                     //We're counting density in the total state space, not free space
                     ++numStateCollisionChecks_;
-                    if (Planner::si_->isValid(newState->state()) == true)
+                    if (Planner::si_->isValid(newState->stateConst()) == true)
                     {
                         //Add the new state as a sample
                         this->addSample(newState);
                     }
                 }
 
-                //Mark that we've sampled all cost spaces
+                //Mark that we've sampled all cost spaces (This is in preparation for JIT sampling)
                 costSampled_ = opt_->infiniteCost();
-            }
 
-            ///JIT Sampling code. To return to:
+                //Finally, update the nearest-neighbour terms
+                this->updateNearestTerms();
+
+                this->statusMessage(ompl::msg::LOG_DEBUG, "End update samples");
+            }
+            //No else, the samples are up to date
+
+            //JIT Sampling code. To return to:
             /*
             //Variables:
             //The required cost to sample to
             ompl::base::Cost reqCost;
 
             //The required cost is the minimum between the cost required to encompass our local neighbourhood and the current solution cost
-            reqCost = opt_->minCost(opt_->combineCosts(this->lowerBoundHeuristicVertex(vertex), this->neighbourhoodCost()), bestCost_);
+            reqCost = this->betterCost(opt_->combineCosts(this->lowerBoundHeuristicVertex(vertex), this->neighbourhoodCost()), bestCost_);
 
             //Check if we've sampled this cost space yet
             if (this->isCostBetterThan(costSampled_, reqCost))
@@ -983,80 +863,88 @@ namespace ompl
             //Update the radius, it will only get smaller, so we were simply conservative by not updating it before:
             this->updateNearestTerms();
             */
-
-            //Finally, update the nearest-neighbour terms
-            this->updateNearestTerms();
-
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End update samples");
         }
 
 
 
-        void BITstar::pruneSamples()
+        bool BITstar::prune()
         {
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune samples.");
+            //Variable:
+            //Whether or not we pruned
+            bool rval;
 
-            //Only reject if the informed subset is not measurable, or if it's measure is less than the total problem domain
-            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) )
+            //Start as unpruned:
+            rval = false;
+
+            //Test if we should we do a little tidying up:
+            //Is pruning enabled? Do we have a solution? Has the solution changed enough?
+            if ( (usePruning_ == true) && (hasSolution_ == true) && (std::abs(this->fractionalChange(bestCost_, prunedCost_)) > pruneFraction_) )
             {
-                //Variable:
-                //The list of samples:
-                std::vector<VertexPtr> samples;
+                this->statusMessage(ompl::msg::LOG_DEBUG, "Start pruning.");
 
-                //Get the list of samples
-                freeStateNN_->list(samples);
-
-                //Iterate through the list and remove any samples that have a heuristic larger than the bestCost_
-                for (unsigned int i = 0u; i < samples.size(); ++i)
-                {
-                    //Check if this state meets the queueing condition
-                    if (this->sampleQueueCondition(samples.at(i), bestCost_) == false)
-                    {
-                        //It doesn't, remove it to the list of samples
-                        freeStateNN_->remove(samples.at(i));
-
-                        //Update the counter:
-                        ++numFreeStatesPruned_;
-                    }
-                    //No else, keep.
-                }
-            }
-            //No else, it's not worth the work to prune...
-
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune samples.");
-        }
-
-
-
-        void BITstar::pruneGraph()
-        {
-            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune graph.");
-
-            //Only reject if the informed subset is not measurable, or if it's measure is less than the total problem domain
-            if ( (sampler_->hasInformedMeasure() == false) || (sampler_->hasInformedMeasure() == true && sampler_->getInformedMeasure() < si_->getSpaceMeasure()) )
-            {
                 //Variables:
-                //The list of states:
-                std::vector<VertexPtr> vertices;
+                //The current measure of the problem space:
+                double informedMeasure;
 
-                //Get the list of vertices to prune.
-                vertexNN_->list(vertices);
-
-                //Iterate through the list of vertices, removing any that are no longer valid. As we don't touch the vector, the iterators will remain valid
-                for (std::vector<VertexPtr>::iterator vIter = vertices.begin(); vIter != vertices.end(); ++vIter)
+                informedMeasure = sampler_->getInformedMeasure();
+                //Is there good reason to prune? I.e., is the informed subset measurably less than the total problem domain? If an informed measure is not available, we'll assume yes:
+                if ( (sampler_->hasInformedMeasure() == true && informedMeasure < si_->getSpaceMeasure()) || (sampler_->hasInformedMeasure() == false) )
                 {
-                    //Check if the vertex is to be pruned
-                    if (this->vertexQueueCondition(*vIter, bestCost_) == false && (*vIter)->isConnected() == true)
-                    {
-                        //Prune the found state
-                        this->pruneVertex(*vIter);
-                    }
-                    //No else
-                }
-            }
-            //No else, it's not worth the work to prune...
+                    //Variable:
+                    //The number of vertices and samples pruned
+                    std::pair<unsigned int, unsigned int> numPruned;
 
-            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune graph.");
+                    OMPL_INFORM("%s: Pruning the planning problem from a solution of %.4f to %.4f, resulting in a change of problem size from %.4f to %.4f.", Planner::getName().c_str(), prunedCost_, bestCost_, prunedMeasure_, informedMeasure);
+
+                    //Increment the pruning counter:
+                    ++numPrunings_;
+
+                    //Prune the samples
+                    this->pruneSamples();
+
+                    //Prune the graph. This can be done extra efficiently by using some info in the integrated queue.
+                    //This requires access to the nearest neighbour structures so vertices can be moved to free states.
+                    numPruned = intQueue_->prune(vertexNN_, freeStateNN_);
+
+                    //The number of vertices and samples pruned are incrementally updated.
+                    numVerticesDisconnected_ = numVerticesDisconnected_ + numPruned.first;
+                    numFreeStatesPruned_ = numFreeStatesPruned_ + numPruned.second;
+
+                    //Store the cost at which we pruned:
+                    prunedCost_ = bestCost_;
+
+                    //And the measure:
+                    prunedMeasure_ = informedMeasure;
+
+                    //Check if any states have actually been pruned
+                    rval = (numPruned.second > 0u);
+                }
+                //No else, it's not worth the work to prune...
+
+                this->statusMessage(ompl::msg::LOG_DEBUG, "End pruning.");
+            }
+            //No else, why was I called?
+
+            return rval;
+        }
+
+
+
+        bool BITstar::resort()
+        {
+            //Variable:
+            //The number of vertices and samples pruned
+            std::pair<unsigned int, unsigned int> numPruned;
+
+            //Resorting requires access to the nearest neighbour structures so vertices can be pruned instead of resorted.
+            //The number of vertices pruned is also incrementally updated.
+            numPruned = intQueue_->resort(vertexNN_, freeStateNN_);
+
+            //The number of vertices and samples pruned are incrementally updated.
+            numVerticesDisconnected_ = numVerticesDisconnected_ + numPruned.first;
+            numFreeStatesPruned_ = numFreeStatesPruned_ + numPruned.second;
+
+            return (numPruned.second > 0u);
         }
 
 
@@ -1067,7 +955,7 @@ namespace ompl
 
             //Variable
             //A vector of vertices from goal->start:
-            std::vector<VertexPtr> reversePath;
+            std::vector<VertexConstPtr> reversePath;
             //The path geometric
             boost::shared_ptr<ompl::geometric::PathGeometric> pathGeoPtr;
 
@@ -1075,15 +963,16 @@ namespace ompl
             pathGeoPtr = boost::make_shared<ompl::geometric::PathGeometric>(Planner::si_);
 
             //Iterate up the chain from the goal, creating a backwards vector:
-            for(VertexPtr vertex = goalVertex_; bool(vertex) == true; vertex = vertex->getParent())
+            for(VertexConstPtr vertex = goalVertex_; vertex != startVertex_; vertex = vertex->getParentConst())
             {
                 reversePath.push_back(vertex);
             }
+            reversePath.push_back(startVertex_);
 
             //Now iterate that vector in reverse, putting the states into the path geometric
-            for (std::vector<VertexPtr>::const_reverse_iterator vIter = reversePath.rbegin(); vIter != reversePath.rend(); ++vIter)
+            for (std::vector<VertexConstPtr>::const_reverse_iterator vIter = reversePath.rbegin(); vIter != reversePath.rend(); ++vIter)
             {
-                pathGeoPtr->append( (*vIter)->state() );
+                pathGeoPtr->append( (*vIter)->stateConst() );
             }
 
             //Now create the solution
@@ -1109,6 +998,34 @@ namespace ompl
 
 
 
+        void BITstar::pruneSamples()
+        {
+            this->statusMessage(ompl::msg::LOG_DEBUG, "Start prune samples.");
+
+            //Variable:
+            //The list of samples:
+            std::vector<VertexPtr> samples;
+
+            //Get the list of samples
+            freeStateNN_->list(samples);
+
+            //Iterate through the list and remove any samples that have a heuristic larger than the bestCost_
+            for (unsigned int i = 0u; i < samples.size(); ++i)
+            {
+                //Check if this state should be pruned:
+                if (intQueue_->samplePruneCondition(samples.at(i)) == true)
+                {
+                    //Yes, remove it
+                    this->dropSample(samples.at(i));
+                }
+                //No else, keep.
+            }
+
+            this->statusMessage(ompl::msg::LOG_DEBUG, "End prune samples.");
+        }
+
+
+
         bool BITstar::checkEdge(const vertex_pair_t& edge)
         {
             ++numEdgeCollisionChecks_;
@@ -1117,129 +1034,82 @@ namespace ompl
 
 
 
-        void BITstar::pruneVertex(const VertexPtr& oldVertex)
+        void BITstar::dropSample(VertexPtr oldSample)
         {
-            //We must iterate over the children of this vertex and prune each one.
-            //Then we must decide if this vertex (a) gets deleted or (b) placed back on the sample set.
-            //(a) occurs if it has a lower-bound heuristic greater than the current solution
-            //(b) occurs if it doesn't.
+            //Update the counter:
+            ++numFreeStatesPruned_;
 
-            //Variable:
-            //The vector of my children:
-            std::vector<VertexPtr> children;
-
-            //Some asserts:
-            if (oldVertex == goalVertex_)
-            {
-                throw ompl::Exception("Pruning goal vertex");
-            }
-
-            if (oldVertex->isConnected() == false)
-            {
-                throw ompl::Exception("Attempting to prune a vertex not in the graph.");
-            }
-
-            //Get the vector of children
-            oldVertex->getChildren(children);
-
-            //Prune each one:
-            for (unsigned int i = 0u; i < children.size(); ++i)
-            {
-                this->pruneVertex(children.at(i));
-            }
-
-            //Remove the vertex, recycling if the sampleQueueCondition is true
-            this->removeVertex(oldVertex, this->sampleQueueCondition(oldVertex, bestCost_));
-
-            //Update the counter
-            ++numVerticesPruned_;
+            //Remove from the list of samples
+            freeStateNN_->remove(oldSample);
         }
 
 
 
-        void BITstar::removeVertex(const VertexPtr& oldVertex, bool recycleVertex)
+        void BITstar::addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateDescendants)
         {
-            //First disconnect the vertex
-            this->disconnectVertex(oldVertex);
-
-            //Remove from the vertex queue:
-            vertexQueue_.erase(oldVertex);
-
-            //Remove from the NN structure:
-            vertexNN_->remove(oldVertex);
-
-            //Remove all edges from the state:
-            edgeQueue_.remove_from(oldVertex);
-
-            //Check if the state should be placed back on the set of samples or deleted completely
-            if ( recycleVertex == true)
+            if (newEdge.first->isInTree() == false)
             {
-                //Add back to the set of samples:
-                this->addSample(oldVertex);
-            }
-            else
-            {
-                //Also Remove from the incoming edge container as I am no longer
-                edgeQueue_.remove_to(oldVertex);
-            }
-        }
-
-
-
-        void BITstar::disconnectVertex(const VertexPtr& oldVertex)
-        {
-            //Variables:
-            //The children of the vertex being removed
-            std::vector<VertexPtr> children;
-
-            //Get my children:
-            oldVertex->getChildren(children);
-
-            //Remove the parent link from my children, updating the downstream costs
-            for (unsigned int i = 0u; i < children.size(); ++i)
-            {
-                if (children.at(i) == goalVertex_)
-                {
-                    throw ompl::Exception("Orphaning goal vertex");
-                }
-                children.at(i)->removeParent(true);
+                throw ompl::Exception("Adding an edge from a vertex not connected to the graph");
             }
 
-            //Remove the child link from my parent, not updating down-stream costs
-            oldVertex->getParent()->removeChild(oldVertex, false);
+            //This should be a debug-level-only assert some day:
+            /*
+            if (this->isCostEquivalentTo(this->trueEdgeCost(newEdge), edgeCost) == false)
+            {
+                throw ompl::Exception("You have passed the wrong edge cost to addEdge.");
+            }
+            */
 
-            //Remove my parent link, updating my cost
-            oldVertex->removeParent(true);
-        }
-
-
-
-        void BITstar::addEdge(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateExpansionQueue)
-        {
             //If the vertex is currently in the tree, we need to rewire
-            if (newEdge.second->isConnected() == true)
+            if (newEdge.second->hasParent() == true)
             {
                 //Replace the edge
-                this->replaceParent(newEdge, edgeCost);
+                this->replaceParent(newEdge, edgeCost, updateDescendants);
             }
             else
             {
                 //If not, we just add the vertex, first connect:
 
-                //Add a parent to the child, not updating costs:
-                newEdge.second->addParent(newEdge.first, edgeCost, false);
+                //Add a child to the parent, not updating costs:
+                newEdge.first->addChild(newEdge.second, false);
 
-                //Add a child to the parent, updating costs:
-                newEdge.first->addChild(newEdge.second, true);
+                //Add a parent to the child, updating descendant costs if requested:
+                newEdge.second->addParent(newEdge.first, edgeCost, updateDescendants);
 
                 //Then add to the queues as necessary
-                this->addVertex(newEdge.second, removeFromFree, updateExpansionQueue);
+                this->addVertex(newEdge.second, removeFromFree);
             }
+
+            //If the stored solution cost or solution length has changed, we update the info about the goal vertex:
+            //Is it connected yet?
+            if (goalVertex_->isInTree() == true)
+            {
+                //Is the stored info out of date?
+                if (this->isCostEquivalentTo(goalVertex_->getCost(), bestCost_) == false || (goalVertex_->getDepth() + 1u) != bestLength_)
+                {
+                    //Update the info about the goal vertex
+                    this->updateGoalVertex();
+                }
+                //No else, this edge didn't improve the solution. Don't worry little edge, I'm sure you'll still be useful.
+            }
+            //No else, the goal isn't in the tree yet
         }
 
 
-        void BITstar::replaceParent(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost)
+
+        void BITstar::replaceParent(const vertex_pair_t& newEdge, const ompl::base::Cost& edgeCost, const bool& updateDescendants)
         {
+            if (newEdge.second->getParent() == newEdge.first)
+            {
+                throw ompl::Exception("The new and old parents of the given rewiring are the same.");
+            }
+
+            //This would be a good debug-level-only assert
+            if (this->isCostBetterThan(newEdge.second->getCost(), opt_->combineCosts(newEdge.first->getCost(), edgeCost)) == true)
+            {
+                throw ompl::Exception("The new edge will increase the cost-to-come of the vertex!");
+            }
+
             //Increment our counter:
             ++numRewirings_;
 
@@ -1252,12 +1122,42 @@ namespace ompl
             //Add the child to the parent, not updating costs
             newEdge.first->addChild(newEdge.second, false);
 
-            //Add the parent to the child. This updates the cost of the child as well as all it's descendents.
-            newEdge.second->addParent(newEdge.first, edgeCost, true);
+            //Add the parent to the child. This updates the cost of the child as well as all it's descendents (if requested).
+            newEdge.second->addParent(newEdge.first, edgeCost, updateDescendants);
 
             //Mark the queues as unsorted below this child
-            edgeQueue_.markUnsorted(newEdge.second);
-            vertexQueue_.markUnsorted(newEdge.second);
+            intQueue_->markVertexUnsorted(newEdge.second);
+        }
+
+
+
+        void BITstar::updateGoalVertex()
+        {
+            //We have a better solution!
+            if (hasSolution_ == false)
+            {
+                approximateSoln_ = false;
+                approximateDiff_ = -1.0;
+            }
+
+            //Mark that we have a solution
+            hasSolution_ = true;
+            intQueue_->hasSolution();
+
+            //Update the best cost:
+            bestCost_ = goalVertex_->getCost();
+
+            //and best length
+            bestLength_ = goalVertex_->getDepth() + 1u;
+
+            //Update the queue threshold:
+            intQueue_->setThreshold(bestCost_);
+
+            //Stop the solution loop if enabled:
+            stopLoop_ = stopOnSolnChange_ ;
+
+            //Brag:
+            this->goalMessage();
         }
 
 
@@ -1273,10 +1173,10 @@ namespace ompl
 
 
 
-        void BITstar::addVertex(const VertexPtr& newVertex, const bool& removeFromFree, const bool& updateExpansionQueue)
+        void BITstar::addVertex(const VertexPtr& newVertex, const bool& removeFromFree)
         {
             //Make sure it's connected first, so that the queue gets updated properly. This is a day of debugging I'll never get back
-            if (newVertex->hasParent() == false && newVertex->isRoot() == false)
+            if (newVertex->isInTree() == false)
             {
                 throw ompl::Exception("Vertices must be connected to the graph before adding");
             }
@@ -1291,13 +1191,8 @@ namespace ompl
             //Add to the NN structure:
             vertexNN_->add(newVertex);
 
-            //Should we update the vertex queue?
-            if (updateExpansionQueue == true)
-            {
-                //Add to the queue:
-                vertexQueue_.insert(newVertex);
-            }
-            //No else.
+            //Add to the queue:
+            intQueue_->insertVertex(newVertex);
 
             //Increment the number of vertices added:
             ++numVertices_;
@@ -1305,42 +1200,39 @@ namespace ompl
 
 
 
-        bool BITstar::queueupEdge(const VertexPtr& parent, const VertexPtr& child)
+        void BITstar::nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples)
         {
-            //Variables:
-            //A bool to store the conditional failed edge check
-            bool previouslyFailed;
-            //The edge:
-            vertex_pair_t testEdge;
+            //Make sure sampling has happened first:
+            this->updateSamples(vertex);
 
-            //Make the edge
-            testEdge = std::make_pair(parent, child);
+            //Increment our counter:
+            ++numNearestNeighbours_;
 
-            //See if we're checking for previous failure:
-            if (useFailureTracking_ == true)
+            if (useKNearest_ == true)
             {
-                previouslyFailed = parent->hasAlreadyFailed(child);
+                freeStateNN_->nearestK(vertex, k_, *neighbourSamples);
             }
             else
             {
-                previouslyFailed = false;
+                freeStateNN_->nearestR(vertex, r_, *neighbourSamples);
             }
+        }
 
-            //Make sure the edge has not already failed
-            if (previouslyFailed == false)
+
+
+        void BITstar::nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices)
+        {
+            //Increment our counter:
+            ++numNearestNeighbours_;
+
+            if (useKNearest_ == true)
             {
-                //Could I ever provide a better path to the child-vertex and could I ever provide a better solution?
-                if( this->edgeQueueCondition(testEdge, bestCost_) == true )
-                {
-                    edgeQueue_.insert(testEdge);
-
-                    return true;
-                }
-                //No else, we assume that it's better to calculate this condition multiple times than have the list of failed sets become too large...?
+                vertexNN_->nearestK(vertex, k_, *neighbourVertices);
             }
-            //No else, next
-
-            return false;
+            else
+            {
+                vertexNN_->nearestR(vertex, r_, *neighbourVertices);
+            }
         }
 
 
@@ -1362,95 +1254,6 @@ namespace ompl
 
 
 
-        ompl::base::Cost BITstar::vertexQueueValue(const VertexPtr& vertex) const
-        {
-            return this->currentHeuristicVertex(vertex);
-        }
-
-
-
-        BITstar::cost_pair_t BITstar::edgeQueueValue(const vertex_pair_t& edge) const
-        {
-            return std::make_pair(this->currentHeuristicEdge(edge), edge.first->getCost());
-        }
-
-
-
-        bool BITstar::vertexQueueComparison(const ompl::base::Cost& lhs, const ompl::base::Cost& rhs) const
-        {
-            //lhs < rhs?
-            return this->isCostBetterThan(lhs, rhs);
-        }
-
-
-
-        bool BITstar::edgeQueueComparison(const cost_pair_t& lhs, const cost_pair_t& rhs) const
-        {
-            bool lhsLTrhs;
-
-            //Get if LHS is less than RHS.
-            lhsLTrhs = this->isCostBetterThan(lhs.first, rhs.first);
-
-            //If it's not, it could be equal
-            if (lhsLTrhs == false)
-            {
-                //If RHS is also NOT less than LHS, than they're equal and we need to check the second key
-                if (this->isCostBetterThan(rhs.first, lhs.first) == false)
-                {
-                    //lhs == rhs
-                    //Compare their second values
-                    lhsLTrhs = this->isCostBetterThan( lhs.second, rhs.second );
-                }
-                //No else, lhs > rhs
-            }
-            //No else, lhs < rhs
-
-            return lhsLTrhs;
-        }
-
-
-
-        bool BITstar::sampleQueueCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const
-        {
-            //Threshold should always be g_t(x_g)
-            //g^(v) + h^(v) < g_t(x_g)
-            return this->isCostBetterThan(this->lowerBoundHeuristicVertex(state), threshold);
-        }
-
-
-
-        bool BITstar::vertexQueueCondition(const VertexPtr& state, const ompl::base::Cost& threshold) const
-        {
-            //Threshold should always be g_t(x_g)
-            //g^(v) + h^(v) <= g_t(x_g)
-            return !this->isCostBetterThan(threshold, this->lowerBoundHeuristicVertex(state));
-        }
-
-
-
-        bool BITstar::edgeQueueCondition(const vertex_pair_t& edge, const ompl::base::Cost& threshold) const
-        {
-            bool rval;
-            //Threshold should always be g_t(x_g)
-
-            // g^(v) + c^(v,x) + h^(x) < g_t(x_g)
-            rval = this->isCostBetterThan(this->lowerBoundHeuristicEdge(edge), threshold);
-
-
-            //If the child is connected already, we need to check if we could do better than it's current connection. But only if we've passed the first check
-            if (edge.second->hasParent() == true && rval == true)
-            {
-                //g^(v) + c^(v,x) < g_t(x)
-                //rval = this->isCostBetterThan(opt_->combineCosts(this->costToComeHeuristic(edge.first), this->edgeCostHeuristic(edge)), edge.second->getCost()); //Ever rewire?
-                //g_t(v) + c^(v,x) < g_t(x)
-                rval = this->isCostBetterThan(opt_->combineCosts(edge.first->getCost(), this->edgeCostHeuristic(edge)), edge.second->getCost()); //Currently rewire?
-            }
-
-            return  rval;
-        }
-
-
-
         ompl::base::Cost BITstar::lowerBoundHeuristicVertex(const VertexPtr& vertex) const
         {
             return opt_->combineCosts( this->costToComeHeuristic(vertex), this->costToGoHeuristic(vertex) );
@@ -1466,14 +1269,21 @@ namespace ompl
 
         ompl::base::Cost BITstar::lowerBoundHeuristicEdge(const vertex_pair_t& edgePair) const
         {
-            return this->combineCosts(this->costToComeHeuristic(edgePair.first), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
+            return opt_->combineCosts(this->costToComeHeuristic(edgePair.first), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
         }
 
 
 
         ompl::base::Cost BITstar::currentHeuristicEdge(const vertex_pair_t& edgePair) const
         {
-            return this->combineCosts(edgePair.first->getCost(), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
+            return opt_->combineCosts(this->currentHeuristicEdgeTarget(edgePair), this->costToGoHeuristic(edgePair.second));
+        }
+
+
+
+        ompl::base::Cost BITstar::currentHeuristicEdgeTarget(const vertex_pair_t& edgePair) const
+        {
+            return opt_->combineCosts(edgePair.first->getCost(), this->edgeCostHeuristic(edgePair));
         }
 
 
@@ -1501,7 +1311,7 @@ namespace ompl
 
         ompl::base::Cost BITstar::trueEdgeCost(const vertex_pair_t& edgePair) const
         {
-            return ompl::base::Cost(Planner::si_->distance(edgePair.first->state(), edgePair.second->state()));
+            return opt_->motionCost(edgePair.first->state(), edgePair.second->state());
         }
 
 
@@ -1510,20 +1320,6 @@ namespace ompl
         {
             OMPL_INFORM("%s: TODO: Write neighbourhoodCost() more generally.", Planner::getName().c_str());
             return ompl::base::Cost( 2.0*r_ );
-        }
-
-
-
-        ompl::base::Cost BITstar::combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c) const
-        {
-            return opt_->combineCosts( opt_->combineCosts(a, b), c);
-        }
-
-
-
-        ompl::base::Cost BITstar::combineCosts(const ompl::base::Cost& a, const ompl::base::Cost& b, const ompl::base::Cost& c, const ompl::base::Cost& d) const
-        {
-            return opt_->combineCosts( this->combineCosts(a, b, c), d);
         }
 
 
@@ -1543,10 +1339,18 @@ namespace ompl
 
 
 
-        bool BITstar::areCostsEquivalent(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        bool BITstar::isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is not better than b, and b is not better than a, then they are equal
             return !this->isCostBetterThan(a,b) && !this->isCostBetterThan(b,a);
+        }
+
+
+
+        bool BITstar::isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        {
+            //If a is better than b, or b is better than a, then they are not equal
+            return this->isCostBetterThan(a,b) || this->isCostBetterThan(b,a);
         }
 
 
@@ -1569,12 +1373,33 @@ namespace ompl
 
         bool BITstar::isFinite(const ompl::base::Cost& cost) const
         {
-            return std::isfinite(cost.value());
+            return this->isCostBetterThan(cost, opt_->infiniteCost());
         }
 
 
 
-        double BITstar::fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost)
+        ompl::base::Cost BITstar::betterCost(const ompl::base::Cost& a, const ompl::base::Cost& b) const
+        {
+            if (this->isCostBetterThan(b,a))
+            {
+                return b;
+            }
+            else
+            {
+                return a;
+            }
+        }
+
+
+
+        double BITstar::fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost) const
+        {
+            return this->fractionalChange(newCost, oldCost, oldCost);
+        }
+
+
+
+        double BITstar::fractionalChange(const ompl::base::Cost& newCost, const ompl::base::Cost& oldCost, const ompl::base::Cost& refCost) const
         {
             //If the old cost is not finite, than we call that infinite percent improvement
             if (this->isFinite(oldCost) == false)
@@ -1585,40 +1410,7 @@ namespace ompl
             else
             {
                 //Calculate and return
-                return ( newCost.value() - oldCost.value() )/oldCost.value();
-            }
-        }
-
-
-
-        void BITstar::nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples)
-        {
-            //Increment our counter:
-            ++numNearestNeighbours_;
-
-            if (useKNearest_ == true)
-            {
-                freeStateNN_->nearestK(vertex, k_, *neighbourSamples);
-            }
-            else
-            {
-                freeStateNN_->nearestR(vertex, r_, *neighbourSamples);
-            }
-        }
-
-
-        void BITstar::nearestVertices(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourVertices)
-        {
-            //Increment our counter:
-            ++numNearestNeighbours_;
-
-            if (useKNearest_ == true)
-            {
-                vertexNN_->nearestK(vertex, k_, *neighbourVertices);
-            }
-            else
-            {
-                vertexNN_->nearestR(vertex, r_, *neighbourVertices);
+                return ( newCost.value() - oldCost.value() )/refCost.value();
             }
         }
 
@@ -1628,6 +1420,8 @@ namespace ompl
         {
             //Calculate the k-nearest constant
             k_rgg_ = this->minimumRggK();
+
+            this->updateNearestTerms();
         }
 
 
@@ -1638,7 +1432,7 @@ namespace ompl
             //The number of samples:
             unsigned int N;
 
-            //Calculate, subtracting the number "not" in the RGG:
+            //Calculate the number of N:
             N = vertexNN_->size() + freeStateNN_->size();
 
             if (useKNearest_ == true)
@@ -1682,9 +1476,9 @@ namespace ompl
             double dimDbl = static_cast<double>(Planner::si_->getStateDimension());
 
             //Calculate the term and return
-            return rewireFactor_*2.0*std::pow( (1.0 + 1.0/dimDbl)*( sampler_->getInformedMeasure()/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRG radius (biggest for unit-volume problem)
-            //return rewireFactor_*std::pow( 2.0*(1.0 + 1.0/dimDbl)*( sampler_->getInformedMeasure()/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRT* radius (smaller for unit-volume problem)
-            //return rewireFactor_*2.0*std::pow( (1.0/dimDbl)*( sampler_->getInformedMeasure()/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //FMT* radius (smallest for R2, equiv to RRT* for R3 and then middle for higher d. All unit-volume)
+            return rewireFactor_*2.0*std::pow( (1.0 + 1.0/dimDbl)*( prunedMeasure_/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRG radius (biggest for unit-volume problem)
+            //return rewireFactor_*std::pow( 2.0*(1.0 + 1.0/dimDbl)*( prunedMeasure_/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //RRT* radius (smaller for unit-volume problem)
+            //return rewireFactor_*2.0*std::pow( (1.0/dimDbl)*( prunedMeasure_/ompl::ProlateHyperspheroid::unitNBallMeasure(Planner::si_->getStateDimension()) ), 1.0/dimDbl ); //FMT* radius (smallest for R2, equiv to RRT* for R3 and then middle for higher d. All unit-volume)
         }
 
 
@@ -1700,6 +1494,27 @@ namespace ompl
         }
 
 
+
+
+
+        void BITstar::goalMessage() const
+        {
+            OMPL_INFORM("%s: Found a solution consisting of %u vertices with a total cost of %.4f in %u iterations (%u vertices, %u rewirings). Graph currently has %u vertices.", Planner::getName().c_str(), bestLength_, bestCost_, numIterations_, numVertices_, numRewirings_, vertexNN_->size());
+        }
+
+
+
+        void BITstar::endSuccessMessage() const
+        {
+            OMPL_INFORM("%s: Found a final solution of cost %.4f from %u samples by using %u vertices and %u rewirings. Final graph has %u vertices.", Planner::getName().c_str(), bestCost_.value(), numSamples_, numVertices_, numRewirings_, vertexNN_->size());
+        }
+
+
+
+        void BITstar::endFailureMessage() const
+        {
+            OMPL_INFORM("%s: Did not find a solution from %u samples after %u iterations, %u vertices and %u rewirings.", Planner::getName().c_str(), numSamples_, numIterations_, numVertices_, numRewirings_);
+        }
 
 
 
@@ -1727,7 +1542,7 @@ namespace ompl
                 //The number of free states
                 outputStream << ", f: " << std::setw(5) << std::setfill(' ') << freeStateNN_->size();
                 //The number edges in the queue:
-                outputStream << ", q: " << std::setw(5) << std::setfill(' ') << edgeQueue_.size();
+                outputStream << ", q: " << std::setw(5) << std::setfill(' ') << intQueue_->numEdges();
                 //The number of samples generated
                 outputStream << ", s: " << std::setw(5) << std::setfill(' ') << numSamples_;
                 //The number of vertices ever added to the graph:
@@ -1810,26 +1625,8 @@ namespace ompl
             //Check if there's things to update
             if (this->isSetup() == true)
             {
-                //Variables
-                //The number of states in my current planner
-                unsigned int N;
-
-                //Update the counter
-                N = 0u;
-                if (vertexNN_)
-                {
-                    N = N + vertexNN_->size();
-                }
-                if (freeStateNN_)
-                {
-                    N = N + freeStateNN_->size();
-                }
-
-                //Update the terms:
+                //Reinitialize the terms:
                 this->initializeNearestTerms();
-
-                //Calculate the nearest term
-                this->updateNearestTerms();
             }
         }
 
@@ -1873,26 +1670,8 @@ namespace ompl
                 //Check if there's things to update
                 if (this->isSetup() == true)
                 {
-                    //Variables
-                    //The number of states in my current planner
-                    unsigned int N;
-
-                    //Update the counter
-                    N = 0u;
-                    if (vertexNN_)
-                    {
-                        N = N + vertexNN_->size();
-                    }
-                    if (freeStateNN_)
-                    {
-                        N = N + freeStateNN_->size();
-                    }
-
-                    //Update the terms:
+                    //Reinitialize the terms:
                     this->initializeNearestTerms();
-
-                    //Calculate the nearest term
-                    this->updateNearestTerms();
                 }
             }
             //No else, it didn't change.
@@ -1909,7 +1688,14 @@ namespace ompl
 
         void BITstar::setUseFailureTracking(bool trackFailures)
         {
+            //Store
             useFailureTracking_ = trackFailures;
+
+            //Configure queue if constructed:
+            if (intQueue_)
+            {
+                intQueue_->setUseFailureTracking(useFailureTracking_);
+            }
         }
 
 
@@ -1939,32 +1725,6 @@ namespace ompl
             if (prune == false)
             {
                 OMPL_WARN("%s: Turning pruning off does not turn a fake pruning on, as it should.", Planner::getName().c_str());
-            }
-
-            //Check if the edge queue is changing
-            if (usePruning_ != prune)
-            {
-                //Make sure the edgeQueue is empty
-                if (edgeQueue_.empty() == true)
-                {
-                    //Configure the queue
-                    if (usePruning_ == true)
-                    {
-                        //Parent and child lookup, sort with edgeComparison, prune with edgeQueueCondition
-                        edgeQueue_ = EdgeQueue(true, true, boost::bind(&BITstar::edgeQueueValue, this, _1), boost::bind(&BITstar::edgeQueueComparison, this, _1, _2), boost::bind(&BITstar::edgeQueueCondition, this, _1, _2) );
-                    }
-                    else
-                    {
-                        //Parent vertex lookup only, sort with edgeComparison, prune with edgeQueueCondition
-                        //Child vertex lookup could be disabled if you did not prune edges on the addition of a new vertex...
-                        edgeQueue_ = EdgeQueue(true, true, boost::bind(&BITstar::edgeQueueValue, this, _1), boost::bind(&BITstar::edgeQueueComparison, this, _1, _2), boost::bind(&BITstar::edgeQueueCondition, this, _1, _2) );
-                    }
-                }
-                else
-                {
-                    //For now, complain:
-                    throw ompl::Exception("Changing graph pruning on a nonempty queue is not implemented.");
-                }
             }
 
             usePruning_ = prune;
@@ -1998,6 +1758,26 @@ namespace ompl
 
 
 
+        void BITstar::setDelayRewiringUntilInitialSolution(bool delayRewiring)
+        {
+            delayRewiring_ = delayRewiring;
+
+            //Configure queue if constructed:
+            if (intQueue_)
+            {
+                intQueue_->setDelayedRewiring(delayRewiring_);
+            }
+        }
+
+
+
+        bool BITstar::getDelayRewiringUntilInitialSolution() const
+        {
+            return delayRewiring_;
+        }
+
+
+
         void BITstar::setStopOnSolnImprovement(bool stopOnChange)
         {
             stopOnSolnChange_ = stopOnChange;
@@ -2026,6 +1806,13 @@ namespace ompl
 
 
 
+        std::string BITstar::bestLengthProgressProperty() const
+        {
+            return boost::lexical_cast<std::string>(bestLength_);
+        }
+
+
+
         std::string BITstar::currentFreeProgressProperty() const
         {
             return boost::lexical_cast<std::string>(freeStateNN_->size());
@@ -2042,14 +1829,14 @@ namespace ompl
 
         std::string BITstar::vertexQueueSizeProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(vertexQueue_.size());
+            return boost::lexical_cast<std::string>(intQueue_->numVertices());
         }
 
 
 
         std::string BITstar::edgeQueueSizeProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(edgeQueue_.size());
+            return boost::lexical_cast<std::string>(intQueue_->numEdges());
         }
 
 
@@ -2058,6 +1845,7 @@ namespace ompl
         {
             return boost::lexical_cast<std::string>(numIterations_);
         }
+
 
 
         unsigned int BITstar::numBatches() const
@@ -2097,21 +1885,14 @@ namespace ompl
 
         std::string BITstar::statesPrunedProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(numFreeStatesPruned_ + numVerticesPruned_);
-        }
-
-
-
-        std::string BITstar::freeStatesPrunedProgressProperty() const
-        {
             return boost::lexical_cast<std::string>(numFreeStatesPruned_);
         }
 
 
 
-        std::string BITstar::verticesPrunedProgressProperty() const
+        std::string BITstar::verticesDisconnectedProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(numVerticesPruned_);
+            return boost::lexical_cast<std::string>(numVerticesDisconnected_);
         }
 
 

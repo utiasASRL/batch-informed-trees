@@ -605,6 +605,11 @@ class ompl_geometric_generator_t(code_generator_t):
             # used in SPARStwo
             self.std_ns.class_('map<unsigned int, ompl::base::State*>').rename('mapVertexToState')
 
+
+        # Exclude some functions from BIT* that cause some Py++ compilation problems:
+        self.ompl_ns.class_('BITstar').member_functions('getEdgeQueue').exclude() #I don't know why this doesn't work.
+        self.ompl_ns.class_('BITstar').member_functions('getVertexQueue').exclude() #I don't know why this doesn't work.
+
 class ompl_tools_generator_t(code_generator_t):
     def __init__(self):
         replacement = default_replacement
