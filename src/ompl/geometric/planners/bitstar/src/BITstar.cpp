@@ -116,11 +116,11 @@ namespace ompl
             numNearestNeighbours_(0u),
             numEdgesProcessed_(0u),
             useStrictQueueOrdering_(false),
-            rewireFactor_(2.0),
+            rewireFactor_(1.1),
             samplesPerBatch_(100u),
             useKNearest_(true),
             usePruning_(true),
-            pruneFraction_(0.01),
+            pruneFraction_(0.05),
             delayRewiring_(true),
             useJustInTimeSampling_(false),
             dropSamplesOnPrune_(false),
@@ -157,10 +157,7 @@ namespace ompl
             Planner::declareParam<bool>("use_just_in_time_sampling", this, &BITstar::setJustInTimeSampling, &BITstar::getJustInTimeSampling, "0,1");
             Planner::declareParam<bool>("drop_unconnected_samples_on_prune", this, &BITstar::setDropSamplesOnPrune, &BITstar::getDropSamplesOnPrune, "0,1");
             Planner::declareParam<bool>("stop_on_each_solution_improvement", this, &BITstar::setStopOnSolnImprovement, &BITstar::getStopOnSolnImprovement, "0,1");
-
-            //More advanced setting callbacks that aren't necessary to be exposed to Python. Uncomment if desired.
-            //Planner::declareParam<bool>("use_strict_queue_ordering", this, &BITstar::setStrictQueueOrdering, &BITstar::getStrictQueueOrdering, "0,1");
-            //Planner::declareParam<bool>("use_edge_failure_tracking", this, &BITstar::setUseFailureTracking, &BITstar::getUseFailureTracking, "0,1");
+            Planner::declareParam<bool>("use_strict_queue_ordering", this, &BITstar::setStrictQueueOrdering, &BITstar::getStrictQueueOrdering, "0,1");
 
             //Register my progress info:
             addPlannerProgressProperty("best cost DOUBLE", boost::bind(&BITstar::bestCostProgressProperty, this));
@@ -248,8 +245,8 @@ namespace ompl
             vertexNN_->setDistanceFunction(boost::bind(&BITstar::nnDistance, this, _1, _2));
 
             //Configure the queue
-            //boost::make_shared can only take 9 arguments, so be careful:
-            intQueue_ = boost::make_shared<IntegratedQueue> (opt_, boost::bind(&BITstar::nnDistance, this, _1, _2), boost::bind(&BITstar::nearestSamples, this, _1, _2), boost::bind(&BITstar::nearestVertices, this, _1, _2), boost::bind(&BITstar::lowerBoundHeuristicVertex, this, _1), boost::bind(&BITstar::currentHeuristicVertex, this, _1), boost::bind(&BITstar::lowerBoundHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdgeTarget, this, _1));
+            //boost::make_shared can only take 9 arguments...
+            intQueue_ = boost::shared_ptr<IntegratedQueue>(new IntegratedQueue( opt_, boost::bind(&BITstar::nnDistance, this, _1, _2), boost::bind(&BITstar::nearestSamples, this, _1, _2), boost::bind(&BITstar::nearestVertices, this, _1, _2), boost::bind(&BITstar::lowerBoundHeuristicVertex, this, _1), boost::bind(&BITstar::currentHeuristicVertex, this, _1), boost::bind(&BITstar::lowerBoundHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdge, this, _1), boost::bind(&BITstar::lowerBoundHeuristicTarget, this, _1), boost::bind(&BITstar::currentHeuristicTarget, this, _1) ));
             intQueue_->setDelayedRewiring(delayRewiring_);
 
             //Set the best-cost, pruned-cost, sampled-cost and min-cost to the proper opt_-based values:
@@ -703,37 +700,47 @@ namespace ompl
                 intQueue_->popFrontEdge(&bestEdge);
 
                 //In the best case, can this edge improve our solution given the current graph?
-                //g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)
-                if (opt_->isCostBetterThan( this->combineCosts(bestEdge.first->getCost(), this->edgeCostHeuristic(bestEdge), this->costToGoHeuristic(bestEdge.second)), bestCost_ ) == true)
+                // g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)?
+                if (opt_->isCostBetterThan( this->currentHeuristicEdge(bestEdge), bestCost_ ) == true)
                 {
-                    //Variables:
-                    //The true cost of the edge:
-                    ompl::base::Cost trueEdgeCost;
-
-                    //Get the true cost of the edge
-                    trueEdgeCost = this->trueEdgeCost(bestEdge);
-
-                    //Can this actual edge ever improve our solution?
-                    //g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)
-                    if (opt_->isCostBetterThan( this->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  bestCost_ ) == true)
+                    //What about improving the current graph?
+                    // g_t(v) + c_hat(v,x)  < g_t(x)?
+                    if (opt_->isCostBetterThan( this->currentHeuristicTarget(bestEdge), bestEdge.second->getCost() ) == true)
                     {
-                        //Does this edge have a collision?
-                        if (this->checkEdge(bestEdge) == true)
+                        //Ok, so it *could* be a useful edge. Do the work of calculating its cost for real
+
+                        //Variables:
+                        //The true cost of the edge:
+                        ompl::base::Cost trueEdgeCost;
+
+                        //Get the true cost of the edge
+                        trueEdgeCost = this->trueEdgeCost(bestEdge);
+
+                        //Can this actual edge ever improve our solution?
+                        // g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)?
+                        if (opt_->isCostBetterThan( this->combineCosts(this->costToComeHeuristic(bestEdge.first), trueEdgeCost, this->costToGoHeuristic(bestEdge.second)),  bestCost_ ) == true)
                         {
-                            //Does the current edge improve our graph?
-                            //g_t(v) + c(v,x) < g_t(x)
-                            if (opt_->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), trueEdgeCost), bestEdge.second->getCost() ) == true)
+                            //Does this edge have a collision?
+                            if (this->checkEdge(bestEdge) == true)
                             {
-                                //YAAAAH. Add the edge! Allowing for the sample to be removed from free if it is not currently connected and otherwise propagate cost updates to descendants.
-                                //addEdge will update the queue and handle the extra work that occurs if this edge improves the solution.
-                                this->addEdge(bestEdge, trueEdgeCost, true, true);
+                                //Does the current edge improve our graph?
+                                // g_t(v) + c(v,x) < g_t(x)?
+                                if (opt_->isCostBetterThan( opt_->combineCosts(bestEdge.first->getCost(), trueEdgeCost), bestEdge.second->getCost() ) == true)
+                                {
+                                    //YAAAAH. Add the edge! Allowing for the sample to be removed from free if it is not currently connected and otherwise propagate cost updates to descendants.
+                                    //addEdge will update the queue and handle the extra work that occurs if this edge improves the solution.
+                                    this->addEdge(bestEdge, trueEdgeCost, true, true);
 
-                                //Prune the edge queue of any unnecessary incoming edges
-                                intQueue_->pruneEdgesTo(bestEdge.second);
+                                    /*
+                                    //Remove any unnecessary incoming edges in the edge queue
+                                    intQueue_->updateEdgesTo(bestEdge.second);
+                                    */
 
-                                //We will only prune the whole graph/samples on a new batch.
+                                    //We will only prune the whole graph/samples on a new batch.
+                                }
+                                //No else, this edge may be useful at some later date.
                             }
-                            //No else, this edge may be useful at some later date.
+                            //No else, we failed
                         }
                         //No else, we failed
                     }
@@ -1673,21 +1680,29 @@ namespace ompl
         }
 
 
+
         ompl::base::Cost BITstar::lowerBoundHeuristicEdge(const VertexConstPtrPair& edgePair) const
         {
-            return this->combineCosts(this->costToComeHeuristic(edgePair.first), this->edgeCostHeuristic(edgePair), this->costToGoHeuristic(edgePair.second));
+            return opt_->combineCosts(this->lowerBoundHeuristicTarget(edgePair), this->costToGoHeuristic(edgePair.second));
         }
 
 
 
         ompl::base::Cost BITstar::currentHeuristicEdge(const VertexConstPtrPair& edgePair) const
         {
-            return opt_->combineCosts(this->currentHeuristicEdgeTarget(edgePair), this->costToGoHeuristic(edgePair.second));
+            return opt_->combineCosts(this->currentHeuristicTarget(edgePair), this->costToGoHeuristic(edgePair.second));
         }
 
 
 
-        ompl::base::Cost BITstar::currentHeuristicEdgeTarget(const VertexConstPtrPair& edgePair) const
+        ompl::base::Cost BITstar::lowerBoundHeuristicTarget(const VertexConstPtrPair& edgePair) const
+        {
+            return opt_->combineCosts(this->costToComeHeuristic(edgePair.first), this->edgeCostHeuristic(edgePair));
+        }
+
+
+
+        ompl::base::Cost BITstar::currentHeuristicTarget(const VertexConstPtrPair& edgePair) const
         {
             return opt_->combineCosts(edgePair.first->getCost(), this->edgeCostHeuristic(edgePair));
         }
@@ -1843,38 +1858,38 @@ namespace ompl
 
         void BITstar::updateNearestTerms()
         {
-            //Variables:
-            //The number of uniformly distributed states:
-            unsigned int N;
-
-            //Calculate the number of N, are we dropping samples?
-            if (dropSamplesOnPrune_ == true)
-            {
-                //We arre, so we've been tracking the number of uniform states, just us that
-                N = numUniformStates_;
-            }
-            else
-            {
-                //We are not, so the all vertices and samples are uniform, less the starts and goals.
-                N = vertexNN_->size() + freeStateNN_->size() - startVertices_.size() - goalVertices_.size();
-            }
-
-            //In general, we calculate the terms considering the future samples. This is only not the case when it's the initial call (i.e., the 0 batch):
-            if (numBatches_ != 0u)
-            {
-                N = N + samplesPerBatch_;
-            }
-            //No else
-
-
-            //If we only have starts and goals, be lazy
-            if (N == 0u)
+            //First try all start-goal pairs (which will be when it is the 0-th batch)
+            if (numBatches_ == 0u)
             {
                 k_ = startVertices_.size() + goalVertices_.size();
                 r_ = std::numeric_limits<double>::infinity();
             }
             else
             {
+                //Variables:
+                //The number of uniformly distributed states:
+                unsigned int N;
+
+                //Calculate the number of N, are we dropping samples?
+                if (dropSamplesOnPrune_ == true)
+                {
+                    //We are, so we've been tracking the number of uniform states, just use that
+                    N = numUniformStates_;
+                }
+                else
+                {
+                    //We are not, so the all vertices and samples are uniform, use that
+                    N = vertexNN_->size() + freeStateNN_->size();
+                }
+
+                //If this is the first batch, we will have calculated the connection limits from only the starts and goals, yet have an RGG with samplesPerBatch_. That will be a complex graph.
+                //In this case, let us calculate the connection limits considering the samples about to be generated. Doing so is equivalent to setting an upper-bound on the radius, which RRT* does with it's min(maxEdgeLength,RGG-radius).
+                if (numBatches_ == 1u)
+                {
+                    N = N + samplesPerBatch_;
+                }
+
+                //Now update the appropriate term
                 if (useKNearest_ == true)
                 {
                     k_ = this->calculateK(N);

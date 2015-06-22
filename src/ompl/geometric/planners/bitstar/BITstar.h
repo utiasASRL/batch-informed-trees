@@ -69,18 +69,17 @@ namespace ompl
         /**
             @anchor gBITstar
 
-            \ref gBITstar "BIT*" (Batch Informed Trees) is an \e anytime almost surely asymptotically optimal sampling-based
+            \ref gBITstar "BIT*" (Batch Informed Trees) is an \e anytime asymptotically optimal sampling-based
             planning algorithm. It approaches problems by assuming that a \e simple solution exists and only
             goes onto consider \e complex solutions when that proves incorrect. It accomplishes this by using
             heuristics to search in order of decreasing potential solution quality.
 
-            Both a k-nearest and r-disc version are available, with the k-nearest selected by default.
+            Both a k-nearest and r-disc version are available, with the k-nearest selected by default. In general,
+            the r-disc variant considers more connections than the k-nearest. For a small number of specific planning
+            problems, this results in it finding solutions slower than k-nearest (hence the default choice).
             It is recommended that you try both variants, with the r-disc version being recommended *if* it finds an
-            initial solution in a suitable amount of time (which it probably will). In general, both variants work,
-            but for a small number of problems the calculation of the radius in the r-disc version appears to be too
-            small and does not create an implicit graph that is sufficiently dense (hence the default choice).
-            This is a question of the random geometric graph theory underpinning this type of almost surely asymptotically
-            optimal planner and certainly merits further review.
+            initial solution in a suitable amount of time (which it probably will). The difference in this number of
+            connections considered is a RGG theory question, and certainly merits further review.
 
             This implementation of BIT* can handle multiple starts, multiple goals, a variety of optimization objectives
             (e.g., path length), and with \ref gBITstarSetJustInTimeSampling "just-in-time sampling", infinite problem domains.
@@ -258,6 +257,19 @@ namespace ompl
             bool getStopOnSolnImprovement() const;
             ///////////////////////////////////////
 
+            /** \brief Set the seed used by the RNG and the StateSampler. The state sampler must already be allocated, as a new state sampler will *not* take this seed. */
+            void setLocalSeed(boost::uint32_t localSeed)
+            {
+                //Set the local RNG seed:
+                rng_.setLocalSeed(localSeed);
+
+                //Set the sampler's seed, if present:
+                if (sampler_)
+                {
+                    sampler_->setLocalSeed(localSeed);
+                }
+            }
+
         protected:
             //Everything is only protected so we can create modifications without duplicating code by deriving from the class:
 
@@ -358,8 +370,11 @@ namespace ompl
             /** \brief Calculates a heuristic estimate of the cost of a solution constrained to go through an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost, and cost-to-go. */
             ompl::base::Cost currentHeuristicEdge(const VertexConstPtrPair& edgePair) const;
 
+            /** \brief Calculates a heuristic estimate of the cost of a path to the \e target of an edge, independent of the current cost-to-come of the parent state. I.e., combines heuristics estimates of the cost-to-come and the edge cost. */
+            ompl::base::Cost lowerBoundHeuristicTarget(const VertexConstPtrPair& edgePair) const;
+
             /** \brief Calculates a heuristic estimate of the cost of a path to the \e target of an edge, dependent on the cost-to-come of the parent state. I.e., combines the current cost-to-come with heuristic estimates of the edge cost. */
-            ompl::base::Cost currentHeuristicEdgeTarget(const VertexConstPtrPair& edgePair) const;
+            ompl::base::Cost currentHeuristicTarget(const VertexConstPtrPair& edgePair) const;
 
             /** \brief Calculate a heuristic estimate of the cost-to-come for a Vertex */
             ompl::base::Cost costToComeHeuristic(const VertexConstPtr& vertex) const;

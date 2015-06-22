@@ -47,7 +47,7 @@ namespace ompl
     {
         /////////////////////////////////////////////////////////////////////////////////////////////
         //Public functions:
-        BITstar::IntegratedQueue::IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const DistanceFunc& distanceFunc, const NeighbourhoodFunc& nearSamplesFunc, const NeighbourhoodFunc& nearVerticesFunc, const VertexHeuristicFunc& lowerBoundHeuristicVertex, const VertexHeuristicFunc& currentHeuristicVertex, const EdgeHeuristicFunc& lowerBoundHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdgeTarget)
+        BITstar::IntegratedQueue::IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const DistanceFunc& distanceFunc, const NeighbourhoodFunc& nearSamplesFunc, const NeighbourhoodFunc& nearVerticesFunc, const VertexHeuristicFunc& lowerBoundHeuristicVertex, const VertexHeuristicFunc& currentHeuristicVertex, const EdgeHeuristicFunc& lowerBoundHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdge, const EdgeHeuristicFunc& lowerBoundHeuristicTarget, const EdgeHeuristicFunc& currentHeuristicTarget)
             :   opt_(opt),
                 distanceFunc_(distanceFunc),
                 nearSamplesFunc_(nearSamplesFunc),
@@ -56,7 +56,8 @@ namespace ompl
                 currentHeuristicVertexFunc_(currentHeuristicVertex),
                 lowerBoundHeuristicEdgeFunc_(lowerBoundHeuristicEdge),
                 currentHeuristicEdgeFunc_(currentHeuristicEdge),
-                currentHeuristicEdgeTargetFunc_(currentHeuristicEdgeTarget),
+                lowerBoundHeuristicTargetFunc_(lowerBoundHeuristicTarget),
+                currentHeuristicTargetFunc_(currentHeuristicTarget),
                 delayRewiring_(true),
                 outgoingLookupTables_(true),
                 incomingLookupTables_(true),
@@ -303,7 +304,7 @@ namespace ompl
 
 
 
-        void BITstar::IntegratedQueue::pruneEdgesTo(const VertexPtr& cVertex)
+        void BITstar::IntegratedQueue::updateEdgesTo(const VertexPtr& cVertex)
         {
             if (edgeQueue_.empty() == false)
             {
@@ -326,9 +327,10 @@ namespace ompl
                         //Iterate over the incoming edges and record those that are to be deleted
                         for (EdgeQueueIterList::iterator listIter = itersToVertex->second.begin(); listIter != itersToVertex->second.end(); ++listIter)
                         {
-                            //Check if it is to be pruned
-                            if ( this->edgePruneCondition((*listIter)->second) == true )
+                            //Check if it would have been inserted
+                            if ( this->edgeInsertCondition((*listIter)->second) == false )
                             {
+                                //It would not, delete
                                 listItersToDelete.push_back(listIter);
                             }
                             //No else, we're not deleting this iterator
@@ -356,7 +358,7 @@ namespace ompl
 
 
 
-        void BITstar::IntegratedQueue::pruneEdgesFrom(const VertexPtr& pVertex)
+        void BITstar::IntegratedQueue::updateEdgesFrom(const VertexPtr& pVertex)
         {
             if (edgeQueue_.empty() == false)
             {
@@ -379,9 +381,10 @@ namespace ompl
                         //Iterate over the incoming edges and record those that are to be deleted
                         for (EdgeQueueIterList::iterator listIter = itersFromVertex->second.begin(); listIter != itersFromVertex->second.end(); ++listIter)
                         {
-                            //Check if it is to be pruned
-                            if ( this->edgePruneCondition((*listIter)->second) == true )
+                            //Check if it would have been inserted
+                            if ( this->edgeInsertCondition((*listIter)->second) == false )
                             {
+                                //It would not, delete
                                 listItersToDelete.push_back(listIter);
                             }
                             //No else, we're not deleting this iterator
@@ -531,8 +534,8 @@ namespace ompl
                             //Make sure it has not already been returned to the set of samples:
                             if (vIter->second->isInTree() == true)
                             {
-                                //Are we pruning the vertex from the queue (and do we have "permission" to do so)?
-                                if (this->vertexPruneCondition(vIter->second) == true && static_cast<bool>(vertexNN) == true && static_cast<bool>(freeStateNN) == true)
+                                //If this was a new vertex, would we *not* insert it in the queue (and do we have "permission" not to do so)?
+                                if (this->vertexInsertCondition(vIter->second) == false && static_cast<bool>(vertexNN) == true && static_cast<bool>(freeStateNN) == true)
                                 {
                                     //The vertex should just be pruned and forgotten about.
                                     //Prune the branch:
@@ -636,13 +639,48 @@ namespace ompl
 
 
 
+        bool BITstar::IntegratedQueue::vertexInsertCondition(const VertexPtr& state) const
+        {
+            //Threshold should always be g_t(x_g)
+
+            //Can it ever be a better solution?
+            //Just in case we're using a vertex that is exactly optimally connected
+            // g^(v) + h^(v) <= g_t(x_g)?
+            return this->isCostBetterThanOrEquivalentTo(lowerBoundHeuristicVertexFunc_(state), costThreshold_);
+        }
+
+
+
+        bool BITstar::IntegratedQueue::edgeInsertCondition(const VertexPtrPair& edge) const
+        {
+            bool rval;
+            //Threshold should always be g_t(x_g)
+
+            //Can it ever be a better solution? Less-than-equal to just in case we're using an edge that is exactly optimally connected
+            // g^(v) + c^(v,x) + h^(x) <= g_t(x_g)?
+            rval = this->isCostBetterThanOrEquivalentTo(lowerBoundHeuristicEdgeFunc_(edge), costThreshold_);
+
+            //If the child is connected already, we need to check if we could do better than it's current connection. But only if we're inserting the edge
+            if (edge.second->hasParent() == true && rval == true)
+            {
+                //Can it ever be a better path to the vertex? Less-than-equal to just in case we're using an edge that is exactly optimally connected
+                // g^(v) + c^(v,x) <= g_t(x)?
+                rval = this->isCostBetterThanOrEquivalentTo(lowerBoundHeuristicTargetFunc_(edge), edge.second->getCost()); //Ever rewire?
+            }
+
+            return  rval;
+        }
+
+
+
 
         bool BITstar::IntegratedQueue::vertexPruneCondition(const VertexPtr& state) const
         {
             //Threshold should always be g_t(x_g)
-            //As the sample is in the graph (and therefore could be part of g_t), prune iff g^(v) + h^(v) > g_t(x_g)
-            //g^(v) + h^(v) >= g_t(x_g)
-            return this->isCostWorseThan(lowerBoundHeuristicVertexFunc_(state), costThreshold_);
+
+            //Prune the vertex if it could cannot part of a better solution in the current graph.  Greater-than just in case we're using an edge that is exactly optimally connected.
+            // g_t(v) + h^(v) > g_t(x_g)?
+            return this->isCostWorseThan(currentHeuristicVertexFunc_(state), costThreshold_);
         }
 
 
@@ -650,7 +688,8 @@ namespace ompl
         bool BITstar::IntegratedQueue::samplePruneCondition(const VertexPtr& state) const
         {
             //Threshold should always be g_t(x_g)
-            //As the sample is not in the graph (and therefore not part of g_t), prune if g^(v) + h^(v) >= g_t(x_g)
+            //Prune the unconnected sample if it could never be better of a better solution.
+            // g^(v) + h^(v) >= g_t(x_g)?
             return this->isCostWorseThanOrEquivalentTo(lowerBoundHeuristicVertexFunc_(state), costThreshold_);
         }
 
@@ -661,17 +700,16 @@ namespace ompl
             bool rval;
             //Threshold should always be g_t(x_g)
 
-            // g^(v) + c^(v,x) + h^(x) > g_t(x_g)?
-            rval = this->isCostWorseThan(lowerBoundHeuristicEdgeFunc_(edge), costThreshold_);
-
+            //Prune the edge if it could cannot part of a better solution in the current graph.  Greater-than just in case we're using an edge that is exactly optimally connected.
+            // g_t(v) + c^(v,x) + h^(x) > g_t(x_g)?
+            rval = this->isCostWorseThan(currentHeuristicEdgeFunc_(edge), costThreshold_);
 
             //If the child is connected already, we need to check if we could do better than it's current connection. But only if we're not pruning based on the first check
             if (edge.second->hasParent() == true && rval == false)
             {
-                //g^(v) + c^(v,x) > g_t(x)
-                //rval = this->isCostWorseThan(opt_->combineCosts(this->costToComeHeuristic(edge.first), this->edgeCostHeuristic(edge)), edge.second->getCost()); //Ever rewire?
-                //g_t(v) + c^(v,x) > g_t(x)
-                rval = this->isCostWorseThan(currentHeuristicEdgeTargetFunc_(edge), edge.second->getCost()); //Currently rewire?
+                //Can it ever be a better path to the vertex in the current graph? Greater-than to just in case we're using an edge that is exactly optimally connected
+                // g_t(v) + c^(v,x) > g_t(x)?
+                rval = this->isCostWorseThan(currentHeuristicTargetFunc_(edge), edge.second->getCost()); //Currently rewire?
             }
 
             return  rval;
@@ -923,8 +961,8 @@ namespace ompl
 
         void BITstar::IntegratedQueue::expandNextVertex()
         {
-            //Should we expand the next vertex? Will it be pruned?
-            if (this->vertexPruneCondition(vertexToExpand_->second) == false)
+            //Should we expand the next vertex?
+            if (this->vertexInsertCondition(vertexToExpand_->second) == true)
             {
                 //Expand the vertex in the front:
                 this->expandVertex(vertexToExpand_->second);
@@ -944,7 +982,7 @@ namespace ompl
         void BITstar::IntegratedQueue::expandVertex(const VertexPtr& vertex)
         {
             //Should we expand this vertex?
-            if (this->vertexPruneCondition(vertex) == false)
+            if (this->vertexInsertCondition(vertex) == true)
             {
                 //Variables:
                 //The vector of nearby samples (either within r or the k-nearest)
@@ -1059,8 +1097,8 @@ namespace ompl
             //Make the edge
             newEdge = std::make_pair(parent, child);
 
-            //Should this edge be in the queue? I.e., is it *not* due to be pruned:
-            if (this->edgePruneCondition(newEdge) == false)
+            //Should this edge be in the queue?
+            if (this->edgeInsertCondition(newEdge) == true)
             {
                 this->edgeInsertHelper(newEdge, edgeQueue_.end());
             }
@@ -1179,7 +1217,7 @@ namespace ompl
                 for (EdgeQueueIterList::iterator resortIter = edgeItersToResort.begin(); resortIter != edgeItersToResort.end(); ++resortIter)
                 {
                     //Check if the edge should be reinserted
-                    if ( this->edgePruneCondition((*resortIter)->second) == false )
+                    if ( this->edgeInsertCondition((*resortIter)->second) == true )
                     {
                         //Call helper to reinsert. Looks after lookups, hint at the location it's coming out of
                         this->edgeInsertHelper( (*resortIter)->second, *resortIter );
@@ -1595,7 +1633,7 @@ namespace ompl
 
         BITstar::IntegratedQueue::CostPair BITstar::IntegratedQueue::edgeQueueValue(const VertexPtrPair& edge) const
         {
-            return std::make_pair(currentHeuristicEdgeFunc_(edge), edge.first->getCost());
+            return std::make_pair(currentHeuristicEdgeFunc_(edge), currentHeuristicTargetFunc_(edge));
         }
 
 

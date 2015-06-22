@@ -85,6 +85,12 @@ namespace ompl
             /** \brief Sample a state using a Gaussian distribution with given \e mean and standard deviation (\e stdDev) */
             virtual void sampleGaussian(State *state, const State *mean, const double stdDev) = 0;
 
+            /** \brief Set the seed of the underlying RNG */
+            void setLocalSeed(boost::uint32_t localSeed)
+            {
+                rng_.setLocalSeed(localSeed);
+            };
+
         protected:
 
             /** \brief The state space this sampler samples */

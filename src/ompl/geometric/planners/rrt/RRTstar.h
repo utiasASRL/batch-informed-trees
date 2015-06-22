@@ -248,6 +248,27 @@ namespace ompl
                 return useAdmissibleCostToCome_;
             }
 
+            /** \brief Controls whether samples are returned in ordered by the heuristic. This is accomplished by generating a batch at a time. */
+            void setOrderedSampling(bool orderSamples);
+
+            /** \brief Get the state of sample ordering. */
+            bool getOrderedSampling() const
+            {
+                return useOrderedSampling_;
+            }
+
+            /** \brief Set the batch size used for sample ordering*/
+            void setBatchSize(unsigned int batchSize)
+            {
+                batchSize_ = batchSize;
+            }
+
+            /** \brief Get the batch size used for sample ordering*/
+            unsigned int getBatchSize() const
+            {
+                return batchSize_;
+            }
+
             /** \brief A \e meta parameter to focusing the search to improving the current solution. This is the parameter set by CFOREST.
             For RRT*, search focusing consists of pruning the existing search and limiting future search.
             Specifically, this is accomplished by turning on informed sampling, tree pruning and new-state rejection.
@@ -299,6 +320,25 @@ namespace ompl
             ompl::base::Cost bestCost() const
             {
                 return bestCost_;
+            }
+
+            /** \brief Set the seed used by the RNG and the StateSamplers. The state samplers must already be allocated, as a new state sampler will *not* take this seed. */
+            void setLocalSeed(boost::uint32_t localSeed)
+            {
+                //Set the local RNG seed:
+                rng_.setLocalSeed(localSeed);
+
+                //Set the sampler's seed, if present:
+                if (sampler_)
+                {
+                    sampler_->setLocalSeed(localSeed);
+                }
+
+                //Set the informed sampler's seed, if present
+                if (infSampler_)
+                {
+                    infSampler_->setLocalSeed(localSeed);
+                }
             }
 
         protected:
@@ -457,6 +497,12 @@ namespace ompl
 
             /** \brief The number of attempts to make at informed sampling */
             unsigned int                                   numSampleAttempts_;
+
+            /** \brief Option to create batches of samples and order them. */
+            bool                                           useOrderedSampling_;
+
+            /** \brief The size of the batches. */
+            unsigned int                                  batchSize_;
 
             /** \brief Stores the start states as Motions. */
             std::vector<Motion*>                           startMotions_;

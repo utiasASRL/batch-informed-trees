@@ -90,6 +90,15 @@ namespace ompl
             /** \todo With the future invention of a heuristic class, this should move.  */
             virtual Cost heuristicSolnCost(const State *statePtr) const;
 
+            /** Set the seeds of the underlying RNGs */
+            virtual void setLocalSeed(boost::uint32_t localSeed) = 0;
+
+            /** Helper for the OrderedInfSampler wrapper */
+            ProblemDefinitionPtr getProblemDefn() const;
+
+            /** Helper for the OrderedInfSampler wrapper */
+            unsigned int getMaxNumberOfIters() const;
+
         protected:
             /** \brief A copy of the problem definition */
             ProblemDefinitionPtr probDefn_;

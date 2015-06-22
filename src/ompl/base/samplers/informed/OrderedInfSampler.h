@@ -34,27 +34,30 @@
 
 /* Authors: Jonathan Gammell */
 
-#ifndef OMPL_BASE_SAMPLERS_INFORMED_GENERAL_REJECTION_INFORMED_SAMPLER_
-#define OMPL_BASE_SAMPLERS_INFORMED_GENERAL_REJECTION_INFORMED_SAMPLER_
+#ifndef OMPL_BASE_SAMPLERS_INFORMED_ORDERED_INFORMED_SAMPLER_
+#define OMPL_BASE_SAMPLERS_INFORMED_ORDERED_INFORMED_SAMPLER_
 
 // We inherit from InformedStateSampler
 #include "ompl/base/samplers/InformedStateSampler.h"
+
+// For a priority queue
+#include <queue>
+//For boost::function
+#include <boost/function.hpp>
 
 namespace ompl
 {
     namespace base
     {
-        /** \brief A default rejection sampling scheme that samples uniformly from the entire planning domain.
-        Samples are rejected until one is found that has a heuristic solution estimate that is less than the current solution.
-        In general, direct sampling of the informed subset is much better, but this is a general default.
+        /** \brief An informed sampler wrapper that generates \e m samples and then returns them in order of the heuristic.
 
         */
-        class RejectionInfSampler : public InformedSampler
+        class OrderedInfSampler : public InformedSampler
         {
         public:
-            /** \brief Construct a rejection sampler that only generates states with a heuristic solution estimate that is less than the cost of the current solution. */
-            RejectionInfSampler(const ProblemDefinitionPtr probDefn, unsigned int maxNumberCalls);
-            virtual ~RejectionInfSampler()
+            /** \brief Construct an ordering wrapper around the provided informed sampler. */
+            OrderedInfSampler(const InformedSamplerPtr& infSampler, unsigned int batchSize);
+            virtual ~OrderedInfSampler()
             {
             }
 
@@ -64,28 +67,40 @@ namespace ompl
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs, [minCost, maxCost). Returns false if such a state was not found in the specified number of iterations. */
             virtual bool sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost);
 
-            /** \brief Whether the sampler can provide a measure of the informed subset */
+            /** \brief Whether the wrapped sampler can provide a measure of the informed subset */
             virtual bool hasInformedMeasure() const;
 
-            /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. As rejection sampling has no closed-form knowledge of the informed subset, the measure of the informed space is always the measure of the entire space. */
-            virtual double getInformedMeasure(const Cost &/*currentCost*/) const;
-
-            /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. As rejection sampling has no closed-form knowledge of the informed subset, the measure of the informed space is always the measure of the entire space. */
-            virtual double getInformedMeasure(const Cost &/*minCost*/, const Cost &/*maxCost*/) const;
+            /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. Passes through to the wrapper sampler. */
+            virtual double getInformedMeasure(const Cost &currentCost) const;
 
             /** Set the seeds of the underlying RNGs */
             virtual void setLocalSeed(boost::uint32_t localSeed)
             {
-                baseSampler_->setLocalSeed(localSeed);
+                infSampler_->setLocalSeed(localSeed);
             };
 
         private:
             // Variables
-            /** \brief The basic raw sampler used to generate samples to keep/reject. */
-            StateSamplerPtr baseSampler_;
+            /** \brief The informed sampler to use. */
+            InformedSamplerPtr infSampler_;
+            /** \brief The batch size to use. */
+            unsigned int batchSize_;
+            /** \brief The container of ordered samples. */
+            std::priority_queue<State*, std::vector<State*>, boost::function<bool (const State*, const State*)> > orderedSamples_;
 
-            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost using a persistent iteration counter */
-            bool sampleUniform(State *statePtr, const Cost &maxCost, unsigned int *iterPtr);
+            // Functions
+            /** \brief The ordering function for the priority queue */
+            bool queueComparator(const State *a, const State *b);
+
+            /** \brief Construct a batch of samples to return with costs in the interval [0, maxCost) */
+            void createBatch(const Cost &maxCost);
+
+            /** \brief Construct a batch of samples to return with costs in the interval [minCost, maxCost) */
+            void createBatch(const Cost &minCost, const Cost &maxCost);
+
+            /** \brief Clear a batch of prepared samples */
+            void clearBatch();
+
         };
     }
 }

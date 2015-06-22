@@ -43,6 +43,7 @@
 #include "ompl/util/GeometricEquations.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
 #include "ompl/base/samplers/informed/RejectionInfSampler.h"
+#include "ompl/base/samplers/informed/OrderedInfSampler.h"
 #include <algorithm>
 #include <limits>
 #include <boost/math/constants/constants.hpp>
@@ -67,6 +68,8 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     useNewStateRejection_(false),
     useAdmissibleCostToCome_(true),
     numSampleAttempts_ (100u),
+    useOrderedSampling_(false),
+    batchSize_(1u),
     bestCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedMeasure_(0.0),
@@ -88,6 +91,8 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     Planner::declareParam<bool>("sample_rejection", this, &RRTstar::setSampleRejection, &RRTstar::getSampleRejection, "0,1");
     Planner::declareParam<bool>("new_state_rejection", this, &RRTstar::setNewStateRejection, &RRTstar::getNewStateRejection, "0,1");
     Planner::declareParam<bool>("use_admissible_heuristic", this, &RRTstar::setAdmissibleCostToCome, &RRTstar::getAdmissibleCostToCome, "0,1");
+    Planner::declareParam<bool>("ordered_sampling", this, &RRTstar::setOrderedSampling, &RRTstar::getOrderedSampling, "0,1");
+    Planner::declareParam<unsigned int>("ordering_batch_size", this, &RRTstar::setBatchSize, &RRTstar::getBatchSize, "1:100:1000000");
     Planner::declareParam<bool>("focus_search", this, &RRTstar::setFocusSearch, &RRTstar::getFocusSearch, "0,1");
     Planner::declareParam<bool>("number_sampling_attempts", this, &RRTstar::setNumSamplingAttempts, &RRTstar::getNumSamplingAttempts, "10:10:100000");
 
@@ -989,7 +994,7 @@ void ompl::geometric::RRTstar::setSampleRejection(const bool reject)
         }
     }
 
-    // This option is mutually exclusive with setSampleRejection, assert that:
+    // This option is mutually exclusive with setInformedSampling, assert that:
     if (reject == true && useInformedSampling_ == true)
     {
         OMPL_ERROR("%s: InformedSampling and SampleRejection are mutually exclusive options.", getName().c_str());
@@ -1000,6 +1005,33 @@ void ompl::geometric::RRTstar::setSampleRejection(const bool reject)
     {
         // Store the setting
         useRejectionSampling_ = reject;
+
+        // If we currently have a sampler, we need to make a new one
+        if (sampler_ || infSampler_)
+        {
+            // Reset the samplers
+            sampler_.reset();
+            infSampler_.reset();
+
+            // Create the sampler
+            allocSampler();
+        }
+    }
+}
+
+void ompl::geometric::RRTstar::setOrderedSampling(bool orderSamples)
+{
+    // Make sure we're using some type of informed sampling
+    if (useInformedSampling_ == false && useRejectionSampling_ == false)
+    {
+        OMPL_ERROR("%s: OrderedSampling requires either informed sampling or rejection sampling.", getName().c_str());
+    }
+
+    // Check if we're changing the setting. If we are, we will need to create a new sampler, which we only want to do if one is already allocated.
+    if (orderSamples != useOrderedSampling_)
+    {
+        // Store the setting
+        useOrderedSampling_ = orderSamples;
 
         // If we currently have a sampler, we need to make a new one
         if (sampler_ || infSampler_)
@@ -1034,6 +1066,13 @@ void ompl::geometric::RRTstar::allocSampler()
         // We are using a regular sampler
         sampler_ = si_->allocStateSampler();
     }
+
+    // Wrap into a sorted sampler
+    if (useOrderedSampling_ == true)
+    {
+        infSampler_ = boost::make_shared<base::OrderedInfSampler>(infSampler_, batchSize_);
+    }
+    // No else
 }
 
 bool ompl::geometric::RRTstar::sampleUniform(base::State *statePtr)

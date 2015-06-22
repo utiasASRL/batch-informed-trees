@@ -117,7 +117,7 @@ namespace ompl
             //Public functions:
             /** \brief Construct an integrated queue. */
             //boost::make_shared can only take 9 arguments, so be careful:
-            IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const DistanceFunc& distanceFunc, const NeighbourhoodFunc& nearSamplesFunc, const NeighbourhoodFunc& nearVerticesFunc, const VertexHeuristicFunc& lowerBoundHeuristicVertex, const VertexHeuristicFunc& currentHeuristicVertex, const EdgeHeuristicFunc& lowerBoundHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdgeTarget);
+            IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const DistanceFunc& distanceFunc, const NeighbourhoodFunc& nearSamplesFunc, const NeighbourhoodFunc& nearVerticesFunc, const VertexHeuristicFunc& lowerBoundHeuristicVertex, const VertexHeuristicFunc& currentHeuristicVertex, const EdgeHeuristicFunc& lowerBoundHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdge, const EdgeHeuristicFunc& lowerBoundHeuristicTarget, const EdgeHeuristicFunc& currentHeuristicTarget);
 
             virtual ~IntegratedQueue();
 
@@ -179,11 +179,11 @@ namespace ompl
             /** \brief Erase all edges in the edge queue that leave from the given vertex */
             void removeEdgesFrom(const VertexPtr& pVertex);
 
-            /** \brief Prune edges in the edge queue that lead to the given vertex using the prune function  */
-            void pruneEdgesTo(const VertexPtr& cVertex);
+            /** \brief Removes edges in the edge queue that lead to the given vertex that would not be added to the queue now */
+            void updateEdgesTo(const VertexPtr& cVertex);
 
-            /** \brief Prune edges in the edge queue that leave from the given vertex using the prune function */
-            void pruneEdgesFrom(const VertexPtr& pVertex);
+            /** \brief Removes edges in the edge queue that leave from the given vertex that would not be added to the queue now */
+            void updateEdgesFrom(const VertexPtr& pVertex);
 
             /** \brief Mark the queue as requiring resorting downstream of the specified vertex */
             void markVertexUnsorted(const VertexPtr& vertex);
@@ -206,13 +206,19 @@ namespace ompl
 
             //////////////////
             //Queue info:
-            /** \brief The condition used to prune vertices out of the queue. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is greater than the internally set threshold. Used internally during resort()*/
+            /** \brief The condition used to insert vertices into the queue. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is lower than the internally set threshold.*/
+            bool vertexInsertCondition(const VertexPtr& vertex) const;
+
+            /** \brief The condition used to insert edges into the queue. Compares lowerBoundHeuristicEdge to the given threshold. Returns true if the edge's best cost is lower than the internally set threshold.*/
+            bool edgeInsertCondition(const VertexPtrPair& edge) const;
+
+            /** \brief The condition used to prune vertices out of the queue. Compares currentHeuristicVertex to the given threshold. Returns true if the vertex's best cost is greater than the internally set threshold.*/
             bool vertexPruneCondition(const VertexPtr& vertex) const;
 
-            /** \brief The condition used to prune disconnected samples from the free set. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is greater than or equal to the internally set threshold. Used internally during resort()*/
+            /** \brief The condition used to prune disconnected samples from the free set. Compares lowerBoundHeuristicVertex to the given threshold. Returns true if the vertex's best cost is greater than or equal to the internally set threshold.*/
             bool samplePruneCondition(const VertexPtr& vertex) const;
 
-            /** \brief The condition used to prune edge (i.e., vertex-pair) out of the queue. Compares lowerBoundHeuristicEdge to the given threshold. Returns true if the edge's best cost is greater than the internally set threshold. Used internally during resort()*/
+            /** \brief The condition used to prune edge (i.e., vertex-pair) out of the queue. Compares currentHeuristicEdge to the given threshold. Returns true if the edge's best cost is greater than the internally set threshold.*/
             bool edgePruneCondition(const VertexPtrPair& edge) const;
 
             /** \brief Returns the number of edges in the queue */
@@ -393,8 +399,11 @@ namespace ompl
             /** \brief The current heuristic for an edge. */
             EdgeHeuristicFunc                                        currentHeuristicEdgeFunc_;
 
+            /** \brief The lower-bounding heuristic for an edge. */
+            EdgeHeuristicFunc                                        lowerBoundHeuristicTargetFunc_;
+
             /** \brief The current heuristic to the end of an edge. */
-            EdgeHeuristicFunc                                        currentHeuristicEdgeTargetFunc_;
+            EdgeHeuristicFunc                                        currentHeuristicTargetFunc_;
 
             /** \brief Whether to delay rewiring until an initial solution is found or not */
             bool                                                     delayRewiring_;

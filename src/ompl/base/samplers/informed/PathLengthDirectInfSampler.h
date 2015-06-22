@@ -100,6 +100,22 @@ namespace ompl
             /** \brief A helper function to calculate the heuristic estimate of the solution cost for the informed subset of a given state. */
             virtual Cost heuristicSolnCost(const State *statePtr) const;
 
+            /** Set the seeds of the underlying RNGs */
+            virtual void setLocalSeed(boost::uint32_t localSeed)
+            {
+                //Set the RNG
+                rng_.setLocalSeed(localSeed);
+
+                //Set the base sampler
+                baseSampler_->setLocalSeed(localSeed);
+
+                //Set the uniformed subspace sampler, if prseent
+                if (uninformedSubSampler_)
+                {
+                    uninformedSubSampler_->setLocalSeed(localSeed);
+                }
+            };
+
         private:
             /** \brief A constant pointer to ProlateHyperspheroid */
             typedef boost::shared_ptr<const ompl::ProlateHyperspheroid> ProlateHyperspheroidCPtr;
