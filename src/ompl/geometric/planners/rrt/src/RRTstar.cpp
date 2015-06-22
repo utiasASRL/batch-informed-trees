@@ -164,12 +164,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
     Motion *solution       = lastGoalMotion_;
 
-    // \todo Make this variable unnecessary, or at least have it
-    // persist across solve runs
-    base::Cost bestCost    = opt_->infiniteCost();
-
-    bestCost_ = opt_->infiniteCost();
-
     Motion *approximation  = NULL;
     double approximatedist = std::numeric_limits<double>::infinity();
     bool sufficientlyShort = false;
@@ -415,10 +409,13 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                 bool updatedSolution = false;
                 for (size_t i = 0; i < goalMotions_.size(); ++i)
                 {
-                    if (opt_->isCostBetterThan(goalMotions_[i]->cost, bestCost))
+                    if (opt_->isCostBetterThan(goalMotions_[i]->cost, bestCost_))
                     {
-                        bestCost = goalMotions_[i]->cost;
-                        bestCost_ = bestCost;
+                        if (std::isfinite(bestCost_.value()) == false)
+                        {
+                            OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u vertices)", getName().c_str(), goalMotions_[i]->cost, iterations_, nn_->size());
+                        }
+                        bestCost_ = goalMotions_[i]->cost;
                         updatedSolution = true;
                     }
 
@@ -503,7 +500,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         if (approximate)
             psol.setApproximate(approximatedist);
         // Does the solution satisfy the optimization objective?
-        psol.setOptimized(opt_, bestCost, sufficientlyShort);
+        psol.setOptimized(opt_, bestCost_, sufficientlyShort);
         pdef_->addSolutionPath(psol);
 
         addedSolution = true;
@@ -514,7 +511,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         si_->freeState(rmotion->state);
     delete rmotion;
 
-    OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree.", getName().c_str(), statesGenerated, rewireTest, goalMotions_.size());
+    OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final solution cost %.3f", getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestCost_);
 
     return base::PlannerStatus(addedSolution, approximate);
 }
@@ -653,7 +650,7 @@ ompl::base::Cost ompl::geometric::RRTstar::defaultCostToGoHeuristic(const base::
 ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion, const bool estimate) const
 {
     base::Cost costToCome;
-    if (shortest)
+    if (estimate)
         costToCome = opt_->motionCost(startMotion_->state, motion->state); // h_s
     else
         costToCome = motion->cost; //d_s
