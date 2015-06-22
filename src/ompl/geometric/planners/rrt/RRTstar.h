@@ -202,6 +202,35 @@ namespace ompl
                 return useKNearest_;
             }
 
+            /** \brief Use \e Informed \e RRT*.
+            This means that once a problem is found, the search is focused only to the subproblem that could contain a better solution.
+            Currently only implemented for problems with a single goal that are seeking to minimize path length in
+            R^n (i.e., RealVectorStateSpace), SE(2) (i.e., SE2StateSpace), or SE(3) (i.e., SE3StateSpace).
+            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
+            Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
+            IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
+            <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
+            <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
+            void setInformedSampling(bool informedSampling);
+
+            /** \brief Get the state of informed sampling */
+            bool getInformedSampling() const
+            {
+                return useInformedSampling_;
+            }
+
+            /** \brief Set the number of attempts to make while performing informed sampling */
+            void setInformedSamplingAttempts(unsigned int numAttempts)
+            {
+                numInfAttempts_ = numAttempts;
+            }
+
+            /** \brief Get the number of attempts to make while performing informed sampling */
+            unsigned int getInformedSamplingAttempts() const
+            {
+                return numInfAttempts_ ;
+            }
+
             virtual void setup();
 
         protected:
@@ -291,8 +320,17 @@ namespace ompl
             /** \brief Computes the cost-to-go heuristically for goal states and goal regions using the motionCost given by the optimization objective.*/
             base::Cost defaultCostToGoHeuristic(const base::State *state, const base::Goal *goal) const;
 
+            /** \brief Count the number of vertices that lay outside the informed subset and store the number in numVerticesWorseThanSoln_.
+            This is a sort of virtual pruning that avoids the problem of removing promising descendents simply
+            because of the quality of their ancestors.
+            \todo Replace with an actually pruning method. */
+            void countNumberOfVerticesWorseThanSoln();
+
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
+
+            /** \brief An informed sampler */
+            base::InformedSamplerPtr                       infSampler_;
 
             /** \brief A nearest-neighbors datastructure containing the tree of motions */
             boost::shared_ptr< NearestNeighbors<Motion*> > nn_;
@@ -334,6 +372,15 @@ namespace ompl
 
             /** \brief The tree is only pruned is the percentage of states to prune is above this threshold (between 0 and 1). */
             double                                         pruneStatesThreshold_;
+
+            /** \brief Option to use informed sampling */
+            bool                                           useInformedSampling_;
+
+            /** \brief The number of attempts to make at informed sampling */
+            unsigned int                                   numInfAttempts_;
+
+            /** \brief The number of vertices in the graph that cannot improve the solution. This is used by Informed RRT* to calculate the number of samples in the sub planning problem.*/
+            unsigned int                                   numVerticesWorseThanSoln_;
 
             struct PruneScratchSpace { std::vector<Motion*> newTree, toBePruned, candidates; } pruneScratchSpace_;
 
