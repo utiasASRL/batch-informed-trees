@@ -75,14 +75,14 @@ namespace ompl
             // Spend numIters_ iterations trying to find an informed sample:
             for (unsigned int i = 0u; i < InformedSampler::numIters_ && foundSample == false; ++i)
             {
-                // Call the helper function for the larger PHS. It will move our iteration counter:
+                // Call the helper function for the larger cost. It will move our iteration counter:
                 foundSample = sampleUniform(statePtr, maxCost, &i);
 
                 // Did we find a sample?
                 if (foundSample == true)
                 {
-                    // We did, but that was only inside the bigger PHS, we need to assure it's outside the smaller one which occurs if the minCost is *better* than that of the sample:
-                    foundSample = InformedSampler::opt_->isCostBetterThan(minCost, heuristicSolnCost(statePtr));
+                    // We did, but that was only inside the larger cost, we need to assure it's outside the smaller cost which occurs if the minCost is *better* than that of the sample:
+                    foundSample = InformedSampler::opt_->isCostBetterThan(minCost, InformedSampler::heuristicSolnCost(statePtr));
                 }
                 // No else, no sample was found.
             }

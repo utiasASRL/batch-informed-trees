@@ -87,6 +87,7 @@ namespace ompl
             virtual double getInformedMeasure(const Cost &minCost, const Cost &maxCost) const;
 
             /** \brief A helper function to calculate the heuristic estimate of the solution cost for a given state using the optimization objective stored in the problem definition. */
+            /** \todo With the future invention of a heuristic class, this should move.  */
             virtual Cost heuristicSolnCost(const State *statePtr) const;
 
         protected:
