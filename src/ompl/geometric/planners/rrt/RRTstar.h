@@ -123,6 +123,18 @@ namespace ompl
                 return maxDistance_;
             }
 
+            /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* (or k_rrg = s \times k_rrg*) */
+            void setRewireFactor(double rewireFactor)
+            {
+                rewireFactor_ = rewireFactor;
+            }
+
+            /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
+            double getRewireFactor() const
+            {
+                return rewireFactor_;
+            }
+
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
             void setNearestNeighbors()
@@ -178,6 +190,18 @@ namespace ompl
                 return pruneStatesThreshold_;
             }
 
+            /** \brief Use a k-nearest search for rewiring instead of a r-disc search. */
+            void setKNearest(bool useKNearest)
+            {
+                useKNearest_ = useKNearest;
+            }
+
+            /** \brief Get the state of using a k-nearest search for rewiring. */
+            bool getKNearest() const
+            {
+                return useKNearest_;
+            }
+
             virtual void setup();
 
         protected:
@@ -213,6 +237,12 @@ namespace ompl
                 std::vector<Motion*> children;
             };
 
+            /** \brief Create the samplers */
+            void allocSampler();
+
+            /** \brief Generate a sample */
+            void sampleUniform(base::State *statePtr);
+
             /** \brief Free the memory allocated by this planner */
             void freeMemory();
 
@@ -236,6 +266,9 @@ namespace ompl
             {
                 return si_->distance(a->state, b->state);
             }
+
+            /** \brief Gets the neighbours of a given motion, using either k-nearest of radius as appropriate. */
+            void getNeighbors(Motion *motion, std::vector<Motion*> &nbh);
 
             /** \brief Removes the given motion from the parent's child list */
             void removeFromParent(Motion *m);
@@ -273,6 +306,17 @@ namespace ompl
             /** \brief The random number generator */
             RNG                                            rng_;
 
+            /** \brief Option to use k-nearest search for rewiring */
+            bool                                           useKNearest_;
+
+            /** \brief The rewiring factor, s, so that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
+            double                                         rewireFactor_;
+
+            /** \brief A constant for k-nearest rewiring calculations */
+            double                                         k_rrg_;
+            /** \brief A constant for r-disc rewiring calculations */
+            double                                         r_rrg_;
+
             /** \brief Option to delay and reduce collision checking within iterations */
             bool                                           delayCC_;
 
@@ -302,6 +346,10 @@ namespace ompl
             {
                 return boost::lexical_cast<std::string>(iterations_);
             }
+            std::string getCollisionCheckCount() const
+            {
+                return boost::lexical_cast<std::string>(collisionChecks_);
+            }
             std::string getBestCost() const
             {
                 return boost::lexical_cast<std::string>(bestCost_);
@@ -311,6 +359,8 @@ namespace ompl
             // Planner progress properties
             /** \brief Number of iterations the algorithm performed */
             unsigned int                                   iterations_;
+            /** \brief Number of collisions checks performed by the algorithm */
+            unsigned int                                   collisionChecks_;
             /** \brief Best cost found so far by algorithm */
             base::Cost                                     bestCost_;
         };

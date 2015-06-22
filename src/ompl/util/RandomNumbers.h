@@ -32,7 +32,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: Ioan Sucan, Jonathan Gammell */
 
 #ifndef OMPL_UTIL_RANDOM_NUMBERS_
 #define OMPL_UTIL_RANDOM_NUMBERS_
