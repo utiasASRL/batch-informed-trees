@@ -32,7 +32,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez */
+/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez, Jonathan Gammell */
 
 #ifndef OMPL_GEOMETRIC_PLANNERS_RRT_RRTSTAR_
 #define OMPL_GEOMETRIC_PLANNERS_RRT_RRTSTAR_
@@ -135,7 +135,7 @@ namespace ompl
                 planner then goes through this list, starting with the lowest
                 cost, checking for collisions in order to find a parent. The planner
                 stops iterating through the list when a collision free parent is found.
-                This prevents the planner from collsion checking each neighbor, reducing
+                This prevents the planner from collision checking each neighbor, reducing
                 computation time in scenarios where collision checking procedures are expensive.*/
             void setDelayCC(bool delayCC)
             {
@@ -148,7 +148,12 @@ namespace ompl
                 return delayCC_;
             }
 
-            /** \brief Controls whether the tree is pruned during the search. */
+            /** \brief Controls whether the tree is pruned during the search. This pruning removes
+                a vertex \e and \e its \e descendants if the lower-bounding estimate of a solution
+                constrained to pass the the \e vertex  is greater than the current solution.
+                As the ancestory of the descendent vertices can change at anytime, this means that the removed
+                descendents may actually be capable of later providing a better solution once
+                their incoming path passes through a different vertex (e.g., a change in homotopy class) */
             void setPrune(const bool prune)
             {
                 prune_ = prune;
@@ -174,17 +179,6 @@ namespace ompl
             }
 
             virtual void setup();
-
-            ///////////////////////////////////////
-            // Planner progress property functions
-            std::string getIterationCount() const
-            {
-                return boost::lexical_cast<std::string>(iterations_);
-            }
-            std::string getBestCost() const
-            {
-                return boost::lexical_cast<std::string>(bestCost_);
-            }
 
         protected:
 
@@ -256,10 +250,13 @@ namespace ompl
             /** \brief Deletes (frees memory) the motion and its children motions. */
             void deleteBranch(Motion *motion);
 
-            /** \brief Computes the Cost To Go heuristically as the cost to come from start to motion plus
-                 the cost to go from motion to goal. If \e shortest is true, the estimated cost to come
-                 start-motion is given. Otherwise, this cost to come is the current motion cost. */
-            base::Cost costToGo(const Motion *motion, const bool shortest = true) const;
+            /** \brief Computes the solution cost heuristically as the cost to come from start to the motion plus
+                 the cost to go from the motion to the goal. If \e estimate is true, a heuristic estimate of the
+                 cost to come is used; otherwise, the current cost to come is used. */
+            base::Cost solutionHeuristic(const Motion *motion, const bool estimate = true) const;
+
+            /** \brief Computes the cost-to-go heuristically for goal states and goal regions using the motionCost given by the optimization objective.*/
+            base::Cost defaultCostToGoHeuristic(const base::State *state, const base::Goal *goal) const;
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
@@ -298,6 +295,17 @@ namespace ompl
 
             /** \brief Stores the Motion containing the last added initial start state. */
             Motion *                                       startMotion_;
+
+            ///////////////////////////////////////
+            // Planner progress property functions
+            std::string getIterationCount() const
+            {
+                return boost::lexical_cast<std::string>(iterations_);
+            }
+            std::string getBestCost() const
+            {
+                return boost::lexical_cast<std::string>(bestCost_);
+            }
 
             //////////////////////////////
             // Planner progress properties

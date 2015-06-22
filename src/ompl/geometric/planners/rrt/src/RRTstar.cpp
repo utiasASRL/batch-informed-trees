@@ -32,12 +32,14 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez */
+/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez, Jonathan Gammell */
 
 #include "ompl/geometric/planners/rrt/RRTstar.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
+#include "ompl/base/Goal.h"
+#include "ompl/base/goals/GoalState.h"
 #include <algorithm>
 #include <limits>
 #include <boost/math/constants/constants.hpp>
@@ -209,7 +211,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         {
             sampler_->sampleUniform(rstate);
 
-            if (prune_ && opt_->isCostBetterThan(bestCost_, costToGo(rmotion)))
+            if (prune_ && opt_->isCostBetterThan(bestCost_, solutionHeuristic(rmotion)))
                 continue;
         }
 
@@ -340,7 +342,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
             if (prune_)
             {
-                if (opt_->isCostBetterThan(costToGo(motion, false), bestCost_))
+                if (opt_->isCostBetterThan(solutionHeuristic(motion, false), bestCost_))
                 {
                     nn_->add(motion);
                     motion->parent->children.push_back(motion);
@@ -422,11 +424,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
                     sufficientlyShort = opt_->isSatisfied(goalMotions_[i]->cost);
                     if (sufficientlyShort)
-                     {
-                         solution = goalMotions_[i];
-                         break;
-                     }
-                     else if (!solution ||
+                    {
+                        solution = goalMotions_[i];
+                        break;
+                    }
+                    else if (!solution ||
                          opt_->isCostBetterThan(goalMotions_[i]->cost,solution->cost))
                     {
                         solution = goalMotions_[i];
@@ -586,7 +588,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost pruneTreeCost)
     while (j != pruneScratchSpace_.candidates.size())
     {
         Motion *candidate = pruneScratchSpace_.candidates[j++];
-        if (opt_->isCostBetterThan(pruneTreeCost, costToGo(candidate)))
+        if (opt_->isCostBetterThan(pruneTreeCost, solutionHeuristic(candidate)))
             pruneScratchSpace_.toBePruned.push_back(candidate);
         else
         {
@@ -632,7 +634,23 @@ void ompl::geometric::RRTstar::deleteBranch(Motion *motion)
     }
 }
 
-ompl::base::Cost ompl::geometric::RRTstar::costToGo(const Motion *motion, const bool shortest) const
+ompl::base::Cost ompl::geometric::RRTstar::defaultCostToGoHeuristic(const base::State *state, const base::Goal *goal) const
+{
+    if (pdef_->getGoal()->hasType(base::GOAL_STATE) == true)
+    {
+        return opt_->motionCost(state, goal->as<base::GoalState>()->getState());
+    }
+    else if (pdef_->getGoal()->hasType(base::GOAL_REGION) == true)
+    {
+        return base::goalRegionCostToGo(state, goal);
+    }
+    else
+    {
+        throw Exception("Default cost-to-go heuristic is only defined for a goal state and goal regions.");
+    }
+}
+
+ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion, const bool estimate) const
 {
     base::Cost costToCome;
     if (shortest)
@@ -640,6 +658,6 @@ ompl::base::Cost ompl::geometric::RRTstar::costToGo(const Motion *motion, const 
     else
         costToCome = motion->cost; //d_s
 
-    const base::Cost costToGo = base::goalRegionCostToGo(motion->state, pdef_->getGoal().get()); // h_g
+    const base::Cost costToGo = defaultCostToGoHeuristic(motion->state, pdef_->getGoal().get()); // h_g
     return opt_->combineCosts(costToCome, costToGo); // h_s + h_g
 }
