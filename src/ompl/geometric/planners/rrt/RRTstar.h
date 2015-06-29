@@ -233,6 +233,16 @@ namespace ompl
 
             virtual void setup();
 
+            unsigned int numIterations() const
+            {
+                return iterations_;
+            }
+
+            ompl::base::Cost bestCost() const
+            {
+                return bestCost_;
+            }
+
         protected:
 
             /** \brief Representation of a motion */

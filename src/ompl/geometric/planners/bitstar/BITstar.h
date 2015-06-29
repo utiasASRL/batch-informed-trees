@@ -132,6 +132,8 @@ namespace ompl
             /** \brief Get results */
             virtual void getPlannerData(base::PlannerData& data) const;
 
+            ///////////////////////////////////////
+            // Planner info for debugging, etc:
             /** \brief Get the next edge to be processed. Causes vertices in the queue to be expanded (if necessary) and therefore effects the run timings of the algorithm, but helpful for some videos and debugging. */
             std::pair<const ompl::base::State*, const ompl::base::State*> getNextEdgeInQueue();
 
@@ -144,11 +146,19 @@ namespace ompl
             /** \brief Get the whole set of vertices to be expanded. Expensive but helpful for some videos */
             void getVertexQueue(std::vector<VertexConstPtr>* verticesInQueue);
 
+            /** \brief Get the number of iterations completed */
+            unsigned int numIterations() const;
+
+            /** \brief Retrieve the best exact-solution cost found.*/
+            ompl::base::Cost bestCost() const;
+            ///////////////////////////////////////
+
+            ///////////////////////////////////////
+            // Planner settings:
             /** \brief Set a different nearest neighbours datastructure */
             template<template<typename T> class NN>
             void setNearestNeighbors();
-            ///////////////////////////////////////
-            // Planner settings:
+
             /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* */
             void setRewireFactor(double rewireFactor);
 
@@ -396,9 +406,6 @@ namespace ompl
 
             ///////////////////////////////////////
             // Planner progress property functions
-            /** \brief Retrieve the best exact-solution cost found
-            as the raw data. (bestCost_) */
-            ompl::base::Cost bestCost() const;
             /** \brief Retrieve the best exact-solution cost found
             as a planner-progress property. (bestCost_) */
             std::string bestCostProgressProperty() const;

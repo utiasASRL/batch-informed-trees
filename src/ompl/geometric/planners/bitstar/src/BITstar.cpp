@@ -1710,9 +1710,16 @@ namespace ompl
 
 
 
+        unsigned int BITstar::numIterations() const
+        {
+            return numIterations_;
+        }
+
+
+
         std::string BITstar::iterationProgressProperty() const
         {
-            return boost::lexical_cast<std::string>(numIterations_);
+            return boost::lexical_cast<std::string>(this->numIterations());
         }
 
 
