@@ -133,8 +133,14 @@ void ompl::ProlateHyperspheroid::transform(const double sphere[], double phs[]) 
       throw Exception("The transformation is not up to date in the PHS class. Has the transverse diameter been set?");
     }
 
-    // Calculate the tranformation and offset, using Eigen::Map views of the data
-    Eigen::Map<Eigen::VectorXd>(phs, dataPtr_->dim_) = dataPtr_->transformationWorldFromEllipse_*Eigen::Map<const Eigen::VectorXd>(sphere, dataPtr_->dim_) + dataPtr_->xCentre_;
+    // Variables
+    // An Eigen view of the spherical data
+    Eigen::Map<const Eigen::VectorXd> eigenSphere(sphere, dataPtr_->dim_);
+    // An Eigen view of the PHS data
+    Eigen::Map<Eigen::VectorXd> eigenPhs(phs, dataPtr_->dim_);
+
+    // Calculate the transformation and offset, using Eigen::Map views of the data
+    eigenPhs = dataPtr_->transformationWorldFromEllipse_*eigenSphere + dataPtr_->xCentre_;
 }
 
 bool ompl::ProlateHyperspheroid::isInPhs(const double point[]) const
@@ -180,7 +186,11 @@ double ompl::ProlateHyperspheroid::getMinTransverseDiameter(void) const
 
 double ompl::ProlateHyperspheroid::getPathLength(const double point[]) const
 {
-    return (dataPtr_->xFocus1_ - Eigen::Map<const Eigen::VectorXd>(point, dataPtr_->dim_)).norm() + (Eigen::Map<const Eigen::VectorXd>(point, dataPtr_->dim_) - dataPtr_->xFocus2_).norm();
+    // Variables
+    // An Eigen view of the point
+    Eigen::Map<const Eigen::VectorXd> eigenPoint(point, dataPtr_->dim_);
+
+    return (dataPtr_->xFocus1_ - eigenPoint).norm() + (eigenPoint - dataPtr_->xFocus2_).norm();
 }
 
 unsigned int ompl::ProlateHyperspheroid::getDimension() const
