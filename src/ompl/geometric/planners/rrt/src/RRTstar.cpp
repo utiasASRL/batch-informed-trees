@@ -130,7 +130,7 @@ void ompl::geometric::RRTstar::setup()
             OMPL_INFORM("%s: No optimization objective specified. Defaulting to optimizing path length for the allowed planning time.", getName().c_str());
             opt_.reset(new base::PathLengthOptimizationObjective(si_));
 
-            if (opt_->hasCostToGoHeuristic() == false && (pdef_->getGoal()->hasType(base::GOAL_STATE) == true || pdef_->getGoal()->hasType(base::GOAL_REGION) == true) )
+            if (opt_->hasCostToGoHeuristic() == false)
             {
                 OMPL_INFORM("%s: No cost-to-go heuristic set. Defaulting to the distance from the state to the goal.", getName().c_str());
                 //Bind to the goalRegionCostToGo function.
