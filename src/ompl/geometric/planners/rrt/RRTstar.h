@@ -257,16 +257,16 @@ namespace ompl
                 return useInformedSampling_ && getTreePruning();
             }
 
-            /** \brief Set the number of attempts to make while performing informed sampling */
-            void setInformedSamplingAttempts(unsigned int numAttempts)
+            /** \brief Set the number of attempts to make while performing rejection or informed sampling */
+            void setNumSamplingAttempts(unsigned int numAttempts)
             {
-                numInfAttempts_ = numAttempts;
+                numSampleAttempts_ = numAttempts;
             }
 
-            /** \brief Get the number of attempts to make while performing informed sampling */
-            unsigned int getInformedSamplingAttempts() const
+            /** \brief Get the number of attempts to make while performing rejection or informed sampling */
+            unsigned int getNumSamplingAttempts() const
             {
-                return numInfAttempts_ ;
+                return numSampleAttempts_ ;
             }
 
             virtual void setup();
@@ -425,7 +425,7 @@ namespace ompl
             bool                                           useInformedSampling_;
 
             /** \brief The number of attempts to make at informed sampling */
-            unsigned int                                   numInfAttempts_;
+            unsigned int                                   numSampleAttempts_;
 
             struct PruneScratchSpace { std::vector<Motion*> newTree, toBePruned, candidates; } pruneScratchSpace_;
 

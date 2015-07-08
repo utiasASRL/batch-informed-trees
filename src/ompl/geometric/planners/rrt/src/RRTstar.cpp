@@ -65,7 +65,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     useRejectionSampling_(false),
     useNewStateRejection_(false),
     useInformedSampling_(false),
-    numInfAttempts_ (100u),
+    numSampleAttempts_ (100u),
     bestCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedInfMeasure_(0.0),
@@ -87,7 +87,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     Planner::declareParam<bool>("new_state_rejection", this, &RRTstar::setNewStateRejection, &RRTstar::getNewStateRejection, "0,1");
     Planner::declareParam<bool>("focus_search", this, &RRTstar::setFocusSearch, &RRTstar::getFocusSearch, "0,1");
     Planner::declareParam<bool>("informed_rrtstar", this, &RRTstar::setInformedRrtStar, &RRTstar::getInformedRrtStar, "0,1");
-    Planner::declareParam<bool>("number_informed_attempts", this, &RRTstar::setInformedSamplingAttempts, &RRTstar::getInformedSamplingAttempts, "10:10:100000");
+    Planner::declareParam<bool>("number_sampling_attempts", this, &RRTstar::setNumSamplingAttempts, &RRTstar::getNumSamplingAttempts, "10:10:100000");
 
     addPlannerProgressProperty("iterations INTEGER",
                                boost::bind(&RRTstar::getIterationCount, this));
@@ -886,13 +886,13 @@ void ompl::geometric::RRTstar::allocSampler()
     {
         // We are using informed sampling, this can end-up reverting to rejection sampling in some cases
         OMPL_INFORM("%s: Using informed sampling.", getName().c_str());
-        infSampler_ = opt_->allocInformedStateSampler(pdef_, numInfAttempts_);
+        infSampler_ = opt_->allocInformedStateSampler(pdef_, numSampleAttempts_);
     }
     else if (useRejectionSampling_)
     {
         // We are explicitly using rejection sampling.
         OMPL_INFORM("%s: Using rejection sampling.", getName().c_str());
-        infSampler_ = boost::make_shared<base::RejectionInfSampler>(pdef_, numInfAttempts_);
+        infSampler_ = boost::make_shared<base::RejectionInfSampler>(pdef_, numSampleAttempts_);
     }
     else
     {
