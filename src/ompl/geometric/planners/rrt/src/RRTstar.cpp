@@ -665,11 +665,20 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost, bool ag
 {
     // Variable
     // The percent improvement (expressed as a [0,1] fraction) in cost
-    double fracBetter = std::abs((pruneTreeCost.value() - prunedCost_.value())/prunedCost_.value());;
+    double fracBetter;
     // The number pruned
     int numPruned = 0;
 
-    if (fracBetter > pruneThreshold_ || !opt_->isFinite(prunedCost_))
+    if (opt_->isFinite(prunedCost_))
+    {
+        fracBetter = std::abs((pruneTreeCost.value() - prunedCost_.value())/prunedCost_.value());
+    }
+    else
+    {
+        fracBetter = 1.0;
+    }
+
+    if (fracBetter > pruneThreshold_)
     {
         if (aggressivePruning)
         {
