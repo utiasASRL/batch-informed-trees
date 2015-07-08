@@ -501,7 +501,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                 {
                     if (useTreePruning_)
                     {
-                        pruneTree(bestCost_, false); /// \todo Make the aggressiveness of the pruning a variable or otherwise decide on which sort of pruning is preferred.
+                        pruneTree(bestCost_);
                     }
 
                     if (useInformedSampling_ == true)
@@ -661,7 +661,7 @@ void ompl::geometric::RRTstar::getPlannerData(base::PlannerData &data) const
     }
 }
 
-int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost, bool aggressivePruning)
+int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
 {
     // Variable
     // The percent improvement (expressed as a [0,1] fraction) in cost
@@ -680,97 +680,60 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost, bool ag
 
     if (fracBetter > pruneThreshold_)
     {
-        if (aggressivePruning)
+        // We are only pruning motions if they, AND all descendents, meet the pruning criterion
+        // The easiest way to do this is to find all the leaves of the tree that meet the pruning criterion, and ascend up the tree from each leaf until a motion is found that should not be pruned
+
+        // Variable
+        // The list of motions in the NN structure, initially full of nulls
+        std::vector<Motion*> treeVertices(nn_->size(), NULL);
+        // The list of leaves to prune
+        std::list<Motion*> leavesToPrune;
+
+        // Get the list from the NN structure
+        nn_->list(treeVertices);
+
+        // Iterate over the list of vertices
+        for (std::vector<Motion*>::iterator vIter = treeVertices.begin(); vIter != treeVertices.end(); ++vIter)
         {
-            // We are pruning any motion, and it's descendents, if the motion cost passes the pruning criterion.
-            const int tree_size = nn_->size();
-            pruneScratchSpace_.newTree.reserve(tree_size);
-            pruneScratchSpace_.newTree.clear();
-            pruneScratchSpace_.toBePruned.reserve(tree_size);
-            pruneScratchSpace_.toBePruned.clear();
-            pruneScratchSpace_.candidates.clear();
-            pruneScratchSpace_.candidates.push_back(startMotion_);
-            std::size_t j = 0;
-            while (j != pruneScratchSpace_.candidates.size())
+            // Check if it passes the pruning condition
+            if (leafPruningCondition(*vIter, pruneTreeCost) == true)
             {
-                Motion *candidate = pruneScratchSpace_.candidates[j++];
-                if (opt_->isCostBetterThan(pruneTreeCost, solutionHeuristic(candidate)))
-                    pruneScratchSpace_.toBePruned.push_back(candidate);
-                else
-                {
-                    pruneScratchSpace_.newTree.push_back(candidate);
-                    pruneScratchSpace_.candidates.insert(pruneScratchSpace_.candidates.end(),
-                        candidate->children.begin(), candidate->children.end());
-                }
+                // Add to the list of leaves to prune
+                leavesToPrune.push_back(*vIter);
             }
-
-            // To create the new nn takes one order of magnitude in time more than just checking how many
-            // states would be pruned.
-            for (std::size_t i = 0; i < pruneScratchSpace_.toBePruned.size(); ++i)
-                deleteBranch(pruneScratchSpace_.toBePruned[i]);
-
-            nn_->clear();
-            nn_->add(pruneScratchSpace_.newTree);
-
-            numPruned = (tree_size - pruneScratchSpace_.newTree.size());
+            // No else, does not meet the pruning criteria
         }
-        else
+
+        // Iterate over the list of leaves to prune
+        std::list<Motion*>::iterator lpIter = leavesToPrune.begin();
+
+        while (lpIter != leavesToPrune.end())
         {
-            // We are only pruning motions if they, AND all descendents, meet the pruning criterion
-            // The easiest way to do this is to find all the leaves of the tree that meet the pruning criterion, and ascend up the tree from each leaf until a motion is found that should not be pruned
+            // Remove the leaf from the nn_ structure
+            nn_->remove(*lpIter);
 
-            // Variable
-            // The list of motions in the NN structure, initially full of nulls
-            std::vector<Motion*> treeVertices(nn_->size(), NULL);
-            // The list of leaves to prune
-            std::list<Motion*> leavesToPrune;
+            // Remove the leaf from its parent
+            removeFromParent(*lpIter);
 
-            // Get the list from the NN structure
-            nn_->list(treeVertices);
-
-            // Iterate over the list of vertices
-            for (std::vector<Motion*>::iterator vIter = treeVertices.begin(); vIter != treeVertices.end(); ++vIter)
+            // Check if its parent should be added to the list
+            if (leafPruningCondition((*lpIter)->parent, pruneTreeCost) == true)
             {
-                // Check if it passes the pruning condition
-                if (leafPruningCondition(*vIter, pruneTreeCost) == true)
-                {
-                    // Add to the list of leaves to prune
-                    leavesToPrune.push_back(*vIter);
-                }
-                // No else, does not meet the pruning criteria
+                // Add to the list of leaves to prune
+                leavesToPrune.push_back((*lpIter)->parent);
             }
+            // No else, does not meet the pruning criteria
 
-            // Iterate over the list of leaves to prune
-            std::list<Motion*>::iterator lpIter = leavesToPrune.begin();
+            // Erase the actual motion, by first freeing the state
+            si_->freeState((*lpIter)->state);
 
-            while (lpIter != leavesToPrune.end())
-            {
-                // Remove the leaf from the nn_ structure
-                nn_->remove(*lpIter);
+            // then deleting the pointer
+            delete *lpIter;
 
-                // Remove the leaf from its parent
-                removeFromParent(*lpIter);
+            // And finally removing it from the list, erase returns the next iterator
+            lpIter = leavesToPrune.erase(lpIter);
 
-                // Check if its parent should be added to the list
-                if (leafPruningCondition((*lpIter)->parent, pruneTreeCost) == true)
-                {
-                    // Add to the list of leaves to prune
-                    leavesToPrune.push_back((*lpIter)->parent);
-                }
-                // No else, does not meet the pruning criteria
-
-                // Erase the actual motion, by first freeing the state
-                si_->freeState((*lpIter)->state);
-
-                // then deleting the pointer
-                delete *lpIter;
-
-                // And finally removing it from the list, erase returns the next iterator
-                lpIter = leavesToPrune.erase(lpIter);
-
-                // Update our counter
-                ++numPruned;
-            }
+            // Update our counter
+            ++numPruned;
         }
 
         // Update the cost at which we've pruned:
@@ -807,28 +770,6 @@ bool ompl::geometric::RRTstar::leafPruningCondition(Motion *motion, const base::
     // No else, it has children
 
     return pruneThisLeaf;
-}
-
-
-void ompl::geometric::RRTstar::deleteBranch(Motion *motion)
-{
-    removeFromParent(motion);
-
-    std::vector<Motion *>& toDelete = pruneScratchSpace_.candidates;
-    toDelete.clear();
-    toDelete.push_back(motion);
-
-    while (!toDelete.empty())
-    {
-        Motion *mto_delete = toDelete.back();
-        toDelete.pop_back();
-
-        for(std::size_t i = 0; i < mto_delete->children.size(); ++i)
-            toDelete.push_back(mto_delete->children[i]);
-
-        si_->freeState(mto_delete->state);
-        delete mto_delete;
-    }
 }
 
 ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion, const bool estimate) const

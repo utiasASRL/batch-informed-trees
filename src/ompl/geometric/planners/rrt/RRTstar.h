@@ -161,11 +161,12 @@ namespace ompl
             }
 
             /** \brief Controls whether the tree is pruned during the search. This pruning removes
-                a vertex \e and \e its \e descendants if the lower-bounding estimate of a solution
-                constrained to pass the the \e vertex  is greater than the current solution.
-                As the ancestory of the descendent vertices can change at anytime, this means that the removed
-                descendents may actually be capable of later providing a better solution once
-                their incoming path passes through a different vertex (e.g., a change in homotopy class) */
+                a vertex if and only if it \e and all its descendents passes the pruning condition.
+                The pruning condition is whether the lower-bounding estimate of a solution
+                constrained to pass the the \e vertex is greater than the current solution.
+                Considering the descendents of a vertex prevents removing a descendent
+                that may actually be capable of later providing a better solution once
+                its incoming path passes through a different vertex (e.g., a change in homotopy class). */
             void setTreePruning(const bool prune)
             {
                 useTreePruning_ = prune;
@@ -355,10 +356,7 @@ namespace ompl
 
             /** \brief Prunes all those states which estimated total cost is higher than pruneTreeCost.
                 Returns the number of motions pruned. Depends on the parameter set by setPruneStatesImprovementThreshold() */
-            int pruneTree(const base::Cost& pruneTreeCost, bool aggressivePruning);
-
-            /** \brief Deletes (frees memory) the motion and its children motions. */
-            void deleteBranch(Motion *motion);
+            int pruneTree(const base::Cost& pruneTreeCost);
 
             /** \brief Computes the solution cost heuristically as the cost to come from start to the motion plus
                  the cost to go from the motion to the goal. If \e estimate is true, a heuristic estimate of the
@@ -426,8 +424,6 @@ namespace ompl
 
             /** \brief The number of attempts to make at informed sampling */
             unsigned int                                   numSampleAttempts_;
-
-            struct PruneScratchSpace { std::vector<Motion*> newTree, toBePruned, candidates; } pruneScratchSpace_;
 
             /** \brief Stores the Motion containing the last added initial start state. */
             Motion *                                       startMotion_;
