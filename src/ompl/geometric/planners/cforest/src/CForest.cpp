@@ -75,8 +75,11 @@ void ompl::geometric::CForest::addPlannerInstanceInternal(const base::PlannerPtr
     else
     {
         planner->setProblemDefinition(pdef_);
-        if (planner->params().hasParam("prune"))
-            planner->params()["prune"] = prune_;
+        if (planner->params().hasParam("focus_search"))
+            planner->params()["focus_search"] = prune_;
+        else
+            OMPL_WARN("%s does not appear to support search focusing.", planner->getName().c_str());
+
         planners_.push_back(planner);
     }
 }

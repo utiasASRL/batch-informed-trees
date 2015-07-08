@@ -151,7 +151,7 @@ ob::PlannerPtr allocatePlanner(ob::SpaceInformationPtr si, optimalPlanner planne
         {
             boost::shared_ptr<og::RRTstar> infRRTstar;
             infRRTstar = boost::make_shared<og::RRTstar>(si);
-            infRRTstar->setInformedSampling(true);
+            infRRTstar->setInformedRrtStar(true);
             return infRRTstar;
             break;
         }

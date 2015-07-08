@@ -172,7 +172,7 @@ def allocatePlanner(si, plannerType):
         return og.FMT(si)
     elif plannerType.lower() == "informedrrtstar":
         newPlanner = og.RRTstar(si)
-        newPlanner.setInformedSampling(True)
+        newPlanner.setInformedRrtStar(True)
         return newPlanner
     elif plannerType.lower() == "prmstar":
         return og.PRMstar(si)

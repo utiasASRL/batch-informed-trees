@@ -166,28 +166,66 @@ namespace ompl
                 As the ancestory of the descendent vertices can change at anytime, this means that the removed
                 descendents may actually be capable of later providing a better solution once
                 their incoming path passes through a different vertex (e.g., a change in homotopy class) */
-            void setPrune(const bool prune)
+            void setTreePruning(const bool prune)
             {
-                prune_ = prune;
+                useTreePruning_ = prune;
             }
 
             /** \brief Get the state of the pruning option. */
-            bool getPrune() const
+            bool getTreePruning() const
             {
-                return prune_;
+                return useTreePruning_;
             }
 
-            /** \brief Set the percentage threshold (between 0 and 1) for pruning the tree. If the new tree has removed
-                at least this percentage of states, the tree will be finally pruned. */
-            void setPruneStatesImprovementThreshold(const double pp)
+            /** \brief Set the fractional change in solution cost necessary for pruning to occur, i.e.,
+                prune if the new solution is at least X% better than the old solution.
+                (e.g., 0.0 will prune after every new solution, while 1.0 will never prune.) */
+            void setPruneThreshold(const double pp)
             {
-                pruneStatesThreshold_ = pp;
+                pruneThreshold_ = pp;
             }
 
             /** \brief Get the current prune states percentage threshold parameter. */
-            double getPruneStatesImprovementThreshold () const
+            double getPruneThreshold() const
             {
-                return pruneStatesThreshold_;
+                return pruneThreshold_;
+            }
+
+            /** \brief Controls whether heuristic rejection is used on samples (e.g., x_rand) */
+            void setSampleRejection(const bool reject);
+
+            /** \brief Get the state of the sample rejection option */
+            bool getSampleRejection() const
+            {
+                return useRejectionSampling_;
+            }
+
+            /** \brief Controls where heuristic rejection is used on new states before connection (e.g., x_new = steer(x_nearest, x_rand)) */
+            void setNewStateRejection(const bool reject)
+            {
+                useNewStateRejection_ = reject;
+            }
+
+            /** \brief Get the state of the new-state rejection option */
+            bool getNewStateRejection() const
+            {
+                return useNewStateRejection_;
+            }
+
+            /** \brief Controls search focusing. Search focusing consists of pruning the existing search and limiting future search.
+            In RRT* this is accomplished by turning on Informed RRT* (tree pruning and focused sampling) and new-state rejection.
+            This flag individually sets the options described above.
+            */
+            void setFocusSearch(const bool focus)
+            {
+                setInformedRrtStar(focus);
+                setNewStateRejection(focus);
+            }
+
+            /** \brief Get the state of search focusing */
+            bool getFocusSearch() const
+            {
+                return getTreePruning() && getSampleRejection() && getNewStateRejection();
             }
 
             /** \brief Use a k-nearest search for rewiring instead of a r-disc search. */
@@ -211,12 +249,12 @@ namespace ompl
             IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
             <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
             <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
-            void setInformedSampling(bool informedSampling);
+            void setInformedRrtStar(bool informedRrtStar);
 
-            /** \brief Get the state of informed sampling */
-            bool getInformedSampling() const
+            /** \brief Get the state of informed RRT* */
+            bool getInformedRrtStar() const
             {
-                return useInformedSampling_;
+                return useInformedSampling_ && getTreePruning();
             }
 
             /** \brief Set the number of attempts to make while performing informed sampling */
@@ -280,7 +318,7 @@ namespace ompl
             void allocSampler();
 
             /** \brief Generate a sample */
-            void sampleUniform(base::State *statePtr);
+            bool sampleUniform(base::State *statePtr);
 
             /** \brief Free the memory allocated by this planner */
             void freeMemory();
@@ -317,7 +355,7 @@ namespace ompl
 
             /** \brief Prunes all those states which estimated total cost is higher than pruneTreeCost.
                 Returns the number of motions pruned. Depends on the parameter set by setPruneStatesImprovementThreshold() */
-            int pruneTree(const base::Cost pruneTreeCost);
+            int pruneTree(const base::Cost& pruneTreeCost, bool aggressivePruning);
 
             /** \brief Deletes (frees memory) the motion and its children motions. */
             void deleteBranch(Motion *motion);
@@ -327,14 +365,8 @@ namespace ompl
                  cost to come is used; otherwise, the current cost to come is used. */
             base::Cost solutionHeuristic(const Motion *motion, const bool estimate = true) const;
 
-            /** \brief Computes the cost-to-go heuristically for goal states and goal regions using the motionCost given by the optimization objective.*/
-            base::Cost defaultCostToGoHeuristic(const base::State *state, const base::Goal *goal) const;
-
-            /** \brief Count the number of vertices that lay outside the informed subset and store the number in numVerticesWorseThanSoln_.
-            This is a sort of virtual pruning that avoids the problem of removing promising descendents simply
-            because of the quality of their ancestors.
-            \todo Replace with an actually pruning method. */
-            void countNumberOfVerticesWorseThanSoln();
+            /** \brief Check whether the specified motion is (1) a leaf in the tree and (2) meeting the Cost pruning criterion. Returns true if the motion should be pruned */
+            bool leafPruningCondition(Motion *motion, const base::Cost& pruneTreeCost);
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
@@ -377,11 +409,17 @@ namespace ompl
             /** \brief A list of states in the tree that satisfy the goal condition */
             std::vector<Motion*>                           goalMotions_;
 
-            /** \brief If this value is set to true, tree pruning will be enabled. */
-            bool                                           prune_;
+            /** \brief The status of the tree pruning option. */
+            bool                                           useTreePruning_;
 
-            /** \brief The tree is only pruned is the percentage of states to prune is above this threshold (between 0 and 1). */
-            double                                         pruneStatesThreshold_;
+            /** \brief The tree is pruned when the change in solution cost is greater than this fraction. */
+            double                                         pruneThreshold_;
+
+            /** \brief The status of the sample rejection parameter. */
+            bool                                           useRejectionSampling_;
+
+            /** \brief The status of the new-state rejection parameter. */
+            bool                                           useNewStateRejection_;
 
             /** \brief Option to use informed sampling */
             bool                                           useInformedSampling_;
@@ -389,13 +427,19 @@ namespace ompl
             /** \brief The number of attempts to make at informed sampling */
             unsigned int                                   numInfAttempts_;
 
-            /** \brief The number of vertices in the graph that cannot improve the solution. This is used by Informed RRT* to calculate the number of samples in the sub planning problem.*/
-            unsigned int                                   numVerticesWorseThanSoln_;
-
             struct PruneScratchSpace { std::vector<Motion*> newTree, toBePruned, candidates; } pruneScratchSpace_;
 
             /** \brief Stores the Motion containing the last added initial start state. */
             Motion *                                       startMotion_;
+
+            /** \brief Best cost found so far by algorithm */
+            base::Cost                                     bestCost_;
+
+            /** \brief The cost at which the graph was last pruned */
+            base::Cost                                     prunedCost_;
+
+            /** \brief The measure of the problem when we pruned it (for Informed RRT*)*/
+            double                                         prunedInfMeasure_;
 
             ///////////////////////////////////////
             // Planner progress property functions
@@ -418,8 +462,6 @@ namespace ompl
             unsigned int                                   iterations_;
             /** \brief Number of collisions checks performed by the algorithm */
             unsigned int                                   collisionChecks_;
-            /** \brief Best cost found so far by algorithm */
-            base::Cost                                     bestCost_;
         };
     }
 }
