@@ -101,7 +101,9 @@ namespace ompl
                 addPlannerInstanceInternal(planner);
             }
 
-            /** \brief Add an specific planner instance. */
+            /** \brief Add specific planner instances.
+            CFOREST sets the parameter named \e focus_search to true
+            (if present) for the specified planner. */
             template <class T>
             void addPlannerInstances(std::size_t num = 2)
             {
