@@ -853,18 +853,18 @@ void ompl::geometric::RRTstar::allocSampler()
 
 bool ompl::geometric::RRTstar::sampleUniform(base::State *statePtr)
 {
-    // Check if we're using informed sampling or not
-    if (!useInformedSampling_)
+    // Use the appropriate sampler
+    if (useInformedSampling_ || useRejectionSampling_)
     {
-        // We are not, simple return a state from the regular sampler
+        // Attempt the focused sampler and return the result
+        return infSampler_->sampleUniform(statePtr, bestCost_);
+    }
+    else
+    {
+        // Simply return a state from the regular sampler
         sampler_->sampleUniform(statePtr);
 
         // Always true
         return true;
-    }
-    else
-    {
-        // We are, attempt the informed sampler and return the result
-        return infSampler_->sampleUniform(statePtr, bestCost_);
     }
 }
