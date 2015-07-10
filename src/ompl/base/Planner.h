@@ -300,6 +300,10 @@ namespace ompl
                 algorithm is allowed to spend planning. */
             PlannerStatus solve(double solveTime);
 
+            /** \brief Same as above except the termination condition
+                time limit is specified as a duration. */
+            PlannerStatus solve(time::duration solveTime);
+
             /** \brief Clear all internal datastructures. Planner
                 settings are not affected. Subsequent calls to solve()
                 will ignore all previous work. */

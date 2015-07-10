@@ -134,6 +134,11 @@ ompl::base::PlannerStatus ompl::base::Planner::solve(double solveTime)
         return solve(timedPlannerTerminationCondition(solveTime, std::min(solveTime / 100.0, 0.1)));
 }
 
+ompl::base::PlannerStatus ompl::base::Planner::solve(time::duration solveTime)
+{
+    return solve(timedPlannerTerminationCondition(solveTime));
+}
+
 void ompl::base::Planner::printProperties(std::ostream &out) const
 {
     out << "Planner " + getName() + " specs:" << std::endl;
