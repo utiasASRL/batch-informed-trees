@@ -44,6 +44,7 @@
 #include <limits>
 #include <vector>
 #include <utility>
+#include <list>
 
 
 namespace ompl
@@ -363,8 +364,11 @@ namespace ompl
                  cost to come is used; otherwise, the current cost to come is used. */
             base::Cost solutionHeuristic(const Motion *motion, const bool estimate = true) const;
 
-            /** \brief Check whether the specified motion is (1) a leaf in the tree and (2) meeting the Cost pruning criterion. Returns true if the motion should be pruned */
-            bool leafPruningCondition(Motion *motion, const base::Cost& pruneTreeCost);
+            /** \brief Add the children of a vertex to the given list. */
+            void addChildrenToPruneQueue(std::list<Motion*> *motionList, Motion* motion);
+
+            /** \brief Check whether the given motion meets the prune condition specified by the cost threshold */
+            bool pruneCondition(const Motion* motion, const base::Cost& threshold) const;
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
@@ -425,8 +429,8 @@ namespace ompl
             /** \brief The number of attempts to make at informed sampling */
             unsigned int                                   numSampleAttempts_;
 
-            /** \brief Stores the Motion containing the last added initial start state. */
-            Motion *                                       startMotion_;
+            /** \brief Stores the start states as Motions. */
+            std::vector<Motion*>                           startMotions_;
 
             /** \brief Best cost found so far by algorithm */
             base::Cost                                     bestCost_;
