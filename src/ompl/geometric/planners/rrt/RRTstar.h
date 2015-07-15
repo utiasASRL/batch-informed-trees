@@ -202,7 +202,7 @@ namespace ompl
                 return useRejectionSampling_;
             }
 
-            /** \brief Controls where heuristic rejection is used on new states before connection (e.g., x_new = steer(x_nearest, x_rand)) */
+            /** \brief Controls whether heuristic rejection is used on new states before connection (e.g., x_new = steer(x_nearest, x_rand)) */
             void setNewStateRejection(const bool reject)
             {
                 useNewStateRejection_ = reject;
@@ -212,6 +212,18 @@ namespace ompl
             bool getNewStateRejection() const
             {
                 return useNewStateRejection_;
+            }
+
+            /** \brief Controls whether pruning and new-state rejection uses an admissible cost-to-come estimate or not */
+            void setAdmissibleCostToCome(const bool admissible)
+            {
+                useAdmissibleCostToCome_ = admissible;
+            }
+
+            /** \brief Get the admissibility of the pruning and new-state rejection heuristic */
+            bool getAdmissibleCostToCome() const
+            {
+                return useAdmissibleCostToCome_;
             }
 
             /** \brief Controls search focusing. Search focusing consists of pruning the existing search and limiting future search.
@@ -360,15 +372,17 @@ namespace ompl
             int pruneTree(const base::Cost& pruneTreeCost);
 
             /** \brief Computes the solution cost heuristically as the cost to come from start to the motion plus
-                 the cost to go from the motion to the goal. If \e estimate is true, a heuristic estimate of the
-                 cost to come is used; otherwise, the current cost to come is used. */
-            base::Cost solutionHeuristic(const Motion *motion, const bool estimate = true) const;
+                 the cost to go from the motion to the goal. If the parameter \e use_admissible_heuristic
+                 (\e setAdmissibleCostToCome()) is true, a heuristic estimate of the cost to come is used;
+                 otherwise, the current cost to come to the motion is used (which may overestimate the cost
+                 through the motion). */
+            base::Cost solutionHeuristic(const Motion *motion) const;
 
             /** \brief Add the children of a vertex to the given list. */
-            void addChildrenToPruneQueue(std::list<Motion*> *motionList, Motion* motion);
+            void addChildrenToList(std::list<Motion*> *motionList, Motion* motion);
 
-            /** \brief Check whether the given motion meets the prune condition specified by the cost threshold */
-            bool pruneCondition(const Motion* motion, const base::Cost& threshold) const;
+            /** \brief Check whether the given motion passes the specified cost threshold, meaning it will be \e kept during pruning */
+            bool keepCondition(const Motion* motion, const base::Cost& threshold) const;
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
@@ -422,6 +436,9 @@ namespace ompl
 
             /** \brief The status of the new-state rejection parameter. */
             bool                                           useNewStateRejection_;
+
+            /** \brief The admissibility of the new-state rejection heuristic. */
+            bool                                           useAdmissibleCostToCome_;
 
             /** \brief Option to use informed sampling */
             bool                                           useInformedSampling_;

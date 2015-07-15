@@ -63,6 +63,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     pruneThreshold_(0.05),
     useRejectionSampling_(false),
     useNewStateRejection_(false),
+    useAdmissibleCostToCome_(true),
     useInformedSampling_(false),
     numSampleAttempts_ (100u),
     bestCost_(std::numeric_limits<double>::quiet_NaN()),
@@ -84,6 +85,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     Planner::declareParam<double>("prune_threshold", this, &RRTstar::setPruneThreshold, &RRTstar::getPruneThreshold, "0.:.01:1.");
     Planner::declareParam<bool>("sample_rejection", this, &RRTstar::setSampleRejection, &RRTstar::getSampleRejection, "0,1");
     Planner::declareParam<bool>("new_state_rejection", this, &RRTstar::setNewStateRejection, &RRTstar::getNewStateRejection, "0,1");
+    Planner::declareParam<bool>("use_admissible_heuristic", this, &RRTstar::setAdmissibleCostToCome, &RRTstar::getAdmissibleCostToCome, "0,1");
     Planner::declareParam<bool>("focus_search", this, &RRTstar::setFocusSearch, &RRTstar::getFocusSearch, "0,1");
     Planner::declareParam<bool>("informed_rrtstar", this, &RRTstar::setInformedRrtStar, &RRTstar::getInformedRrtStar, "0,1");
     Planner::declareParam<bool>("number_sampling_attempts", this, &RRTstar::setNumSamplingAttempts, &RRTstar::getNumSamplingAttempts, "10:10:100000");
@@ -394,7 +396,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
             if (useNewStateRejection_)
             {
-                if (opt_->isCostBetterThan(solutionHeuristic(motion, false), bestCost_))
+                if (opt_->isCostBetterThan(solutionHeuristic(motion), bestCost_))
                 {
                     nn_->add(motion);
                     motion->parent->children.push_back(motion);
@@ -502,13 +504,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         pruneTree(bestCost_);
                     }
 
-                    if (useInformedSampling_ == true)
+                    if (useInformedSampling_ == true && useKNearest_ == false)
                     {
-                        // If we're using an r-disc, we now need to update the r-disc constant term:
-                        if (useKNearest_ == false)
-                        {
-                            r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/(double)(si_->getStateDimension()))*(prunedInfMeasure_/unitNBallMeasure(si_->getStateDimension())), 1.0/(double)(si_->getStateDimension()));
-                        }
+                        // If we're using informed sampling and an r-disc, we now need to update the r-disc constant term:
+                        r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/(double)(si_->getStateDimension()))*(prunedInfMeasure_/unitNBallMeasure(si_->getStateDimension())), 1.0/(double)(si_->getStateDimension()));
                     }
 
                     if (intermediateSolutionCallback)
@@ -705,7 +704,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
             nn_->add(startMotions_.at(i));
 
             // Add their children to the queue:
-            addChildrenToPruneQueue(&motionQueue, startMotions_.at(i));
+            addChildrenToList(&motionQueue, startMotions_.at(i));
         }
 
         //Now, process the queue, in std::list erase on invalidates the removed iterator.
@@ -714,14 +713,14 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
         while (mIter != motionQueue.end())
         {
             // Test, can the current motion ever provide a better solution?
-            if (pruneCondition(*mIter, pruneTreeCost))
+            if (keepCondition(*mIter, pruneTreeCost))
             {
                 // Yes it can, so it definitely won't be pruned
                 // Add it back into the NN structure
                 nn_->add(*mIter);
 
                 //Add it's children to the queue
-                addChildrenToPruneQueue(&motionQueue, *mIter);
+                addChildrenToList(&motionQueue, *mIter);
             }
             else
             {
@@ -729,9 +728,9 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
                 if ((*mIter)->children.empty() == false)
                 {
                     // Yes it does.
-                    // We can minimize the number of intermediate chain motions if we check its children
-                    // If any of them won't be pruned, then this motion won't either. This seems like a nice balance
-                    // between following the descendents forever.
+                    // We can minimize the number of intermediate chain motions if we check their children
+                    // If any of them won't be pruned, then this motion won't either. This intuitively seems
+                    // like a nice balance between following the descendents forever.
 
                     // Variable
                     // Whether the children are definitely to be kept.
@@ -741,7 +740,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
                     for (unsigned int i = 0u; keepAChild == false && i < (*mIter)->children.size(); ++i)
                     {
                         // Test if the child can ever provide a better solution
-                        keepAChild = pruneCondition((*mIter)->children.at(i), pruneTreeCost);
+                        keepAChild = keepCondition((*mIter)->children.at(i), pruneTreeCost);
                     }
 
                     // Are we *definitely* keeping any of the children?
@@ -759,7 +758,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
                     }
 
                     // Either way. add it's children to the queue
-                    addChildrenToPruneQueue(&motionQueue, *mIter);
+                    addChildrenToList(&motionQueue, *mIter);
                 }
                 else
                 {
@@ -774,7 +773,6 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
 
        // We now have a list of Motions to definitely remove, and a list of Motions to recheck
        // Iteratively check the two lists until there is nothing to to remove
-
         while (leavesToPrune.empty() == false)
         {
             // First, remove the Motions
@@ -835,7 +833,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
     return numPruned;
 }
 
-void ompl::geometric::RRTstar::addChildrenToPruneQueue(std::list<Motion*> *motionList, Motion* motion)
+void ompl::geometric::RRTstar::addChildrenToList(std::list<Motion*> *motionList, Motion* motion)
 {
     for (unsigned int j = 0u; j < motion->children.size(); ++j)
     {
@@ -843,18 +841,18 @@ void ompl::geometric::RRTstar::addChildrenToPruneQueue(std::list<Motion*> *motio
     }
 }
 
-bool ompl::geometric::RRTstar::pruneCondition(const Motion* motion, const base::Cost& threshold) const
+bool ompl::geometric::RRTstar::keepCondition(const Motion* motion, const base::Cost& threshold) const
 {
     return opt_->isCostBetterThan(solutionHeuristic(motion), threshold);
 }
 
-ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion, const bool estimate) const
+ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion) const
 {
     base::Cost costToCome;
-    if (estimate)
+    if (useAdmissibleCostToCome_)
     {
         // Start with infinite cost
-        base::Cost costToCome = opt_->infiniteCost();
+        costToCome = opt_->infiniteCost();
 
         //Find the min from each start
         for (unsigned int i = 0u; i < startMotions_.size(); ++i)
@@ -943,7 +941,10 @@ bool ompl::geometric::RRTstar::sampleUniform(base::State *statePtr)
     // Use the appropriate sampler
     if (useInformedSampling_ || useRejectionSampling_)
     {
-        // Attempt the focused sampler and return the result
+        // Attempt the focused sampler and return the result.
+        // If bestCost is changing a lot by small amounts, this could
+        // be prunedCost_ to reduce the number of times the informed sampling
+        // transforms are recalculated.
         return infSampler_->sampleUniform(statePtr, bestCost_);
     }
     else
