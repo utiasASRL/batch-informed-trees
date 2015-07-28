@@ -340,10 +340,16 @@ namespace ompl
             //Reset the manual stop to the iteration loop:
             stopLoop_ = false;
 
+            //If we don't have a goal yet, create a new batch until we do or the PTC comes true:
+            if (goalVertices_.empty() == true)
+            {
+                this->newBatch(ptc);
+            }
+
             //Run the outerloop until we're stopped, a suitable cost is found, or until we find the minimum possible cost within tolerance:
             while (opt_->isSatisfied(bestCost_) == false && ptc == false && (this->isCostBetterThan(minCost_, bestCost_) == true || Planner::pis_.haveMoreStartStates() == true || Planner::pis_.haveMoreGoalStates() == true) && stopLoop_ == false)
             {
-                this->iterate(ptc);
+                this->iterate();
             }
 
             if (hasSolution_ == true)
@@ -585,7 +591,7 @@ namespace ompl
         }
 
 
-        void BITstar::iterate(const base::PlannerTerminationCondition& ptc)
+        void BITstar::iterate()
         {
             //Info:
             ++numIterations_;
@@ -597,10 +603,10 @@ namespace ompl
                 this->resort();
             }
 
-            //If the edge queue is empty, that must mean we're either starting from scratch, or just finished a batch. Either way, make a batch of samples and fill the queue for the first time:
+            //If the edge queue is empty, that must mean we're either starting from scratch, or just finished a batch. Either way, make a batch of samples and fill the queue for the first time. Do not wait for more goals, as if we're here we must already have one.
             if (intQueue_->isEmpty() == true)
             {
-                this->newBatch(ptc);
+                this->newBatch( ompl::base::plannerAlwaysTerminatingCondition() );
             }
             else
             {
@@ -690,16 +696,11 @@ namespace ompl
             //Reset the queue:
             intQueue_->reset();
 
-            //Do we have any goals yet?
-            if (goalVertices_.empty() == true)
+            //Do we need to update our starts or goals?
+            if (goalVertices_.empty() == true || Planner::pis_.haveMoreStartStates() == true || Planner::pis_.haveMoreGoalStates() == true)
             {
-                //We don't, we will wait until the first goal becomes available:
+                //We either don't have a goal, or there are new starts/goals to get.
                 updatedInputStates = this->addStartsAndGoalStates(ptc);
-            }
-            else if (Planner::pis_.haveMoreStartStates() == true || Planner::pis_.haveMoreGoalStates() == true)
-            {
-                //We do, but more exist! Do NOT wait for the goals.
-                updatedInputStates = this->addStartsAndGoalStates(ompl::base::plannerAlwaysTerminatingCondition());
             }
             //No else, we have enough of a problem to do some work, and everything's up to date.
 
@@ -716,7 +717,7 @@ namespace ompl
                 }
 
                 //Resort the queue
-                intQueue_->resort();
+                this->resort();
             }
             //No else
 
@@ -942,8 +943,8 @@ namespace ompl
                 //Copy the value into the state:
                 Planner::si_->copyState(startVertices_.back()->state(), newStart);
 
-                //Add this start to the queue:
-                this->addVertex(startVertices_.back());
+                //Add this start to the queue. It is not a sample, so skip that step:
+                this->addVertex(startVertices_.back(), false);
 
                 //Mark that we've added:
                 addedState = true;
@@ -966,6 +967,12 @@ namespace ompl
                     sampler_ = opt_->allocInformedStateSampler(Planner::pdef_, std::numeric_limits<unsigned int>::max());
                 }
                 //No else, this will get allocated when we get the updated start/goal.
+            }
+
+            //Make sure that if we have a goal, we also have a start, since there's no way to wait for more *starts*
+            if (goalVertices_.empty() == false && startVertices_.empty() == true)
+            {
+                OMPL_WARN("%s, The problem has a goal but not a start. As PlannerInputStates provides no method to wait for a _start_ state, this will probably be problematic.", Planner::getName().c_str());
             }
 
             //Did I add any?

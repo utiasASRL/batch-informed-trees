@@ -244,7 +244,7 @@ namespace ompl
             ///////////////////////////////////////////////////////////////////
             //BIT* primitives:
             /** \brief A single iteration */
-            virtual void iterate(const base::PlannerTerminationCondition& ptc);
+            virtual void iterate();
 
             /** \brief Initialize variables for a new batch */
             void newBatch(const base::PlannerTerminationCondition& ptc);
@@ -281,7 +281,7 @@ namespace ompl
             void dropSample(VertexPtr oldSample);
 
             /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. Updates solution information if the solution improves. */
-            void addEdge(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& updateDescendants);
+            void addEdge(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateDescendants);
 
             /** \brief Replace the parent edge with the given new edge and cost */
             void replaceParent(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& updateDescendants);
@@ -293,7 +293,7 @@ namespace ompl
             void addSample(const VertexPtr& newSample);
 
             /** \brief Add a vertex to the graph */
-            void addVertex(const VertexPtr& newVertex);
+            void addVertex(const VertexPtr& newVertex, const bool& removeFromFree);
 
             /** \brief Get the nearest samples from the freeStateNN_ using the appropriate "near" definition (i.e., k or r). */
             void nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples);
