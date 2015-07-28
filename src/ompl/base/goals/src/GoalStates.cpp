@@ -83,8 +83,14 @@ void ompl::base::GoalStates::sampleGoal(base::State *st) const
 {
     if (states_.empty())
         throw Exception("There are no goals to sample");
+
+    // Roll over the samplePosition_ if it points past the number of states.
+     samplePosition_ = samplePosition_ % states_.size();
+    // Get the next state.
     si_->copyState(st, states_[samplePosition_]);
-    samplePosition_ = (samplePosition_ + 1) % states_.size();
+
+    // Increment the counter. Do NOT roll over incase a new state is added before sampleGoal is called again.
+    samplePosition_ = (samplePosition_ + 1);
 }
 
 unsigned int ompl::base::GoalStates::maxSampleCount() const

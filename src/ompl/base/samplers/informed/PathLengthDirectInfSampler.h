@@ -45,6 +45,9 @@
 // We inherit from InformedStateSampler
 #include "ompl/base/samplers/InformedStateSampler.h"
 
+// For std::list
+#include <list>
+
 namespace ompl
 {
     namespace base
@@ -83,26 +86,74 @@ namespace ompl
             /** \brief Whether the sampler can provide a measure of the informed subset */
             bool hasInformedMeasure() const;
 
-            /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. Does not consider problem boundaries but returns the measure of the entire space if no solution has been found. */
+            /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. Does not consider problem boundaries but returns the measure of the entire space if no solution has been found. In the case of multiple goals, this measure assume each individual subset is independent, therefore the resulting measure will be an overestimate if any of the subsets overlap. */
             virtual double getInformedMeasure(const Cost &currentCost) const;
 
             /** \brief A helper function to calculate the heuristic estimate of the solution cost for the informed subset of a given state. */
             virtual Cost heuristicSolnCost(const State *statePtr) const;
 
         private:
+            /** \brief A constant pointer to ProlateHyperspheroid */
+            typedef boost::shared_ptr<const ompl::ProlateHyperspheroid> ProlateHyperspheroidCPtr;
+
+            /** \brief The rejection function for when sampling from the bounds. Returns true if the sample should be kept */
+            typedef boost::function<bool (const std::vector<double>&)> KeepFunc;
+
             // Helper functions:
+            // High level
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost using a persistent iteration counter */
-            bool sampleUniform(State *statePtr, const Cost &maxCost, unsigned int *iterPtr);
+            bool sampleUniform(State *statePtr, const Cost &maxCost, unsigned int *iters);
 
             /** \brief Sample uniformly in the subset of the \e infinite state space whose heuristic solution estimates are less than the provided cost, i.e., ignores the bounds of the state space. */
-            void sampleUniformIgnoreBounds(State *statePtr, const Cost &maxCost);
+            bool sampleUniformIgnoreBounds(State *statePtr, const Cost &maxCost, unsigned int *iters);
 
             /** \brief Sample uniformly in the subset of the \e infinite state space whose heuristic solution estimates are between the provided costs, i.e., ignores the bounds of the state space. */
-            void sampleUniformIgnoreBounds(State *statePtr, const Cost &minCost, const Cost &maxCost);
+            bool sampleUniformIgnoreBounds(State *statePtr, const Cost &minCost, const Cost &maxCost, unsigned int *iters);
+
+            /** \brief Randomly select a PHS and generate a sample from within. */
+            bool sampleRandomPhs(State *statePtr, const Cost &maxCost, unsigned int *iters);
+
+            /** \brief Sample from the bounds of the problem and keep the sample if it passes the given test. Meant to be used with isInAnyPhs and phsPtr->isInPhs() */
+            bool sampleBoundsRejectFunc(State* statePtr, KeepFunc keepFunc, const Cost &maxCost, unsigned int *iters);
+
+            /** \brief Sample from the given PHS and keep the sample if it lies within the boundaries of the problem. */
+            bool samplePhsRejectBounds(State *statePtr, ProlateHyperspheroidCPtr phsCPtr, const Cost &maxCost, unsigned int *iters);
+
+            // Low level
+            /** \brief Extract the informed subspace from a state pointer */
+            std::vector<double> getInformedSubstate(const State *statePtr) const;
+
+            /** \brief Create a full vector with any uninformed subspaces filled with a uniform random state. Expects the state* to be allocated */
+            void createFullState(State * statePtr, const std::vector<double> &informedVector);
+
+            /** \brief Iterate through the list of PHSs and update each one to the new max cost as well as the sum of their measures. Will remove any PHSs that cannot improve a better solution and in that case update the number of goals. */
+            void updatePhsDefinitions(const Cost &maxCost);
+
+            /** \brief Select a random PHS from the list of PHSs. The probability of sampling chosing a PHS is it's measure relative to the total measure of all PHSs. Bypasses if only one PHS exists. */
+            ompl::ProlateHyperspheroidPtr randomPhsPtr();
+
+            /** \brief Probabilistically decide whether to keep a given sample drawn directly from a PHS. If a sample is in K PHSs, it returns true with probability 1/K. */
+            bool keepSample(const std::vector<double>& informedVector);
+
+            /** \brief Iterate through the list of PHSs and return true if the sample is in any of them */
+            bool isInAnyPhs(const std::vector<double>& informedVector) const;
+
+            /** \brief Return true if the sample is in the specified PHS. Really just a wrapper to aid with boost::bind */
+            bool isInPhs(const ProlateHyperspheroidCPtr &phsCPtr, const std::vector<double> &informedVector) const;
+
+            /** \brief Iterate through the list of PHSs and return the number of PHSs that the sample is in */
+            unsigned int numberOfPhsInclusions(const std::vector<double>& informedVector) const;
+
+
+
+
 
             // Variables
-            /** \brief The prolate hyperspheroid description of the sub problem */
-            ompl::ProlateHyperspheroidPtr phsPtr_;
+            /** \brief The prolate hyperspheroid description of the sub problems. One per goal state. */
+            std::list<ompl::ProlateHyperspheroidPtr> listPhsPtrs_;
+
+            /** \brief The summed measure of all the start-goal pairs */
+            double summedMeasure_;
 
             /** \brief The index of the subspace of a compound StateSpace for which we can do informed sampling. Unused if the StateSpace is not compound. */
             unsigned int informedIdx_;

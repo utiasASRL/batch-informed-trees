@@ -44,6 +44,8 @@
 #include <utility>
 //std::vector
 #include <vector>
+//std::list
+#include <list>
 
 //OMPL:
 //The base-class of planners:
@@ -242,10 +244,10 @@ namespace ompl
             ///////////////////////////////////////////////////////////////////
             //BIT* primitives:
             /** \brief A single iteration */
-            virtual void iterate();
+            virtual void iterate(const base::PlannerTerminationCondition& ptc);
 
             /** \brief Initialize variables for a new batch */
-            void newBatch();
+            void newBatch(const base::PlannerTerminationCondition& ptc);
 
             /** \brief Update the list of free samples */
             void updateSamples(const VertexPtr& vertex);
@@ -262,6 +264,13 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for data manipulation and other low-level functions
+            /** \brief Adds any new goals or starts that have appeared in the problem definition to the list of vertices and the queue. Creates a new informed sampler. Returns true if new starts/goals are created. */
+            bool addStartsAndGoalStates(const base::PlannerTerminationCondition& ptc);
+
+            /** \brief Prune the starts and goals that have a solution heuristic that is not less than bestCost_
+                \todo In the case where you are adding both starts \e and goals while BIT* is running, an earlier pruned start/goal may preclude a good solution upon addition of a new goal/start. */
+            void pruneStartsGoals();
+
             /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
             void pruneSamples();
 
@@ -272,7 +281,7 @@ namespace ompl
             void dropSample(VertexPtr oldSample);
 
             /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. Updates solution information if the solution improves. */
-            void addEdge(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateDescendants);
+            void addEdge(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& updateDescendants);
 
             /** \brief Replace the parent edge with the given new edge and cost */
             void replaceParent(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& updateDescendants);
@@ -284,7 +293,7 @@ namespace ompl
             void addSample(const VertexPtr& newSample);
 
             /** \brief Add a vertex to the graph */
-            void addVertex(const VertexPtr& newVertex, const bool& removeFromFree);
+            void addVertex(const VertexPtr& newVertex);
 
             /** \brief Get the nearest samples from the freeStateNN_ using the appropriate "near" definition (i.e., k or r). */
             void nearestSamples(const VertexPtr& vertex, std::vector<VertexPtr>* neighbourSamples);
@@ -488,17 +497,20 @@ namespace ompl
             /** \brief Optimization objective copied from ProblemDefinition */
             ompl::base::OptimizationObjectivePtr                     opt_;
 
-            /** \brief The start of the problem as a vertex*/
-            VertexPtr                                                startVertex_;
+            /** \brief The start states of the problem as vertices */
+            std::list<VertexPtr>                                     startVertices_;
 
-            /** \brief The goal of the problem as a vertex*/
-            VertexPtr                                                goalVertex_;
+            /** \brief The goal states of the problem as vertices */
+            std::list<VertexPtr>                                     goalVertices_;
+
+            /** \brief The goal vertex of the current best solution */
+            VertexPtr                                                curGoalVertex_;
 
             /** \brief The unconnected samples as a nearest-neighbours datastructure. Sorted by nnDistance. Size accessible via currentFreeProgressProperty */
-            VertexPtrNNPtr                                          freeStateNN_;
+            VertexPtrNNPtr                                           freeStateNN_;
 
             /** \brief The vertices as a nearest-neighbours data structure. Sorted by nnDistance. Size accessible via currentVertexProgressProperty */
-            VertexPtrNNPtr                                          vertexNN_;
+            VertexPtrNNPtr                                           vertexNN_;
 
             /** \brief The integrated queue of vertices to expand and edges to process ordered on "f-value", i.e., estimated solution cost. Remaining vertex queue "size" and edge queue size are accessible via vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
             IntegratedQueuePtr                                       intQueue_;
@@ -560,9 +572,6 @@ namespace ompl
 
             /** \brief The number of states generated through sampling. Accessible via statesFromSamplingProgressProperty */
             unsigned int                                             numSamples_;
-
-            /** \brief The number of vertices generated through smoothing/shortcutting. Accessible via statesFromSmoothingProgressProperty */
-            unsigned int                                             numSmoothedVertices_;
 
             /** \brief The number of vertices ever added to the graph. Will count vertices twice if they spend any time disconnected. Accessible via verticesConstructedProgressProperty */
             unsigned int                                             numVertices_;

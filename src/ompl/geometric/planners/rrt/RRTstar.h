@@ -255,9 +255,10 @@ namespace ompl
             }
 
             /** \brief Use \e Informed \e RRT*.
-            This means that once a problem is found, the search is focused only to the subproblem that could contain a better solution.
-            Currently only implemented for problems with a single goal that are seeking to minimize path length in
-            R^n (i.e., RealVectorStateSpace), SE(2) (i.e., SE2StateSpace), or SE(3) (i.e., SE3StateSpace).
+            Once a problem is found, focus the search to the subproblem that could contain a better solution by
+            searching only the subproblem. For problems seeking to minimize path length in
+            R^n (i.e., RealVectorStateSpace), SE(2) (i.e., SE2StateSpace), or SE(3) (i.e., SE3StateSpace),
+            Informed RRT* uses direct sampling of this subproblem.
             @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
             Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
             IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
