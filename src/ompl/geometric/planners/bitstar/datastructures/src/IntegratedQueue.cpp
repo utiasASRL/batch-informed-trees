@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2014, University of Toronto
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the University of Toronto nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, University of Toronto
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the University of Toronto nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Jonathan Gammell */
 
@@ -48,27 +48,27 @@ namespace ompl
         /////////////////////////////////////////////////////////////////////////////////////////////
         //Public functions:
         BITstar::IntegratedQueue::IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const NeighbourhoodFunc& nearSamplesFunc, const NeighbourhoodFunc& nearVerticesFunc, const VertexHeuristicFunc& lowerBoundHeuristicVertex, const VertexHeuristicFunc& currentHeuristicVertex, const EdgeHeuristicFunc& lowerBoundHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdgeTarget)
-            :   opt_(opt),
-                nearSamplesFunc_(nearSamplesFunc),
-                nearVerticesFunc_(nearVerticesFunc),
-                lowerBoundHeuristicVertexFunc_(lowerBoundHeuristicVertex),
-                currentHeuristicVertexFunc_(currentHeuristicVertex),
-                lowerBoundHeuristicEdgeFunc_(lowerBoundHeuristicEdge),
-                currentHeuristicEdgeFunc_(currentHeuristicEdge),
-                currentHeuristicEdgeTargetFunc_(currentHeuristicEdgeTarget),
-                useFailureTracking_(false),
-                delayRewiring_(true),
-                outgoingLookupTables_(true),
-                incomingLookupTables_(true),
-                vertexQueue_( boost::bind(&BITstar::IntegratedQueue::vertexQueueComparison, this, _1, _2) ), //This tells the vertexQueue_ to use the vertexQueueComparison for sorting
-                vertexToExpand_( vertexQueue_.begin() ),
-                edgeQueue_( boost::bind(&BITstar::IntegratedQueue::edgeQueueComparison, this, _1, _2) ), //This tells the edgeQueue_ to use the edgeQueueComparison for sorting
-                vertexIterLookup_(),
-                outgoingEdges_(),
-                incomingEdges_(),
-                resortVertices_(),
-                costThreshold_( std::numeric_limits<double>::infinity() ), //Purposeful gibberish
-                hasSolution_(false)
+        :   opt_(opt),
+            nearSamplesFunc_(nearSamplesFunc),
+            nearVerticesFunc_(nearVerticesFunc),
+            lowerBoundHeuristicVertexFunc_(lowerBoundHeuristicVertex),
+            currentHeuristicVertexFunc_(currentHeuristicVertex),
+            lowerBoundHeuristicEdgeFunc_(lowerBoundHeuristicEdge),
+            currentHeuristicEdgeFunc_(currentHeuristicEdge),
+            currentHeuristicEdgeTargetFunc_(currentHeuristicEdgeTarget),
+            useFailureTracking_(false),
+            delayRewiring_(true),
+            outgoingLookupTables_(true),
+            incomingLookupTables_(true),
+            vertexQueue_( boost::bind(&BITstar::IntegratedQueue::vertexQueueComparison, this, _1, _2) ), //This tells the vertexQueue_ to use the vertexQueueComparison for sorting
+            vertexToExpand_( vertexQueue_.begin() ),
+            edgeQueue_( boost::bind(&BITstar::IntegratedQueue::edgeQueueComparison, this, _1, _2) ), //This tells the edgeQueue_ to use the edgeQueueComparison for sorting
+            vertexIterLookup_(),
+            outgoingEdges_(),
+            incomingEdges_(),
+            resortVertices_(),
+            costThreshold_( std::numeric_limits<double>::infinity() ), //Purposeful gibberish
+            hasSolution_(false)
         {
             //Set the the cost threshold to infinity to start:
             costThreshold_ = opt_->infiniteCost();
@@ -420,7 +420,7 @@ namespace ompl
             {
                 throw ompl::Exception("A vertex was marked that was not in the queue...");
             }
-            */
+             */
         }
 
 
@@ -1254,7 +1254,7 @@ namespace ompl
                     2a: ---*---   ->   -------
                     2b: --*-Xxx   ->   ----Xxx
                     3: ---Xx*x   ->   ---Xxxx
-                */
+                 */
 
                 //Variable:
                 //The vertex before the token. Remember that since we have already added the new vertex, this could be ourselves:
@@ -1578,7 +1578,7 @@ namespace ompl
 
         bool BITstar::IntegratedQueue::isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            return a.value() < b.value();
+            return opt_->isCostBetterThan(a, b);
         }
 
 
@@ -1586,23 +1586,21 @@ namespace ompl
         bool BITstar::IntegratedQueue::isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If b is better than a, then a is worse than b
-            return this->isCostBetterThan(b, a);
+            return opt_->isCostBetterThan(b, a);
         }
 
 
 
         bool BITstar::IntegratedQueue::isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            //If a is not better than b, and b is not better than a, then they are equal
-            return !this->isCostBetterThan(a,b) && !this->isCostBetterThan(b,a);
+            return (a.value() == b.value());
         }
 
 
 
         bool BITstar::IntegratedQueue::isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            //If a is better than b, or b is better than a, then they are not equal
-            return this->isCostBetterThan(a,b) || this->isCostBetterThan(b,a);
+            return (a.value() != b.value());
         }
 
 
@@ -1610,7 +1608,7 @@ namespace ompl
         bool BITstar::IntegratedQueue::isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If b is not better than a, then a is better than, or equal to, b
-            return !this->isCostBetterThan(b, a);
+            return !opt_->isCostBetterThan(b, a);
         }
 
 
@@ -1618,7 +1616,7 @@ namespace ompl
         bool BITstar::IntegratedQueue::isCostWorseThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is not better than b, than a is worse than, or equal to, b
-            return !this->isCostBetterThan(a,b);
+            return !opt_->isCostBetterThan(a,b);
         }
         /////////////////////////////////////////////////////////////////////////////////////////////
 

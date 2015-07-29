@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2014, University of Toronto
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the University of Toronto nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, University of Toronto
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the University of Toronto nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Jonathan Gammell */
 
@@ -65,8 +65,6 @@
 //For the default optimization objective:
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
 
-
-
 namespace ompl
 {
     namespace geometric
@@ -74,49 +72,49 @@ namespace ompl
         /////////////////////////////////////////////////////////////////////////////////////////////
         //Public functions:
         BITstar::BITstar(const ompl::base::SpaceInformationPtr& si, const std::string& name /*= "BITstar"*/)
-            : ompl::base::Planner(si, name),
-            sampler_(),
-            opt_(),
-            startVertices_(),
-            goalVertices_(),
-            curGoalVertex_(),
-            freeStateNN_(),
-            vertexNN_(),
-            intQueue_(),
-            sampleDensity_(0.0),
-            r_(0.0), //Purposeful Gibberish
-            k_rgg_(0.0), //Purposeful Gibberish
-            k_(0u), //Purposeful Gibberish
-            bestCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
-            bestLength_(0u),
-            prunedCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
-            prunedMeasure_(Planner::si_->getSpaceMeasure()),
-            minCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
-            costSampled_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
-            hasSolution_(false),
-            stopLoop_(false),
-            approximateSoln_(false),
-            approximateDiff_(-1.0),
-            numIterations_(0u),
-            numBatches_(0u),
-            numPrunings_(0u),
-            numSamples_(0u),
-            numVertices_(0u),
-            numFreeStatesPruned_(0u),
-            numVerticesDisconnected_(0u),
-            numRewirings_(0u),
-            numStateCollisionChecks_(0u),
-            numEdgeCollisionChecks_(0u),
-            numNearestNeighbours_(0u),
-            useStrictQueueOrdering_(true),
-            rewireFactor_(1.1),
-            samplesPerBatch_(100u),
-            useFailureTracking_(false),
-            useKNearest_(false),
-            usePruning_(true),
-            pruneFraction_(0.02),
-            delayRewiring_(false),
-            stopOnSolnChange_(false)
+        : ompl::base::Planner(si, name),
+          sampler_(),
+          opt_(),
+          startVertices_(),
+          goalVertices_(),
+          curGoalVertex_(),
+          freeStateNN_(),
+          vertexNN_(),
+          intQueue_(),
+          sampleDensity_(0.0),
+          r_(0.0), //Purposeful Gibberish
+          k_rgg_(0.0), //Purposeful Gibberish
+          k_(0u), //Purposeful Gibberish
+          bestCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+          bestLength_(0u),
+          prunedCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+          prunedMeasure_(Planner::si_->getSpaceMeasure()),
+          minCost_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+          costSampled_( std::numeric_limits<double>::infinity() ), //Gets set in setup to the proper calls from OptimizationObjective
+          hasSolution_(false),
+          stopLoop_(false),
+          approximateSoln_(false),
+          approximateDiff_(-1.0),
+          numIterations_(0u),
+          numBatches_(0u),
+          numPrunings_(0u),
+          numSamples_(0u),
+          numVertices_(0u),
+          numFreeStatesPruned_(0u),
+          numVerticesDisconnected_(0u),
+          numRewirings_(0u),
+          numStateCollisionChecks_(0u),
+          numEdgeCollisionChecks_(0u),
+          numNearestNeighbours_(0u),
+          useStrictQueueOrdering_(true),
+          rewireFactor_(1.1),
+          samplesPerBatch_(100u),
+          useFailureTracking_(false),
+          useKNearest_(false),
+          usePruning_(true),
+          pruneFraction_(0.02),
+          delayRewiring_(false),
+          stopOnSolnChange_(false)
         {
             //Specify my planner specs:
             Planner::specs_.recognizedGoal = ompl::base::GOAL_SAMPLEABLE_REGION;
@@ -180,8 +178,7 @@ namespace ompl
             //Make sure we have a problem definition
             if(Planner::pdef_ == false)
             {
-                OMPL_ERROR("%s::setup() was called without a problem definition.", Planner::getName().c_str());
-                Planner::setup_ = false;
+                OMPL_INFORM("%s: problem definition is not set, deferring setup completion...", getName().c_str());                Planner::setup_ = false;
                 return;
             }
 
@@ -246,10 +243,8 @@ namespace ompl
             this->initializeNearestTerms();
 
             //Debug: Output an estimate of the state measure:
-//            this->estimateMeasures();
+            //            this->estimateMeasures();
         }
-
-
 
         void BITstar::clear()
         {
@@ -914,11 +909,32 @@ namespace ompl
             //A new start pointer
             const ompl::base::State* newStart;
 
+            //If the list of goal vertices is empty, wait until the first goal state is available.
+            if (goalVertices_.empty())
+            {
+                newGoal = Planner::pis_.nextGoal(ptc);
+                if (newGoal)
+                {
+                    //It is valid, allocate the vertex pointer
+                    goalVertices_.push_back(boost::make_shared<Vertex>(Planner::si_, opt_));
+
+                    //Copy the value into the state
+                    Planner::si_->copyState(goalVertices_.back()->state(), newGoal);
+
+                    //And add this goal to the set of samples:
+                    this->addSample(goalVertices_.back());
+
+                    //Mark that we've added:
+                    addedState = true;
+                }
+            }
+
             //Add the new starts and goals to the lists of said vertices.
             //Do goals first, as they are only added as samples.
-            //If newGoal is NULL, then no new goal exists. The following line both assigns newGoal and checks if it is a valid pointer.
-            while (static_cast<bool>((newGoal = Planner::pis_.nextGoal(ptc))) == true)
+            while (pis_.haveMoreGoalStates())
             {
+                newGoal = pis_.nextGoal();
+
                 //It is valid, allocate the vertex pointer
                 goalVertices_.push_back(boost::make_shared<Vertex>(Planner::si_, opt_));
 
@@ -934,9 +950,10 @@ namespace ompl
 
 
             //And then do the for starts. We do this last as the starts are added to the queue, which uses a cost-to-go heuristic in it's ordering, and for that we want all the goals updated.
-            //If newStart is NULL, then no new start exists. The following line both assigns newStart and checks if it is a valid pointer.
-            while (static_cast<bool>((newStart = Planner::pis_.nextStart())) == true)
+            while (pis_.haveMoreStartStates())
             {
+                newStart = pis_.nextStart();
+
                 //It is valid, allocate the vertex pointer:
                 startVertices_.push_back(boost::make_shared<Vertex>(Planner::si_, opt_, true));
 
@@ -1123,7 +1140,7 @@ namespace ompl
             {
                 throw ompl::Exception("You have passed the wrong edge cost to addEdge.");
             }
-            */
+             */
 
             //If the vertex is currently in the tree, we need to rewire
             if (newEdge.second->hasParent() == true)
@@ -1465,7 +1482,7 @@ namespace ompl
 
         bool BITstar::isCostBetterThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            return a.value() < b.value();
+            return opt_->isCostBetterThan(a, b);
         }
 
 
@@ -1473,23 +1490,21 @@ namespace ompl
         bool BITstar::isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If b is better than a, then a is worse than b
-            return this->isCostBetterThan(b, a);
+            return opt_->isCostBetterThan(b, a);
         }
 
 
 
         bool BITstar::isCostEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            //If a is not better than b, and b is not better than a, then they are equal
-            return !this->isCostBetterThan(a,b) && !this->isCostBetterThan(b,a);
+            return (a.value() == b.value());
         }
 
 
 
         bool BITstar::isCostNotEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            //If a is better than b, or b is better than a, then they are not equal
-            return this->isCostBetterThan(a,b) || this->isCostBetterThan(b,a);
+            return (a.value() != b.value());
         }
 
 
@@ -1497,7 +1512,7 @@ namespace ompl
         bool BITstar::isCostBetterThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If b is not better than a, then a is better than, or equal to, b
-            return !this->isCostBetterThan(b, a);
+            return !opt_->isCostBetterThan(b, a);
         }
 
 
@@ -1505,28 +1520,21 @@ namespace ompl
         bool BITstar::isCostWorseThanOrEquivalentTo(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
             //If a is not better than b, than a is worse than, or equal to, b
-            return !this->isCostBetterThan(a,b);
+            return !opt_->isCostBetterThan(a,b);
         }
 
 
 
         bool BITstar::isFinite(const ompl::base::Cost& cost) const
         {
-            return this->isCostBetterThan(cost, opt_->infiniteCost());
+            return opt_->isCostBetterThan(cost, opt_->infiniteCost());
         }
 
 
 
         ompl::base::Cost BITstar::betterCost(const ompl::base::Cost& a, const ompl::base::Cost& b) const
         {
-            if (this->isCostBetterThan(b,a))
-            {
-                return b;
-            }
-            else
-            {
-                return a;
-            }
+            return opt_->isCostBetterThan(a, b) ? a : b;
         }
 
 
