@@ -843,7 +843,10 @@ void ompl::geometric::RRTstar::addChildrenToList(std::list<Motion*> *motionList,
 
 bool ompl::geometric::RRTstar::keepCondition(const Motion* motion, const base::Cost& threshold) const
 {
-    return opt_->isCostBetterThan(solutionHeuristic(motion), threshold);
+    //We prune if the cost-to-come-heuristic of motion is <= threshold, which
+    //specifically means if the threshold is not better as if b is not better than a,
+    //then a is better than, or equal to, b
+    return !opt_->isCostBetterThan(threshold, solutionHeuristic(motion));
 }
 
 ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motion) const
