@@ -155,13 +155,7 @@ void ompl::geometric::RRTstar::setup()
     prunedInfMeasure_ = si_->getSpaceMeasure();
 
     // Calculate some constants:
-    double dimDbl = static_cast<double>(si_->getStateDimension());
-
-    // k_rrg > e+e/d.  K-nearest RRT*
-    k_rrg_ = rewireFactor_*(boost::math::constants::e<double>() + (boost::math::constants::e<double>() / dimDbl));
-
-    // r_rrg > 2*(1+1/d)^(1/d)*(measure/ballvolume)^(1/d)
-    r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(si_->getSpaceMeasure()/unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
+    calculateRewiringLowerBounds();
 
     // Set the bestCost_ and prunedCost_ as infinite
     bestCost_ = opt_->infiniteCost();
@@ -507,7 +501,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                     if (useInformedSampling_ == true && useKNearest_ == false)
                     {
                         // If we're using informed sampling and an r-disc, we now need to update the r-disc constant term:
-                        r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/(double)(si_->getStateDimension()))*(prunedInfMeasure_/unitNBallMeasure(si_->getStateDimension())), 1.0/(double)(si_->getStateDimension()));
+                        calculateRewiringLowerBounds();
                     }
 
                     if (intermediateSolutionCallback)
@@ -957,5 +951,23 @@ bool ompl::geometric::RRTstar::sampleUniform(base::State *statePtr)
 
         // Always true
         return true;
+    }
+}
+
+void ompl::geometric::RRTstar::calculateRewiringLowerBounds()
+{
+    double dimDbl = static_cast<double>(si_->getStateDimension());
+
+    // k_rrg > e+e/d.  K-nearest RRT*
+    k_rrg_ = rewireFactor_*(boost::math::constants::e<double>() + (boost::math::constants::e<double>() / dimDbl));
+
+    // r_rrg > 2*(1+1/d)^(1/d)*(measure/ballvolume)^(1/d)
+    if (useInformedSampling_ == true)
+    {
+        r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(prunedInfMeasure_/unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
+    }
+    else
+    {
+        r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(si_->getSpaceMeasure()/unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
     }
 }

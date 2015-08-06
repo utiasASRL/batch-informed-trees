@@ -128,6 +128,7 @@ namespace ompl
             void setRewireFactor(double rewireFactor)
             {
                 rewireFactor_ = rewireFactor;
+                calculateRewiringLowerBounds();
             }
 
             /** \brief Set the rewiring scale factor, s, such that r_rrg = s \times r_rrg* > r_rrg* (or k_rrg = s \times k_rrg* > k_rrg*) */
@@ -383,6 +384,9 @@ namespace ompl
 
             /** \brief Check whether the given motion passes the specified cost threshold, meaning it will be \e kept during pruning */
             bool keepCondition(const Motion* motion, const base::Cost& threshold) const;
+
+            /** \brief Calculate the k_RRG* and r_RRG* terms */
+            void calculateRewiringLowerBounds();
 
             /** \brief State sampler */
             base::StateSamplerPtr                          sampler_;
