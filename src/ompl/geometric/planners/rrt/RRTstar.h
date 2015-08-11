@@ -468,27 +468,19 @@ namespace ompl
             /** \brief The measure of the problem when we pruned it (if this isn't in use, it will be set to si_->getSpaceMeasure())*/
             double                                         prunedMeasure_;
 
+            /** \brief Number of iterations the algorithm performed */
+            unsigned int                                   iterations_;
+
             ///////////////////////////////////////
             // Planner progress property functions
             std::string numIterationsProperty() const
             {
                 return boost::lexical_cast<std::string>(numIterations());
             }
-            std::string collisionCheckProperty() const
-            {
-                return boost::lexical_cast<std::string>(collisionChecks_);
-            }
             std::string bestCostProperty() const
             {
                 return boost::lexical_cast<std::string>(bestCost());
             }
-
-            //////////////////////////////
-            // Planner progress properties
-            /** \brief Number of iterations the algorithm performed */
-            unsigned int                                   iterations_;
-            /** \brief Number of collisions checks performed by the algorithm */
-            unsigned int                                   collisionChecks_;
         };
     }
 }

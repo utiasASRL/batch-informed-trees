@@ -70,8 +70,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     bestCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedMeasure_(0.0),
-    iterations_(0u),
-    collisionChecks_(0u)
+    iterations_(0u)
 {
     specs_.approximateSolutions = true;
     specs_.optimizingPaths = true;
@@ -168,7 +167,6 @@ void ompl::geometric::RRTstar::clear()
     goalMotions_.clear();
 
     iterations_ = 0;
-    collisionChecks_ = 0;
     bestCost_ = base::Cost(std::numeric_limits<double>::quiet_NaN());
     prunedCost_ = base::Cost(std::numeric_limits<double>::quiet_NaN());
     prunedMeasure_ = 0.0;
@@ -275,7 +273,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         }
 
         // Check if the motion between the nearest state and the state to add is valid
-        ++collisionChecks_;
         if (si_->checkMotion(nmotion->state, dstate))
         {
             // create a motion
@@ -341,7 +338,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                      i != sortedCostIndices.begin() + nbh.size();
                      ++i)
                 {
-                    ++collisionChecks_;
                     if (nbh[*i] == nmotion || si_->checkMotion(nbh[*i]->state, motion->state))
                     {
                         motion->incCost = incCosts[*i];
@@ -366,7 +362,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         costs[i] = opt_->combineCosts(nbh[i]->cost, incCosts[i]);
                         if (opt_->isCostBetterThan(costs[i], motion->cost))
                         {
-                            ++collisionChecks_;
                             if (si_->checkMotion(nbh[i]->state, motion->state))
                             {
                                 motion->incCost = incCosts[i];
@@ -423,7 +418,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         bool motionValid;
                         if (valid[i] == 0)
                         {
-                            ++collisionChecks_;
                             motionValid = si_->checkMotion(motion->state, nbh[i]->state);
                         }
                         else
