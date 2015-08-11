@@ -93,8 +93,6 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
 
     addPlannerProgressProperty("iterations INTEGER",
                                boost::bind(&RRTstar::numIterationsProperty, this));
-    addPlannerProgressProperty("collision checks INTEGER",
-                               boost::bind(&RRTstar::collisionCheckProperty, this));
     addPlannerProgressProperty("best cost REAL",
                                boost::bind(&RRTstar::bestCostProperty, this));
 }
