@@ -171,9 +171,7 @@ def allocatePlanner(si, plannerType):
     elif plannerType.lower() == "fmtstar":
         return og.FMT(si)
     elif plannerType.lower() == "informedrrtstar":
-        newPlanner = og.RRTstar(si)
-        newPlanner.setInformedRrtStar(True)
-        return newPlanner
+        return og.InformedRRTstar(si)
     elif plannerType.lower() == "prmstar":
         return og.PRMstar(si)
     elif plannerType.lower() == "rrtstar":

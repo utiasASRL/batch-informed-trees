@@ -61,14 +61,15 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     lastGoalMotion_(NULL),
     useTreePruning_(false),
     pruneThreshold_(0.05),
+    usePrunedMeasure_(false),
+    useInformedSampling_(false),
     useRejectionSampling_(false),
     useNewStateRejection_(false),
     useAdmissibleCostToCome_(true),
-    useInformedSampling_(false),
     numSampleAttempts_ (100u),
     bestCost_(std::numeric_limits<double>::quiet_NaN()),
     prunedCost_(std::numeric_limits<double>::quiet_NaN()),
-    prunedInfMeasure_(0.0),
+    prunedMeasure_(0.0),
     iterations_(0u),
     collisionChecks_(0u)
 {
@@ -83,19 +84,20 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     Planner::declareParam<bool>("delay_collision_checking", this, &RRTstar::setDelayCC, &RRTstar::getDelayCC, "0,1");
     Planner::declareParam<bool>("tree_pruning", this, &RRTstar::setTreePruning, &RRTstar::getTreePruning, "0,1");
     Planner::declareParam<double>("prune_threshold", this, &RRTstar::setPruneThreshold, &RRTstar::getPruneThreshold, "0.:.01:1.");
+    Planner::declareParam<bool>("pruned_measure", this, &RRTstar::setPrunedMeasure, &RRTstar::getPrunedMeasure, "0,1");
+    Planner::declareParam<bool>("informed_sampling", this, &RRTstar::setInformedSampling, &RRTstar::getInformedSampling, "0,1");
     Planner::declareParam<bool>("sample_rejection", this, &RRTstar::setSampleRejection, &RRTstar::getSampleRejection, "0,1");
     Planner::declareParam<bool>("new_state_rejection", this, &RRTstar::setNewStateRejection, &RRTstar::getNewStateRejection, "0,1");
     Planner::declareParam<bool>("use_admissible_heuristic", this, &RRTstar::setAdmissibleCostToCome, &RRTstar::getAdmissibleCostToCome, "0,1");
     Planner::declareParam<bool>("focus_search", this, &RRTstar::setFocusSearch, &RRTstar::getFocusSearch, "0,1");
-    Planner::declareParam<bool>("informed_rrtstar", this, &RRTstar::setInformedRrtStar, &RRTstar::getInformedRrtStar, "0,1");
     Planner::declareParam<bool>("number_sampling_attempts", this, &RRTstar::setNumSamplingAttempts, &RRTstar::getNumSamplingAttempts, "10:10:100000");
 
     addPlannerProgressProperty("iterations INTEGER",
-                               boost::bind(&RRTstar::getIterationCount, this));
+                               boost::bind(&RRTstar::numIterationsProperty, this));
     addPlannerProgressProperty("collision checks INTEGER",
-                               boost::bind(&RRTstar::getCollisionCheckCount, this));
+                               boost::bind(&RRTstar::collisionCheckProperty, this));
     addPlannerProgressProperty("best cost REAL",
-                               boost::bind(&RRTstar::getBestCost, this));
+                               boost::bind(&RRTstar::bestCostProperty, this));
 }
 
 ompl::geometric::RRTstar::~RRTstar()
@@ -131,14 +133,7 @@ void ompl::geometric::RRTstar::setup()
             OMPL_INFORM("%s: No optimization objective specified. Defaulting to optimizing path length for the allowed planning time.", getName().c_str());
             opt_.reset(new base::PathLengthOptimizationObjective(si_));
 
-            if (opt_->hasCostToGoHeuristic() == false)
-            {
-                OMPL_INFORM("%s: No cost-to-go heuristic set. Defaulting to the distance from the state to the goal.", getName().c_str());
-                //Bind to the goalRegionCostToGo function.
-                opt_->setCostToGoHeuristic( boost::bind(&base::goalRegionCostToGo, _1, _2) );
-            }
-
-            // Store it back into the problem def'n
+            // Store the new objective in the problem def'n
             pdef_->setOptimizationObjective(opt_);
         }
     }
@@ -148,11 +143,8 @@ void ompl::geometric::RRTstar::setup()
         setup_ = false;
     }
 
-    // Allocate a sampler.
-    allocSampler();
-
     // Get the measure of the entire space:
-    prunedInfMeasure_ = si_->getSpaceMeasure();
+    prunedMeasure_ = si_->getSpaceMeasure();
 
     // Calculate some constants:
     calculateRewiringLowerBounds();
@@ -179,7 +171,7 @@ void ompl::geometric::RRTstar::clear()
     collisionChecks_ = 0;
     bestCost_ = base::Cost(std::numeric_limits<double>::quiet_NaN());
     prunedCost_ = base::Cost(std::numeric_limits<double>::quiet_NaN());
-    prunedInfMeasure_ = 0.0;
+    prunedMeasure_ = 0.0;
 }
 
 ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTerminationCondition &ptc)
@@ -203,6 +195,12 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
     {
         OMPL_ERROR("%s: There are no valid initial states!", getName().c_str());
         return base::PlannerStatus::INVALID_START;
+    }
+
+    //Allocate a sampler if necessary
+    if (!sampler_ && !infSampler_)
+    {
+        allocSampler();
     }
 
     OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size());
@@ -498,12 +496,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         pruneTree(bestCost_);
                     }
 
-                    if (useInformedSampling_ == true && useKNearest_ == false)
-                    {
-                        // If we're using informed sampling and an r-disc, we now need to update the r-disc constant term:
-                        calculateRewiringLowerBounds();
-                    }
-
                     if (intermediateSolutionCallback)
                     {
                         std::vector<const base::State *> spath;
@@ -579,17 +571,18 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
     return base::PlannerStatus(addedSolution, approximate);
 }
 
-void ompl::geometric::RRTstar::getNeighbors(Motion *motion, std::vector<Motion*> &nbh)
+void ompl::geometric::RRTstar::getNeighbors(Motion *motion, std::vector<Motion*> &nbh) const
 {
+    double cardDbl = static_cast<double>(nn_->size() + 1u);
     if (useKNearest_)
     {
         //- k-nearest RRT*
-        unsigned int k = std::ceil(k_rrg_ * log((double)(nn_->size() + 1u)));
+        unsigned int k = std::ceil(k_rrg_ * log(cardDbl));
         nn_->nearestK(motion, k, nbh);
     }
     else
     {
-        double r = std::min(maxDistance_, r_rrg_*std::pow(log((double)(nn_->size() + 1u))/((double)(nn_->size() + 1u)), 1/(double)(si_->getStateDimension())));
+        double r = std::min(maxDistance_, r_rrg_ * std::pow(log(cardDbl) / cardDbl, 1 / static_cast<double>(si_->getStateDimension())));
         nn_->nearestR(motion, r, nbh);
     }
 }
@@ -817,11 +810,17 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
         // Update the cost at which we've pruned:
         prunedCost_ = pruneTreeCost;
 
-        // And if we're using informed sampling, the measure to which we've pruned
-        if (useInformedSampling_)
+        // And if we're using the pruned measure, the measure to which we've pruned
+        if (usePrunedMeasure_)
         {
-            prunedInfMeasure_ = infSampler_->getInformedMeasure(prunedCost_);
+            prunedMeasure_ = infSampler_->getInformedMeasure(prunedCost_);
+
+            if (useKNearest_ == false)
+            {
+                calculateRewiringLowerBounds();
+            }
         }
+        //No else, prunedMeasure_ is the si_ measure by default.
     }
 
     return numPruned;
@@ -866,13 +865,83 @@ ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motio
     return opt_->combineCosts(costToCome, costToGo); // add the two costs
 }
 
-void ompl::geometric::RRTstar::setSampleRejection(const bool reject)
+void ompl::geometric::RRTstar::setTreePruning(const bool prune)
 {
-    // Check if we're changing the setting of rejection sampling. If we are, we will need to create a new sampler, which we only want to do if one is already allocated.
-    if (reject != useRejectionSampling_)
+    if (opt_->hasCostToGoHeuristic() == false)
+    {
+        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+    }
+
+    useTreePruning_ = prune;
+
+    // If we're using prunedMeasure, we need to disable that
+    if (usePrunedMeasure_ == true && useTreePruning_ == false)
+    {
+        setPrunedMeasure(false);
+    }
+}
+
+void ompl::geometric::RRTstar::setPrunedMeasure(bool informedMeasure)
+{
+    if (opt_->hasCostToGoHeuristic() == false)
+    {
+        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+    }
+
+    // This option only works with informed sampling
+    if (informedMeasure == true && (useInformedSampling_ == false || useTreePruning_ == false))
+    {
+        OMPL_ERROR("%s: InformedMeasure requires InformedSampling and TreePruning.", getName().c_str());
+    }
+
+    // Check if we're changed and update parameters if we have:
+    if (informedMeasure != usePrunedMeasure_)
     {
         // Store the setting
-        useRejectionSampling_ = reject;
+        usePrunedMeasure_ = informedMeasure;
+
+        // Update the prunedMeasure_ appropriately
+        if (usePrunedMeasure_)
+        {
+            prunedMeasure_ = infSampler_->getInformedMeasure(prunedCost_);
+        }
+        else
+        {
+            prunedMeasure_ = si_->getSpaceMeasure();
+        }
+
+        // And either way, update the rewiring radius if necessary
+        if (useKNearest_ == false)
+        {
+            calculateRewiringLowerBounds();
+        }
+    }
+}
+
+void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
+{
+    if (opt_->hasCostToGoHeuristic() == false)
+    {
+        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+    }
+
+    // This option is mutually exclusive with setSampleRejection, assert that:
+    if (informedSampling == true && useRejectionSampling_ == true)
+    {
+        OMPL_ERROR("%s: InformedSampling and SampleRejection are mutually exclusive options.", getName().c_str());
+    }
+
+    // Check if we're changing the setting of informed sampling. If we are, we will need to create a new sampler, which we only want to do if one is already allocated.
+    if (informedSampling != useInformedSampling_)
+    {
+        //If we're disabled informedSampling, and prunedMeasure is enabled, we need to disable that
+        if (informedSampling == false && usePrunedMeasure_ == true)
+        {
+            setPrunedMeasure(false);
+        }
+
+        // Store the value
+        useInformedSampling_ = informedSampling;
 
         // If we currently have a sampler, we need to make a new one
         if (sampler_ || infSampler_)
@@ -887,16 +956,24 @@ void ompl::geometric::RRTstar::setSampleRejection(const bool reject)
     }
 }
 
-void ompl::geometric::RRTstar::setInformedRrtStar(bool informedRrtStar)
+void ompl::geometric::RRTstar::setSampleRejection(const bool reject)
 {
-    // Toggle tree pruning:
-    useTreePruning_ = informedRrtStar;
-
-    // Check if we're changing the setting of informed sampling. If we are, we will need to create a new sampler, which we only want to do if one is already allocated.
-    if (informedRrtStar != useInformedSampling_)
+    if (opt_->hasCostToGoHeuristic() == false)
     {
-        // Store the value
-        useInformedSampling_ = informedRrtStar;
+        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+    }
+
+    // This option is mutually exclusive with setSampleRejection, assert that:
+    if (reject == true && useInformedSampling_ == true)
+    {
+        OMPL_ERROR("%s: InformedSampling and SampleRejection are mutually exclusive options.", getName().c_str());
+    }
+
+    // Check if we're changing the setting of rejection sampling. If we are, we will need to create a new sampler, which we only want to do if one is already allocated.
+    if (reject != useRejectionSampling_)
+    {
+        // Store the setting
+        useRejectionSampling_ = reject;
 
         // If we currently have a sampler, we need to make a new one
         if (sampler_ || infSampler_)
@@ -959,15 +1036,9 @@ void ompl::geometric::RRTstar::calculateRewiringLowerBounds()
     double dimDbl = static_cast<double>(si_->getStateDimension());
 
     // k_rrg > e+e/d.  K-nearest RRT*
-    k_rrg_ = rewireFactor_*(boost::math::constants::e<double>() + (boost::math::constants::e<double>() / dimDbl));
+    k_rrg_ = rewireFactor_ * (boost::math::constants::e<double>() + (boost::math::constants::e<double>() / dimDbl));
 
     // r_rrg > 2*(1+1/d)^(1/d)*(measure/ballvolume)^(1/d)
-    if (useInformedSampling_ == true)
-    {
-        r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(prunedInfMeasure_/unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
-    }
-    else
-    {
-        r_rrg_ = rewireFactor_*2.0*std::pow((1.0 + 1.0/dimDbl)*(si_->getSpaceMeasure()/unitNBallMeasure(si_->getStateDimension())), 1.0/dimDbl);
-    }
+    // If we're not using the informed measure, prunedMeasure_ will be set to si_->getSpaceMeasure();
+    r_rrg_ = rewireFactor_ * 2.0 * std::pow((1.0 + 1.0/dimDbl) * (prunedMeasure_ / unitNBallMeasure(si_->getStateDimension())), 1.0 / dimDbl);
 }

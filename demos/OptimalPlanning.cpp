@@ -46,6 +46,7 @@
 #include <ompl/geometric/planners/bitstar/BITstar.h>
 #include <ompl/geometric/planners/cforest/CForest.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
+#include <ompl/geometric/planners/rrt/InformedRRTstar.h>
 #include <ompl/geometric/planners/prm/PRMstar.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 
@@ -156,10 +157,7 @@ ob::PlannerPtr allocatePlanner(ob::SpaceInformationPtr si, optimalPlanner planne
         }
         case PLANNER_INF_RRTSTAR:
         {
-            boost::shared_ptr<og::RRTstar> infRRTstar;
-            infRRTstar = boost::make_shared<og::RRTstar>(si);
-            infRRTstar->setInformedRrtStar(true);
-            return infRRTstar;
+            return boost::make_shared<og::InformedRRTstar>(si);
             break;
         }
         case PLANNER_PRMSTAR:

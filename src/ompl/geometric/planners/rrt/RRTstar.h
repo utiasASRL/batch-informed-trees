@@ -88,6 +88,8 @@ namespace ompl
 
             virtual void clear();
 
+            virtual void setup();
+
             /** \brief Set the goal bias
 
                 In the process of randomly selecting states in
@@ -169,10 +171,7 @@ namespace ompl
                 Considering the descendents of a vertex prevents removing a descendent
                 that may actually be capable of later providing a better solution once
                 its incoming path passes through a different vertex (e.g., a change in homotopy class). */
-            void setTreePruning(const bool prune)
-            {
-                useTreePruning_ = prune;
-            }
+            void setTreePruning(const bool prune);
 
             /** \brief Get the state of the pruning option. */
             bool getTreePruning() const
@@ -192,6 +191,26 @@ namespace ompl
             double getPruneThreshold() const
             {
                 return pruneThreshold_;
+            }
+
+            /** \brief Use the measure of the pruned subproblem instead of the measure of the entire problem domain (if such an expression exists and a solution is present).
+            Currently the only method to calculate this measure in closed-form is through a informed sampler, so this option also requires that. */
+            void setPrunedMeasure(bool informedMeasure);
+
+            /** \brief Get the state of using the pruned measure */
+            bool getPrunedMeasure() const
+            {
+                return usePrunedMeasure_;
+            }
+
+            /** \brief Use direct sampling of the heuristic for the generation of random samples (e.g., x_rand).
+           If a direct sampling method is not defined for the objective, rejection sampling will be used by default. */
+            void setInformedSampling(bool informedSampling);
+
+            /** \brief Get the state direct heuristic sampling */
+            bool getInformedSampling() const
+            {
+                return useInformedSampling_;
             }
 
             /** \brief Controls whether heuristic rejection is used on samples (e.g., x_rand) */
@@ -227,20 +246,23 @@ namespace ompl
                 return useAdmissibleCostToCome_;
             }
 
-            /** \brief Controls search focusing. Search focusing consists of pruning the existing search and limiting future search.
-            In RRT* this is accomplished by turning on Informed RRT* (tree pruning and focused sampling) and new-state rejection.
+            /** \brief A \e meta parameter to focusing the search to improving the current solution. This is the parameter set by CFOREST.
+            For RRT*, search focusing consists of pruning the existing search and limiting future search.
+            Specifically, this is accomplished by turning on informed sampling, tree pruning and new-state rejection.
             This flag individually sets the options described above.
             */
             void setFocusSearch(const bool focus)
             {
-                setInformedRrtStar(focus);
+                setInformedSampling(focus);
+                setPrunedMeasure(focus);
+                setTreePruning(focus);
                 setNewStateRejection(focus);
             }
 
             /** \brief Get the state of search focusing */
             bool getFocusSearch() const
             {
-                return getTreePruning() && getSampleRejection() && getNewStateRejection();
+                return getInformedSampling() && getPrunedMeasure() && getTreePruning() && getNewStateRejection();
             }
 
             /** \brief Use a k-nearest search for rewiring instead of a r-disc search. */
@@ -255,23 +277,6 @@ namespace ompl
                 return useKNearest_;
             }
 
-            /** \brief Use \e Informed \e RRT*.
-            This means that once a problem is found, the search is focused only to the subproblem that could contain a better solution.
-            Currently only implemented for problems with a single goal that are seeking to minimize path length in
-            R^n (i.e., RealVectorStateSpace), SE(2) (i.e., SE2StateSpace), or SE(3) (i.e., SE3StateSpace).
-            @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
-            Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
-            IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
-            <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
-            <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
-            void setInformedRrtStar(bool informedRrtStar);
-
-            /** \brief Get the state of informed RRT* */
-            bool getInformedRrtStar() const
-            {
-                return useInformedSampling_ && getTreePruning();
-            }
-
             /** \brief Set the number of attempts to make while performing rejection or informed sampling */
             void setNumSamplingAttempts(unsigned int numAttempts)
             {
@@ -283,8 +288,6 @@ namespace ompl
             {
                 return numSampleAttempts_ ;
             }
-
-            virtual void setup();
 
             unsigned int numIterations() const
             {
@@ -360,7 +363,7 @@ namespace ompl
             }
 
             /** \brief Gets the neighbours of a given motion, using either k-nearest of radius as appropriate. */
-            void getNeighbors(Motion *motion, std::vector<Motion*> &nbh);
+            void getNeighbors(Motion *motion, std::vector<Motion*> &nbh) const;
 
             /** \brief Removes the given motion from the parent's child list */
             void removeFromParent(Motion *m);
@@ -435,6 +438,12 @@ namespace ompl
             /** \brief The tree is pruned when the change in solution cost is greater than this fraction. */
             double                                         pruneThreshold_;
 
+            /** \brief Option to use the informed measure */
+            bool                                           usePrunedMeasure_;
+
+            /** \brief Option to use informed sampling */
+            bool                                           useInformedSampling_;
+
             /** \brief The status of the sample rejection parameter. */
             bool                                           useRejectionSampling_;
 
@@ -443,9 +452,6 @@ namespace ompl
 
             /** \brief The admissibility of the new-state rejection heuristic. */
             bool                                           useAdmissibleCostToCome_;
-
-            /** \brief Option to use informed sampling */
-            bool                                           useInformedSampling_;
 
             /** \brief The number of attempts to make at informed sampling */
             unsigned int                                   numSampleAttempts_;
@@ -459,22 +465,22 @@ namespace ompl
             /** \brief The cost at which the graph was last pruned */
             base::Cost                                     prunedCost_;
 
-            /** \brief The measure of the problem when we pruned it (for Informed RRT*)*/
-            double                                         prunedInfMeasure_;
+            /** \brief The measure of the problem when we pruned it (if this isn't in use, it will be set to si_->getSpaceMeasure())*/
+            double                                         prunedMeasure_;
 
             ///////////////////////////////////////
             // Planner progress property functions
-            std::string getIterationCount() const
+            std::string numIterationsProperty() const
             {
-                return boost::lexical_cast<std::string>(iterations_);
+                return boost::lexical_cast<std::string>(numIterations());
             }
-            std::string getCollisionCheckCount() const
+            std::string collisionCheckProperty() const
             {
                 return boost::lexical_cast<std::string>(collisionChecks_);
             }
-            std::string getBestCost() const
+            std::string bestCostProperty() const
             {
-                return boost::lexical_cast<std::string>(bestCost_);
+                return boost::lexical_cast<std::string>(bestCost());
             }
 
             //////////////////////////////
