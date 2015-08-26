@@ -859,25 +859,32 @@ ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motio
 
 void ompl::geometric::RRTstar::setTreePruning(const bool prune)
 {
-    if (opt_->hasCostToGoHeuristic() == false)
+    if (static_cast<bool>(opt_) == true)
     {
-        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        if (opt_->hasCostToGoHeuristic() == false)
+        {
+            OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        }
     }
 
-    useTreePruning_ = prune;
-
-    // If we're using prunedMeasure, we need to disable that
-    if (usePrunedMeasure_ == true && useTreePruning_ == false)
+    // If we just disabled tree pruning, but we wee using prunedMeasure, we need to disable that as it required myself
+    if (prune == false && getPrunedMeasure() == true)
     {
         setPrunedMeasure(false);
     }
+
+    // Store
+    useTreePruning_ = prune;
 }
 
 void ompl::geometric::RRTstar::setPrunedMeasure(bool informedMeasure)
 {
-    if (opt_->hasCostToGoHeuristic() == false)
+    if (static_cast<bool>(opt_) == true)
     {
-        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        if (opt_->hasCostToGoHeuristic() == false)
+        {
+            OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        }
     }
 
     // This option only works with informed sampling
@@ -892,14 +899,17 @@ void ompl::geometric::RRTstar::setPrunedMeasure(bool informedMeasure)
         // Store the setting
         usePrunedMeasure_ = informedMeasure;
 
-        // Update the prunedMeasure_ appropriately
-        if (usePrunedMeasure_)
+        // Update the prunedMeasure_ appropriately, if it has been configured.
+        if (setup_ == true)
         {
-            prunedMeasure_ = infSampler_->getInformedMeasure(prunedCost_);
-        }
-        else
-        {
-            prunedMeasure_ = si_->getSpaceMeasure();
+            if (usePrunedMeasure_)
+            {
+                prunedMeasure_ = infSampler_->getInformedMeasure(prunedCost_);
+            }
+            else
+            {
+                prunedMeasure_ = si_->getSpaceMeasure();
+            }
         }
 
         // And either way, update the rewiring radius if necessary
@@ -912,15 +922,24 @@ void ompl::geometric::RRTstar::setPrunedMeasure(bool informedMeasure)
 
 void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
 {
-    if (opt_->hasCostToGoHeuristic() == false)
+    if (static_cast<bool>(opt_) == true)
     {
-        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        if (opt_->hasCostToGoHeuristic() == false)
+        {
+            OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        }
     }
 
     // This option is mutually exclusive with setSampleRejection, assert that:
     if (informedSampling == true && useRejectionSampling_ == true)
     {
         OMPL_ERROR("%s: InformedSampling and SampleRejection are mutually exclusive options.", getName().c_str());
+    }
+
+    // If we just disabled tree pruning, but we wee using prunedMeasure, we need to disable that as it required myself
+    if (informedSampling == false && getPrunedMeasure() == true)
+    {
+        setPrunedMeasure(false);
     }
 
     // Check if we're changing the setting of informed sampling. If we are, we will need to create a new sampler, which we only want to do if one is already allocated.
@@ -950,9 +969,12 @@ void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
 
 void ompl::geometric::RRTstar::setSampleRejection(const bool reject)
 {
-    if (opt_->hasCostToGoHeuristic() == false)
+    if (static_cast<bool>(opt_) == true)
     {
-        OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        if (opt_->hasCostToGoHeuristic() == false)
+        {
+            OMPL_INFORM("%s: No cost-to-go heuristic set. Informed techniques will not work well.", getName().c_str());
+        }
     }
 
     // This option is mutually exclusive with setSampleRejection, assert that:

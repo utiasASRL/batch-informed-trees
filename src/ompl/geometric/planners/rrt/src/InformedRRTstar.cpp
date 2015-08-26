@@ -44,8 +44,8 @@ ompl::geometric::InformedRRTstar::InformedRRTstar(const base::SpaceInformationPt
 
     //Configure RRTstar to be InformedRRT*:
     setInformedSampling(true);
-    setPrunedMeasure(true);
     setTreePruning(true);
+    setPrunedMeasure(true);
 
     //Remove those parameters:
     params_.remove("informed_sampling");
