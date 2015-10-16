@@ -686,7 +686,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
             addChildrenToList(&motionQueue, startMotions_.at(i));
         }
 
-        //Now, process the queue, in std::list erase on invalidates the removed iterator.
+        //Now, process the queue, in std::list erase only invalidates the removed iterator.
         std::list<Motion*>::iterator mIter = motionQueue.begin();
 
         while (mIter != motionQueue.end())
@@ -792,11 +792,25 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
                 }
                 else
                 {
-                    // Is isn't ,skip to the next
+                    // Is isn't, skip to the next
                     ++mIter;
                 }
             }
         }
+
+       // Now finally add back any vertices left in chainsToReheck.
+       // These are chain vertices that have descendents that we want to keep
+       // Let us reuse our iterator
+       mIter = chainsToRecheck.begin();
+       // Iterate through the list
+       while (mIter != chainsToRecheck.end())
+       {
+           // Add the motion back to the NN struct:
+           nn_->add(*mIter);
+
+           // Move to the next one:
+           ++mIter;
+       }
 
         // All done pruning.
         // Update the cost at which we've pruned:
@@ -828,9 +842,8 @@ void ompl::geometric::RRTstar::addChildrenToList(std::list<Motion*> *motionList,
 
 bool ompl::geometric::RRTstar::keepCondition(const Motion* motion, const base::Cost& threshold) const
 {
-    //We prune if the cost-to-come-heuristic of motion is <= threshold, which
-    //specifically means if the threshold is not better as if b is not better than a,
-    //then a is better than, or equal to, b
+    // We keep if the cost-to-come-heuristic of motion is <= threshold, by checking
+    // if (!threshold < heuristic), as if b is not better than a, then a is better than, or equal to, b
     return !opt_->isCostBetterThan(threshold, solutionHeuristic(motion));
 }
 
