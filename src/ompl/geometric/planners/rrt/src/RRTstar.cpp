@@ -178,14 +178,26 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
     bool symCost = opt_->isSymmetric();
 
-    while (const base::State *st = pis_.nextStart())
+    // Check if we have new start states. If we do, we have to clear the ones we have and readd them all (as there is no way to find if any have been dropped.)
+    if (pis_.haveMoreStartStates() == true)
     {
-        Motion *motion = new Motion(si_);
-        si_->copyState(motion->state, st);
-        motion->cost = opt_->identityCost();
-        nn_->add(motion);
-        startMotions_.push_back(motion);
+        // Clear the stored start motions:
+        startMotions_.clear();
+
+        // Re add them all
+        while (const base::State *st = pis_.nextStart())
+        {
+            Motion *motion = new Motion(si_);
+            si_->copyState(motion->state, st);
+            motion->cost = opt_->identityCost();
+            nn_->add(motion);
+            startMotions_.push_back(motion);
+        }
+
+        // If we're using an informed sampler, delete it so it can be reallocated
+        infSampler_.reset();
     }
+    // No else
 
     if (nn_->size() == 0)
     {
@@ -949,7 +961,7 @@ void ompl::geometric::RRTstar::setInformedSampling(bool informedSampling)
         OMPL_ERROR("%s: InformedSampling and SampleRejection are mutually exclusive options.", getName().c_str());
     }
 
-    // If we just disabled tree pruning, but we wee using prunedMeasure, we need to disable that as it required myself
+    // If we just disabled tree pruning, but we are using prunedMeasure, we need to disable that as it required myself
     if (informedSampling == false && getPrunedMeasure() == true)
     {
         setPrunedMeasure(false);

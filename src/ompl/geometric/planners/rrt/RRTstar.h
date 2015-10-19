@@ -254,8 +254,8 @@ namespace ompl
             void setFocusSearch(const bool focus)
             {
                 setInformedSampling(focus);
-                setPrunedMeasure(focus);
                 setTreePruning(focus);
+                setPrunedMeasure(focus);
                 setNewStateRejection(focus);
             }
 
