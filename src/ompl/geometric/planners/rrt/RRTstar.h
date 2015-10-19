@@ -43,6 +43,8 @@
 
 #include <limits>
 #include <vector>
+#include <queue>
+#include <deque>
 #include <utility>
 #include <list>
 
@@ -383,7 +385,7 @@ namespace ompl
             base::Cost solutionHeuristic(const Motion *motion) const;
 
             /** \brief Add the children of a vertex to the given list. */
-            void addChildrenToList(std::list<Motion*> *motionList, Motion* motion);
+            void addChildrenToList(std::queue<Motion*, std::deque<Motion*> > *motionList, Motion* motion);
 
             /** \brief Check whether the given motion passes the specified cost threshold, meaning it will be \e kept during pruning */
             bool keepCondition(const Motion* motion, const base::Cost& threshold) const;

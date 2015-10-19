@@ -676,9 +676,9 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
 
         // Variable
         // The queue of Motions to process:
-        std::list<Motion*> motionQueue;
+        std::queue<Motion*, std::deque<Motion*> > motionQueue;
         // The list of leaves to prune
-        std::list<Motion*> leavesToPrune;
+        std::queue<Motion*, std::deque<Motion*> > leavesToPrune;
         // The list of chain vertices to recheck after pruning
         std::list<Motion*> chainsToRecheck;
 
@@ -696,25 +696,22 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
             addChildrenToList(&motionQueue, startMotions_.at(i));
         }
 
-        //Now, process the queue, in std::list erase only invalidates the removed iterator.
-        std::list<Motion*>::iterator mIter = motionQueue.begin();
-
-        while (mIter != motionQueue.end())
+        while (motionQueue.empty() == false)
         {
             // Test, can the current motion ever provide a better solution?
-            if (keepCondition(*mIter, pruneTreeCost))
+            if (keepCondition(motionQueue.front(), pruneTreeCost))
             {
                 // Yes it can, so it definitely won't be pruned
                 // Add it back into the NN structure
-                nn_->add(*mIter);
+                nn_->add(motionQueue.front());
 
                 //Add it's children to the queue
-                addChildrenToList(&motionQueue, *mIter);
+                addChildrenToList(&motionQueue, motionQueue.front());
             }
             else
             {
                 // No it can't, but does it have children?
-                if ((*mIter)->children.empty() == false)
+                if (motionQueue.front()->children.empty() == false)
                 {
                     // Yes it does.
                     // We can minimize the number of intermediate chain motions if we check their children
@@ -726,10 +723,10 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
                     bool keepAChild = false;
 
                     // Find if any child is definitely not being pruned.
-                    for (unsigned int i = 0u; keepAChild == false && i < (*mIter)->children.size(); ++i)
+                    for (unsigned int i = 0u; keepAChild == false && i < motionQueue.front()->children.size(); ++i)
                     {
                         // Test if the child can ever provide a better solution
-                        keepAChild = keepCondition((*mIter)->children.at(i), pruneTreeCost);
+                        keepAChild = keepCondition(motionQueue.front()->children.at(i), pruneTreeCost);
                     }
 
                     // Are we *definitely* keeping any of the children?
@@ -737,65 +734,62 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
                     {
                         // Yes, we are, so we are not pruning this motion
                         // Add it back into the NN structure.
-                        nn_->add(*mIter);
+                        nn_->add(motionQueue.front());
                     }
                     else
                     {
                         // No, we aren't. This doesn't mean we won't though
                         // Move this Motion to the temporary list
-                        chainsToRecheck.push_back(*mIter);
+                        chainsToRecheck.push_back(motionQueue.front());
                     }
 
                     // Either way. add it's children to the queue
-                    addChildrenToList(&motionQueue, *mIter);
+                    addChildrenToList(&motionQueue, motionQueue.front());
                 }
                 else
                 {
                     // No, so we will be pruning this motion:
-                    leavesToPrune.push_back(*mIter);
+                    leavesToPrune.push(motionQueue.front());
                 }
             }
 
             // Pop the iterator, std::list::erase returns the next iterator
-            mIter = motionQueue.erase(mIter);
+            motionQueue.pop();
         }
 
        // We now have a list of Motions to definitely remove, and a list of Motions to recheck
        // Iteratively check the two lists until there is nothing to to remove
         while (leavesToPrune.empty() == false)
         {
-            // First, remove the Motions
-            // Let us reuse our iterator
-            mIter = leavesToPrune.begin();
-            while (mIter != leavesToPrune.end())
+            // First empty the leave-to-prune
+            while (leavesToPrune.empty() == false)
             {
                 // Remove the leaf from its parent
-                removeFromParent(*mIter);
+                removeFromParent(leavesToPrune.front());
 
                 // Erase the actual motion
                 // First free the state
-                si_->freeState((*mIter)->state);
+                si_->freeState(leavesToPrune.front()->state);
 
                 // then delete the pointer
-                delete *mIter;
+                delete leavesToPrune.front();
 
                 // And finally remove it from the list, erase returns the next iterator
-                mIter = leavesToPrune.erase(mIter);
+                leavesToPrune.pop();
 
                 // Update our counter
                 ++numPruned;
             }
 
             // Now, we need to go through the list of chain vertices and see if any are now leaves
-            // Again, let us reuse our iterator
-            mIter = chainsToRecheck.begin();
+            std::list<Motion*>::iterator mIter = chainsToRecheck.begin();
             while (mIter != chainsToRecheck.end())
             {
                 // Is the Motion a leaf?
                 if ((*mIter)->children.empty() == true)
                 {
                     // It is, add to the removal queue
-                    leavesToPrune.push_back(*mIter);
+                    leavesToPrune.push(*mIter);
 
                     // Remove from this queue, getting the next
                     mIter = chainsToRecheck.erase(mIter);
@@ -810,16 +804,10 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
 
        // Now finally add back any vertices left in chainsToReheck.
        // These are chain vertices that have descendents that we want to keep
-       // Let us reuse our iterator
-       mIter = chainsToRecheck.begin();
-       // Iterate through the list
-       while (mIter != chainsToRecheck.end())
+       for (std::list<Motion*>::const_iterator mIter = chainsToRecheck.begin(); mIter != chainsToRecheck.end(); ++mIter)
        {
            // Add the motion back to the NN struct:
            nn_->add(*mIter);
-
-           // Move to the next one:
-           ++mIter;
        }
 
         // All done pruning.
@@ -842,11 +830,11 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
     return numPruned;
 }
 
-void ompl::geometric::RRTstar::addChildrenToList(std::list<Motion*> *motionList, Motion* motion)
+void ompl::geometric::RRTstar::addChildrenToList(std::queue<Motion*, std::deque<Motion*> > *motionList, Motion* motion)
 {
     for (unsigned int j = 0u; j < motion->children.size(); ++j)
     {
-        motionList->push_back(motion->children.at(j));
+        motionList->push(motion->children.at(j));
     }
 }
 
