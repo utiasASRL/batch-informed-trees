@@ -163,6 +163,7 @@ void ompl::geometric::RRTstar::clear()
 
     lastGoalMotion_ = NULL;
     goalMotions_.clear();
+    startMotions_.clear();
 
     iterations_ = 0;
     bestCost_ = base::Cost(std::numeric_limits<double>::quiet_NaN());
@@ -178,13 +179,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
     bool symCost = opt_->isSymmetric();
 
-    // Check if we have new start states. If we do, we have to clear the ones we have and readd them all (as there is no way to find if any have been dropped.)
+    // Check if there are more starts
     if (pis_.haveMoreStartStates() == true)
     {
-        // Clear the stored start motions:
-        startMotions_.clear();
-
-        // Re add them all
+        // There are, add them
         while (const base::State *st = pis_.nextStart())
         {
             Motion *motion = new Motion(si_);
@@ -194,7 +192,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
             startMotions_.push_back(motion);
         }
 
-        // If we're using an informed sampler, delete it so it can be reallocated
+        // And assure that, if we're using an informed sampler, it's reset
         infSampler_.reset();
     }
     // No else
