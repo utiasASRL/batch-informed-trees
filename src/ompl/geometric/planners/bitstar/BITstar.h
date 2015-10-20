@@ -75,15 +75,16 @@ namespace ompl
             @par Associated publications:
 
             J.D. Gammell, S. S. Srinivasa, T.D. Barfoot, "BIT*: Batch Informed Trees."
-            In Proceedings of the Information-based Grasp and Manipulation Planning Workshop at Robotics: Science and Systems (RSS).
-            Berkeley, CA, USA, 13 July 2014.
+            In Proceedings of the Information-based Grasp and Manipulation Planning Workshop at
+            Robotics: Science and Systems (RSS). Berkeley, CA, USA, 13 July 2014.
             <a href="http://asrl.utias.utoronto.ca/~tdb/bib/gammell_rss14.pdf">Extended Abstract</a>.
             <a href="http://asrl.utias.utoronto.ca/~tdb/bib/gammell_rss14_poster.pdf">Poster</a>.
 
-            J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
+            J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based
+            Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
             In Proceedings of the IEEE International Conference on Robotics and Automation (ICRA).
-            Seattle, Washington, USA, 26-30 May 2015.
-            <a href="http://arxiv.org/abs/1405.5848">arXiv:1405.5848 [cs.RO]</a>.
+            Seattle, WA, USA, 26-30 May 2015.
+            DOI: <a href="http://dx.doi.org/10.1109/ICRA.2015.7139620">10.1109/ICRA.2015.7139620</a>.
             <a href="http://www.youtube.com/watch?v=MRzSfLpNBmA">Illustration video</a>.
 
             \todo

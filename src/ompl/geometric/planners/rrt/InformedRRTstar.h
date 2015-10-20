@@ -47,20 +47,24 @@ namespace ompl
     {
 
         /**
-           @anchor gInformedRRTstar
-           Run RRTstar with an informed strategy that uses the existence of a solution to define a subproblem that contains all possibly better solutions.
-           The search is limited to this subproblem by pruning the graph, generating samples only in this subproblem (directly if available, e.g., path length)
-           and using the size of this subproblem to calculate the connection terms (if available, e.g., path length)
-           @par Short description
-           @par External documentation
-           J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
-            Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic."
-            IROS 2014. DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
+            @anchor gInformedRRTstar
+            @par Short description
+            Run RRTstar with an informed strategy that uses the existence of a solution to define a subproblem that contains all possibly better solutions.
+            The search is limited to this subproblem by pruning the graph, generating samples only in this subproblem (directly if available, e.g., path length)
+            and using the size of this subproblem to calculate the connection terms (if available, e.g., path length)
+
+            @par Associated publications:
+
+            J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
+            Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic." In Proceedings
+            of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS). Chicago, IL, USA,
+            14-18 Sept. 2014.
+            DOI: <a href="http://dx.doi.org/10.1109/IROS.2014.6942976">10.1109/IROS.2014.6942976</a>.
             <a href="http://www.youtube.com/watch?v=d7dX5MvDYTc">Illustration video</a>.
-            <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>.
+            <a href="http://www.youtube.com/watch?v=nsl-5MZfwu4">Short description video</a>. */
         */
 
-        /** \brief PRM* planner */
+        /** \brief Informed RRT* */
         class InformedRRTstar : public RRTstar
         {
         public:
