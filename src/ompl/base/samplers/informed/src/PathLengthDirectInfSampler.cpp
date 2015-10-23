@@ -74,7 +74,7 @@ namespace ompl
                 throw Exception("PathLengthDirectInfSampler: The direct path-length informed sampler currently only supports goals that can be cast to a sampleable goal region (i.e., are countable sets).");
             }
 
-            /// \todo We don't check for the cost-to-go heuristic in the optimization objective, as this direct sampling is only for Euclidean distance.
+            /// Note: We don't check that there is a cost-to-go heuristic set in the optimization objective, as this direct sampling is only for Euclidean distance.
 
             // Store the number of starts and goals
             numStarts = probDefn_->getStartStateCount();
@@ -262,8 +262,14 @@ namespace ompl
                 // Did we find a sample?
                 if (foundSample == true)
                 {
-                    // We did, but that was only inside the bigger PHS, we need to assure it's outside the smaller one which occurs if the minCost is *better* than that of the sample:
-                    foundSample = InformedSampler::opt_->isCostBetterThan(minCost, heuristicSolnCost(statePtr));
+                    // We did, but it only satisfied the upper bound. Check that it meets the lower bound.
+
+                    // Variables
+                    // The cost of the sample we found
+                    Cost sampledCost = heuristicSolnCost(statePtr);
+
+                    // Check if the sample's cost is greater than or equal to the lower bound
+                    foundSample = InformedSampler::opt_->isCostEquivalentTo(minCost, sampledCost) || InformedSampler::opt_->isCostBetterThan(minCost, sampledCost);
                 }
                 // No else, no sample was found.
             }
@@ -359,30 +365,17 @@ namespace ompl
 
                 // Sample from the PHSs.
 
-                // When the summed measure is suitably large, it makes more sense to just sample from the entire planning space and keep the sample if it lies in any PHS
-                // Only check this if we have more than 1 goal
-                if (listPhsPtrs_.size() > 1u)
+                // When the summed measure of the PHSes are suitably large, it makes more sense to just sample from the entire planning space and keep the sample if it lies in any PHS
+                // Check if the average measure is greater than half the domain's measure. Half is an arbitrary number.
+                if (informedSubSpace_->getMeasure() < summedMeasure_/static_cast<double>(listPhsPtrs_.size()))
                 {
-                    // Check if the average measure is greater than half the domain's measure. Half is an arbitrary number.
-                    if (summedMeasure_/static_cast<double>(listPhsPtrs_.size()) > 0.5*informedSubSpace_->getMeasure())
-                    {
-                        // The measure is large, sample from the entire world and keep if it's in a PHS
-                        while (foundSample == false && *iters < InformedSampler::numIters_)
-                        {
-                            // Generate a sample by sampling the boundary and rejecting if it is not in *any* PHS
-                            foundSample = sampleBoundsRejectFunc(statePtr, boost::bind(&PathLengthDirectInfSampler::isInAnyPhs, this, _1), maxCost, iters);
-                        }
-                    }
-                    else
-                    {
-                        // The measure is sufficiently small that we will perform direct PHS sampling weighted by relative measure
-                        foundSample = sampleRandomPhs(statePtr, maxCost, iters);
-                    }
+                    // The measure is large, sample from the entire world and keep if it's in any PHS
+                    foundSample = sampleBoundsRejectPhs(statePtr, iters);
                 }
                 else
                 {
-                    // Only one PHS, so sample it.
-                    foundSample = sampleRandomPhs(statePtr, maxCost, iters);
+                    // The measure is sufficiently small that we will directly sample the PHSes, with the weighting given by their relative measures
+                    foundSample = samplePhsRejectBounds(statePtr, iters);
                 }
             }
 
@@ -392,112 +385,14 @@ namespace ompl
 
 
 
-        bool PathLengthDirectInfSampler::sampleUniformIgnoreBounds(State *statePtr, const Cost &maxCost, unsigned int *iters)
-        {
-            // Variable
-            // The informed subset of the sample as a vector
-            std::vector<double> informedVector(informedSubSpace_->getDimension());
-            // Whether we've found a sample
-            bool foundSample = false;
-
-            // Update the PHSs
-            updatePhsDefinitions(maxCost);
-
-            // Due to the possibility of overlap between multiple PHSs, we keep a sample with a probability of 1/K, where K is the number of PHSs the sample is in.
-            while (foundSample == false && *iters < InformedSampler::numIters_)
-            {
-                // Variable
-                // The random PHS in use for this sample.
-                ProlateHyperspheroidCPtr phsCPtr = randomPhsPtr();
-
-                // Sample the PHS directly
-                // Use the PHS to get a sample in the informed subspace irrespective of boundary
-                rng_.uniformProlateHyperspheroid(phsCPtr, &informedVector[0]);
-
-                // Now, if we were successful with either method, we weigh the probability of keeping the sample by the number of overlaps
-                foundSample = keepSample(informedVector);
-            }
-
-            // If we found sample, inflate into the full state space (if there was an uniformed component)
-            createFullState(statePtr, informedVector);
-
-            // Return possible successful
-            return foundSample;
-        }
-
-
-
-        bool PathLengthDirectInfSampler::sampleUniformIgnoreBounds(State *statePtr, const Cost &minCost, const Cost &maxCost, unsigned int *iters)
-        {
-            // Sample from the larger PHS until the sample does not lie within the smaller PHS.
-            // Since volume in a sphere/spheroid is proportionately concentrated near the surface, this isn't horribly inefficient, though a direct method would be better
-
-            // Variable
-            // Whether we were successful in creating an informed sample. Initially not:
-            bool foundSample = false;
-
-            // Spend numIters_ iterations trying to find an sample that is within the bounds:
-            for (unsigned int i = 0u; i < InformedSampler::numIters_ && foundSample == false; ++i)
-            {
-                // Get a sample inside the large PHS:
-                sampleUniformIgnoreBounds(statePtr, maxCost, iters);
-
-                // Check if it is also outside the smaller PHS, which occurs if the minCost is *better* than that of the sample:
-                foundSample = InformedSampler::opt_->isCostBetterThan(minCost, heuristicSolnCost(statePtr));
-            }
-
-            return foundSample;
-        }
-
-
-
-        bool PathLengthDirectInfSampler::sampleRandomPhs(State *statePtr, const Cost &maxCost, unsigned int *iters)
-        {
-            // Variable
-            // Whether we were successful in creating an informed sample. Initially not:
-            bool foundSample = false;
-
-            // Due to the possibility of overlap between multiple PHSs, we keep a sample with a probability of 1/K, where K is the number of PHSs the sample is in.
-            while (foundSample == false && *iters < InformedSampler::numIters_)
-            {
-                // Variable
-                // The random PHS in use for this sample.
-                ProlateHyperspheroidCPtr phsCPtr = randomPhsPtr();
-
-                // Check if this PHS is too large to sample directly
-                if (phsCPtr->getPhsMeasure() > informedSubSpace_->getMeasure())
-                {
-                    // Just sample the bounds and reject if not in this PHS
-                    foundSample = sampleBoundsRejectFunc(statePtr, boost::bind(&PathLengthDirectInfSampler::isInPhs, this, phsCPtr, _1), maxCost, iters);
-                }
-                else
-                {
-                    // Sample the PHS directly and reject if not in the bounds
-                    foundSample = samplePhsRejectBounds(statePtr, phsCPtr, maxCost, iters);
-                }
-
-                // Now, if we were successful with either method, we weigh the probability of keeping the sample by the number of overlaps
-                if (foundSample == true)
-                {
-                    // Keep with probability 1/K
-                    foundSample = keepSample(getInformedSubstate(statePtr));
-                }
-                // No else, continue loop
-            }
-
-            return foundSample;
-        }
-
-
-
-        bool PathLengthDirectInfSampler::sampleBoundsRejectFunc(State* statePtr, KeepFunc keepFunc, const Cost &maxCost, unsigned int *iters)
+        bool PathLengthDirectInfSampler::sampleBoundsRejectPhs(State* statePtr, unsigned int *iters)
         {
             // Variable
             // Whether we've found a sample:
             bool foundSample  = false;
 
             // Spend numIters_ iterations trying to find an informed sample:
-            while (*iters < InformedSampler::numIters_ && foundSample == false)
+            while (foundSample == false && *iters < InformedSampler::numIters_)
             {
                 // Generate a random sample
                 baseSampler_->sampleUniform(statePtr);
@@ -505,8 +400,8 @@ namespace ompl
                 // The informed substate
                 std::vector<double> informedVector = getInformedSubstate(statePtr);
 
-                // Check if the informed state is in our PHSs.
-                foundSample = keepFunc(informedVector);
+                // Check if the informed state is in any PHS.
+                foundSample = isInAnyPhs(informedVector);
 
                 // Increment the provided counter
                 ++(*iters);
@@ -518,31 +413,40 @@ namespace ompl
 
 
 
-        bool PathLengthDirectInfSampler::samplePhsRejectBounds(State *statePtr, ProlateHyperspheroidCPtr phsCPtr, const Cost &maxCost, unsigned int *iters)
+        bool PathLengthDirectInfSampler::samplePhsRejectBounds(State *statePtr, unsigned int *iters)
         {
             // Variable
-            // Whether we've found a sample:
-            bool foundSample  = false;
-            // The informed subset of the sample as a vector
-            std::vector<double> informedVector(informedSubSpace_->getDimension());
+            // Whether we were successful in creating an informed sample. Initially not:
+            bool foundSample = false;
 
-            // Spend numIters_ iterations trying to find an sample that is within the bounds:
-            while (*iters < InformedSampler::numIters_ && foundSample == false)
+            // Due to the possibility of overlap between multiple PHSs, we keep a sample with a probability of 1/K, where K is the number of PHSs the sample is in.
+            while (foundSample == false && *iters < InformedSampler::numIters_)
             {
+                // Variables
+                // The informed subset of the sample as a vector
+                std::vector<double> informedVector(informedSubSpace_->getDimension());
+                // The random PHS in use for this sample.
+                ProlateHyperspheroidCPtr phsCPtr = randomPhsPtr();
+
                 // Use the PHS to get a sample in the informed subspace irrespective of boundary
                 rng_.uniformProlateHyperspheroid(phsCPtr, &informedVector[0]);
 
-                // Turn into a state of our full space
-                createFullState(statePtr, informedVector);
+                // Keep with probability 1/K
+                foundSample = keepSample(informedVector);
 
-                // Check if the resulting state is in the problem:
-                foundSample = InformedSampler::space_->satisfiesBounds(statePtr);
+                //If we're keeping it, then check if the state is in the problem domain:
+                if (foundSample == true)
+                {
+                    // Turn into a state of our full space
+                    createFullState(statePtr, informedVector);
 
-                // Increment our counter
-                ++(*iters);
+                    // Return if the resulting state is in the problem:
+                    foundSample = InformedSampler::space_->satisfiesBounds(statePtr);
+                }
+                // No else
             }
 
-            // successful?
+            // Successful?
             return foundSample;
         }
 

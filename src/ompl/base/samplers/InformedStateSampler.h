@@ -71,10 +71,10 @@ namespace ompl
             {
             }
 
-            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost. Returns false if such a state was not found. */
+            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost, i.e. in the interval [0, maxCost). Returns false if such a state was not found in the specified number of iterations. */
             virtual bool sampleUniform(State *statePtr, const Cost &maxCost) = 0;
 
-            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs. Returns false if such a state was not found.  */
+            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs, [minCost, maxCost). Returns false if such a state was not found in the specified number of iterations. */
             virtual bool sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost) = 0;
 
             /** \brief Whether the sampler can provide a measure of the informed subset */

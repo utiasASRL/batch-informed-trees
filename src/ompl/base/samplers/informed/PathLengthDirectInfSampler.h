@@ -83,14 +83,14 @@ namespace ompl
             PathLengthDirectInfSampler(const ProblemDefinitionPtr probDefn, unsigned int maxNumberCalls);
             virtual ~PathLengthDirectInfSampler();
 
-            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost. */
-            bool sampleUniform(State *statePtr, const Cost &maxCost);
+            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost, i.e. in the interval [0, maxCost). Returns false if such a state was not found in the specified number of iterations. */
+            virtual bool sampleUniform(State *statePtr, const Cost &maxCost);
 
-            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs. */
-            bool sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost);
+            /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs, [minCost, maxCost). Returns false if such a state was not found in the specified number of iterations. */
+            virtual bool sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost);
 
             /** \brief Whether the sampler can provide a measure of the informed subset */
-            bool hasInformedMeasure() const;
+            virtual bool hasInformedMeasure() const;
 
             /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. Does not consider problem boundaries but returns the measure of the entire space if no solution has been found. In the case of multiple goals, this measure assume each individual subset is independent, therefore the resulting measure will be an overestimate if any of the subsets overlap. */
             virtual double getInformedMeasure(const Cost &currentCost) const;
@@ -102,28 +102,16 @@ namespace ompl
             /** \brief A constant pointer to ProlateHyperspheroid */
             typedef boost::shared_ptr<const ompl::ProlateHyperspheroid> ProlateHyperspheroidCPtr;
 
-            /** \brief The rejection function for when sampling from the bounds. Returns true if the sample should be kept */
-            typedef boost::function<bool (const std::vector<double>&)> KeepFunc;
-
             // Helper functions:
             // High level
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost using a persistent iteration counter */
             bool sampleUniform(State *statePtr, const Cost &maxCost, unsigned int *iters);
 
-            /** \brief Sample uniformly in the subset of the \e infinite state space whose heuristic solution estimates are less than the provided cost, i.e., ignores the bounds of the state space. */
-            bool sampleUniformIgnoreBounds(State *statePtr, const Cost &maxCost, unsigned int *iters);
-
-            /** \brief Sample uniformly in the subset of the \e infinite state space whose heuristic solution estimates are between the provided costs, i.e., ignores the bounds of the state space. */
-            bool sampleUniformIgnoreBounds(State *statePtr, const Cost &minCost, const Cost &maxCost, unsigned int *iters);
-
-            /** \brief Randomly select a PHS and generate a sample from within. */
-            bool sampleRandomPhs(State *statePtr, const Cost &maxCost, unsigned int *iters);
-
             /** \brief Sample from the bounds of the problem and keep the sample if it passes the given test. Meant to be used with isInAnyPhs and phsPtr->isInPhs() */
-            bool sampleBoundsRejectFunc(State* statePtr, KeepFunc keepFunc, const Cost &maxCost, unsigned int *iters);
+            bool sampleBoundsRejectPhs(State* statePtr, unsigned int *iters);
 
-            /** \brief Sample from the given PHS and keep the sample if it lies within the boundaries of the problem. */
-            bool samplePhsRejectBounds(State *statePtr, ProlateHyperspheroidCPtr phsCPtr, const Cost &maxCost, unsigned int *iters);
+            /** \brief Sample from the given PHS and return true if the sample is within the boundaries of the problem (i.e., it \e may be kept). */
+            bool samplePhsRejectBounds(State *statePtr, unsigned int *iters);
 
             // Low level
             /** \brief Extract the informed subspace from a state pointer */
