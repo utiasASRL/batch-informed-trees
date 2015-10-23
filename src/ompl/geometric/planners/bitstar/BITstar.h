@@ -269,6 +269,9 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             //Helper functions for data manipulation and other low-level functions
+            /** \brief Extract the best solution, ordered \e from the goal to the \e start and including both the goal and the start. Used by both publishSolution and the ProblemDefinition::IntermediateSolutionCallback */
+            std::vector<const ompl::base::State*> bestPathFromGoalToStart() const;
+
             /** \brief Adds any new goals or starts that have appeared in the problem definition to the list of vertices and the queue. Creates a new informed sampler. Returns true if new starts/goals are created. */
             void updateStartAndGoalStates(const base::PlannerTerminationCondition& ptc);
 

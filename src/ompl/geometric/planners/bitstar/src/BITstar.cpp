@@ -181,7 +181,7 @@ namespace ompl
 
             //Do some sanity checks
             //Make sure we have a problem definition
-            if(Planner::pdef_ == NULL)
+            if(static_cast<bool>(Planner::pdef_) == false)
             {
                 OMPL_ERROR("%s::setup() was called without a problem definition.", Planner::getName().c_str());
                 Planner::setup_ = false;
@@ -849,33 +849,21 @@ namespace ompl
         void BITstar::publishSolution()
         {
             //Variable
-            //A vector of vertices from goal->start:
-            std::vector<VertexConstPtr> reversePath;
             //The path geometric
             boost::shared_ptr<ompl::geometric::PathGeometric> pathGeoPtr;
+            //The reverse path of state pointers
+            std::vector<const ompl::base::State*> reversePath;
 
             //Allocate the pathGeoPtr
             pathGeoPtr = boost::make_shared<ompl::geometric::PathGeometric>(Planner::si_);
 
-            //Iterate up the chain from the goal, creating a backwards vector:
-            reversePath.push_back(curGoalVertex_);
-            //Push back until we get to the root
-            while (reversePath.back()->isRoot() == false)
-            {
-                //Check the case where the chain ends incorrectly. This is unnecessary but sure helpful in debugging:
-                if (reversePath.back()->hasParent() == false)
-                {
-                    throw ompl::Exception("The path to the goal does not originate at a start state. Something went wrong.");
-                }
-
-                //Push back the parent onto the vector:
-                reversePath.push_back( reversePath.back()->getParentConst() );
-            }
+            //Get the reversed path
+            reversePath = this->bestPathFromGoalToStart();
 
             //Now iterate that vector in reverse, putting the states into the path geometric
-            for (std::vector<VertexConstPtr>::const_reverse_iterator vIter = reversePath.rbegin(); vIter != reversePath.rend(); ++vIter)
+            for (std::vector<const ompl::base::State*>::const_reverse_iterator sIter = reversePath.rbegin(); sIter != reversePath.rend(); ++sIter)
             {
-                pathGeoPtr->append( (*vIter)->stateConst() );
+                pathGeoPtr->append(*sIter);
             }
 
             //Now create the solution
@@ -895,6 +883,32 @@ namespace ompl
 
             //Add the solution to the Problem Definition:
             Planner::pdef_->addSolutionPath(soln);
+        }
+
+
+
+        std::vector<const ompl::base::State*> BITstar::bestPathFromGoalToStart() const
+        {
+            //A vector of states from goal->start:
+            std::vector<const ompl::base::State*> reversePath;
+
+            //Iterate up the chain from the goal, creating a backwards vector:
+            reversePath.push_back(curGoalVertex_->stateConst());
+
+            //Then, use a vertex pointer like an iterator. Starting at the goal, we iterate up the chain pushing the *parent* of the iterator into the vector until the vertex has no parent.
+            //This will allows us to add the start (as the parent of the first child) and then stop when we get to the start itself, avoiding trying to find its nonexistent child
+            for (VertexConstPtr curVertex = curGoalVertex_; curVertex->isRoot() == false; curVertex = curVertex->getParentConst())
+            {
+                //Check the case where the chain ends incorrectly. This is unnecessary but sure helpful in debugging:
+                if (curVertex->hasParent() == false)
+                {
+                    throw ompl::Exception("The path to the goal does not originate at a start state. Something went wrong.");
+                }
+
+                //Push back the parent into the vector as a state pointer:
+                reversePath.push_back(curVertex->getParentConst()->stateConst());
+            }
+            return reversePath;
         }
 
 
@@ -1320,6 +1334,15 @@ namespace ompl
 
                 //Brag:
                 this->goalMessage();
+
+                //If enabled, pass the intermediate solution back through the call back:
+                if (static_cast<bool>(Planner::pdef_->getIntermediateSolutionCallback()) == true)
+                {
+                    //The form of path passed to the intermediate solution callback is not well documented, but it *appears* that it's not supposed
+                    //to include the start or goal; however, that makes no sense for multiple start/goal problems, so we're going to include it anyway (sorry).
+                    //Similarly, it appears to be ordered as (goal, goal-1, goal-2,...start+1, start) which conveniently allows us to reuse code.
+                    Planner::pdef_->getIntermediateSolutionCallback()(this, this->bestPathFromGoalToStart(), bestCost_);
+                }
             }
             //No else, the goal didn't change
         }
