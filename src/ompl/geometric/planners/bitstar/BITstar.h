@@ -178,12 +178,6 @@ namespace ompl
             /** \brief Get whether a k-nearest search is being used.*/
             bool getKNearest() const;
 
-            /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
-            void setUseFailureTracking(bool trackFailures);
-
-            /** \brief Get whether a failed edge list is in use.*/
-            bool getUseFailureTracking() const;
-
             /** \brief Enable "strict sorting" of the edge queue.
             Rewirings can change the position in the queue of an edge.
             When strict sorting is enabled, the effected edges are resorted
@@ -210,12 +204,6 @@ namespace ompl
             /** \brief Get the fractional change in the solution cost necessary for pruning to occur. */
             double getPruneThresholdFraction() const;
 
-            /** \brief Drop unconnected samples on pruning. */
-            void setDropSamplesOnPrune(bool dropSamples);
-
-            /** \brief Get whether unconnected samples are dropped on pruning. */
-            bool getDropSamplesOnPrune() const;
-
             /** \brief Delay considering rewiring edges until an initial solution is found. This improves
             the time required to find an initial solution when doing so requires multiple batches and has
             no effects on theoretical asymptotic optimality (as the rewiring edges are eventually considered). */
@@ -223,6 +211,24 @@ namespace ompl
 
             /** \brief Get whether BIT* is delaying rewiring until a solution is found. */
             bool getDelayRewiringUntilInitialSolution() const;
+
+            /** \brief Use Just-in-time sampling */
+            void setJustInTimeSampling(bool useJit);
+
+            /** \brief Get whether we're using just-in-time sampling */
+            bool getJustInTimeSampling() const;
+
+            /** \brief Drop unconnected samples on pruning. */
+            void setDropSamplesOnPrune(bool dropSamples);
+
+            /** \brief Get whether unconnected samples are dropped on pruning. */
+            bool getDropSamplesOnPrune() const;
+
+            /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
+            void setUseFailureTracking(bool trackFailures);
+
+            /** \brief Get whether a failed edge list is in use.*/
+            bool getUseFailureTracking() const;
 
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by BIT*. */
@@ -345,8 +351,8 @@ namespace ompl
             /** \brief The true cost of an edge, including collisions.*/
             ompl::base::Cost trueEdgeCost(const VertexPtrPair& edgePair) const;
 
-            /** \brief Calculate the max req'd cost to define a neighbourhood around a state. I.e., For path-length problems, the cost equivalent of +2*r. */
-            ompl::base::Cost neighbourhoodCost() const;
+            /** \brief Calculate the max req'd cost to define a neighbourhood around a state. Currently only implemented for path-length problems, for which the neighbourhood cost is the f-value of the vertex plus 2r. */
+            ompl::base::Cost neighbourhoodCost(const VertexPtr& vertex) const;
 
             /** \brief Compare whether cost a is worse than cost b by checking whether b is better than a. */
             bool isCostWorseThan(const ompl::base::Cost& a, const ompl::base::Cost& b) const;
@@ -378,8 +384,8 @@ namespace ompl
             /** \brief Initialize the nearest-neighbour terms */
             void initializeNearestTerms();
 
-            /** \brief Update the appropriate nearest-neighbour terms, r_ and k_ */
-            virtual void updateNearestTerms();
+            /** \brief Update the appropriate nearest-neighbour terms, r_ and k_. Can optionally perform this calculation with or without considering the "future" samples to be added in this batch. */
+            virtual void updateNearestTerms(bool plusFutureSamples);
 
             /** \brief Calculate the r for r-disc nearest neighbours, a function of the current graph */
             double calculateR(unsigned int N) const;
@@ -487,6 +493,9 @@ namespace ompl
 
 
             //Variables -- Make sure every one is configured in setup() and reset in clear():
+            /** \brief An instance of a random number generator */
+            ompl::RNG                                                rng_;
+
             /** \brief State sampler */
             ompl::base::InformedSamplerPtr                           sampler_;
 
@@ -513,9 +522,6 @@ namespace ompl
 
             /** \brief The number of states (vertices or samples) that were generated from a uniform distribution. Only valid when refreshSamplesOnPrune_ is true, in which case it's used to calculate the RGG term of the uniform subgraph.*/
             unsigned int                                             numUniformStates_;
-
-            /** \brief The resulting sampling density for a batch */
-            double                                                   sampleDensity_;
 
             /** \brief The current r-disc RGG connection radius */
             double                                                   r_;
@@ -605,9 +611,6 @@ namespace ompl
             /** \brief The number of samples per batch (param) */
             unsigned int                                             samplesPerBatch_;
 
-            /** \brief Track edges that have been checked and failed so they never reenter the queue. (param) */
-            bool                                                     useFailureTracking_;
-
             /** \brief Option to use k-nearest search for rewiring (param) */
             bool                                                     useKNearest_;
 
@@ -617,11 +620,17 @@ namespace ompl
             /** \brief The fractional decrease in solution cost required to trigger pruning (param) */
             double                                                   pruneFraction_;
 
+            /** \brief Whether to delay rewiring until a solution is found (param) */
+            bool                                                     delayRewiring_;
+
+            /** \brief Whether to use just-in-time sampling (param) */
+            bool                                                     useJustInTimeSampling_;
+
             /** \brief Whether to refresh (i.e., forget) unconnected samples on pruning (param) */
             bool                                                     dropSamplesOnPrune_;
 
-            /** \brief Whether to delay rewiring until a solution is found (param) */
-            bool                                                     delayRewiring_;
+            /** \brief Track edges that have been checked and failed so they never reenter the queue. (param) */
+            bool                                                     useFailureTracking_;
 
             /** \brief Whether to stop the planner as soon as the path changes (param) */
             bool                                                     stopOnSolnChange_;
