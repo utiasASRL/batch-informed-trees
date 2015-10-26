@@ -68,19 +68,25 @@ namespace ompl
     {
         /**
             @anchor gBITstar
-            @par Short description
-            BIT* (Batch Informed Trees) is an anytime asymptotically optimal sampling-based
-            motion planning algorithm that extends Lifelong Planning A* (LPA*) techniques to continuous planning
-            problems. BIT* accomplishes this by processing batches of samples with a heuristic.
-            In doing so, it strikes a balance between algorithms like RRT* and FMT*.
 
-            @par Associated publications:
+            \ref gBITstar "BIT*" (Batch Informed Trees) is an \e anytime asymptotically optimal sampling-based
+            planning algorithm. It approaches problems by assuming that a \e simple solution exists and only
+            goes onto consider \e complex solutions when that proves incorrect. It accomplishes this by using
+            heuristics to search in order of decreasing potential solution quality.
 
-            J.D. Gammell, S. S. Srinivasa, T.D. Barfoot, "BIT*: Batch Informed Trees."
-            In Proceedings of the Information-based Grasp and Manipulation Planning Workshop at
-            Robotics: Science and Systems (RSS). Berkeley, CA, USA, 13 July 2014.
-            <a href="http://asrl.utias.utoronto.ca/~tdb/bib/gammell_rss14.pdf">Extended Abstract</a>.
-            <a href="http://asrl.utias.utoronto.ca/~tdb/bib/gammell_rss14_poster.pdf">Poster</a>.
+            This implementation of BIT* can handle multiple starts, multiple goals, a variety of optimization objectives
+            (e.g., path length), and with \ref gBITstarSetJustInTimeSampling "just-in-time sampling", infinite problem domains.
+            Note that for some of optimization  objectives, the user must specify a suitable heuristic and that when
+            this heuristic is not specified, it will use the conservative/always admissible \e zero-heuristic.
+
+            This implementation also includes some new advancements, including the ability to prioritize exploration until an
+            initial solution is found (\ref gBITstarSetDelayRewiringUntilInitialSolution "Delayed rewiring"), the ability to generate
+            samples only when necessary (\ref gBITstarSetJustInTimeSampling "Just-in-time sampling"), and the ability to periodically
+            remove samples that have yet to be connected to the graph (\ref gBITstarSetDropSamplesOnPrune "Sample dropping"). With
+            just-in-time sampling, BIT* can even solve planning problems with infinite state space boundaries, i.e., (-inf, inf).
+
+
+            @par Associated publication:
 
             J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Batch Informed Trees (BIT*): Sampling-based
             Optimal Planning via the Heuristically Guided Search of Implicit Random Geometric Graphs,"
@@ -90,7 +96,7 @@ namespace ompl
             <a href="http://www.youtube.com/watch?v=MRzSfLpNBmA">Illustration video</a>.
 
             \todo
-            - Make k-nearest RGG calculation correct.
+            - Make the k-nearest variant correct. Right now the search considers the k-nearest samples \e and the k-nearest vertices. It should find the combined k-nearest "samples & vertices".
         */
         /** \brief Batch Informed Trees (BIT*)*/
         class BITstar : public ompl::base::Planner
@@ -204,21 +210,32 @@ namespace ompl
             /** \brief Get the fractional change in the solution cost necessary for pruning to occur. */
             double getPruneThresholdFraction() const;
 
-            /** \brief Delay considering rewiring edges until an initial solution is found. This improves
-            the time required to find an initial solution when doing so requires multiple batches and has
-            no effects on theoretical asymptotic optimality (as the rewiring edges are eventually considered). */
+            /** @anchor gBITstarSetDelayRewiringUntilInitialSolution \brief Delay the consideration of rewiring edges until
+            an initial solution is found. When multiple batches are required to find an initial solution, this can improve the time
+            required to do so, by delaying improvements in the cost-to-come to a connected vertex. As the rewiring edges are considered
+            once an initial solution is found, this has no effect on the theoretical asymptotic optimality of the planner. */
             void setDelayRewiringUntilInitialSolution(bool delayRewiring);
 
             /** \brief Get whether BIT* is delaying rewiring until a solution is found. */
             bool getDelayRewiringUntilInitialSolution() const;
 
-            /** \brief Use Just-in-time sampling */
+            /** @anchor gBITstarSetJustInTimeSampling \brief Delay the generation of samples until they are \e necessary. This only works when using an
+            r-disc connection scheme, and is currently only implemented for problems seeking to minimize path length. This helps reduce the complexity of
+            nearest-neighbour look ups, and can be particularly beneficial in unbounded planning problems where selecting an appropriate bounding box is difficult.
+            With JIT sampling enabled, BIT* can solve planning problems whose state space has \e infinite \e boundaries. When enumerating outgoing edges from
+            a vertex, BIT* uses JIT sampling to assure that the area within r of the vertex has been sampled during this batch. This is done in a way that
+            maintains uniform sample distribution and has no effect on the theoretical asymptotic optimality of the planner. */
             void setJustInTimeSampling(bool useJit);
 
             /** \brief Get whether we're using just-in-time sampling */
             bool getJustInTimeSampling() const;
 
-            /** \brief Drop unconnected samples on pruning. */
+            /** @anchor gBITstarSetDropSamplesOnPrune \brief Drop \e all unconnected samples when pruning, regardless of their heuristic value.
+            This provides a method for BIT* to remove samples that have not been connected to the graph and may be beneficial in problems where
+            portions of the free space are unreachable (i.e., disconnected). BIT* calculates the connection radius for each batch from the underlying
+            uniform distribution of states. The resulting larger connection radius may be detrimental in areas where the graph is dense, but maintains
+            the theoretical asymptotic optimality of the planner.
+            */
             void setDropSamplesOnPrune(bool dropSamples);
 
             /** \brief Get whether unconnected samples are dropped on pruning. */
@@ -281,8 +298,7 @@ namespace ompl
             /** \brief Adds any new goals or starts that have appeared in the problem definition to the list of vertices and the queue. Creates a new informed sampler. Returns true if new starts/goals are created. */
             void updateStartAndGoalStates(const base::PlannerTerminationCondition& ptc);
 
-            /** \brief Prune the starts and goals that have a solution heuristic that is not less than bestCost_
-                \todo In the case where you are adding both starts \e and goals while BIT* is running, an earlier pruned start/goal may preclude a good solution upon addition of a new goal/start. */
+            /** \brief Prune the starts and goals that have a solution heuristic that is not less than bestCost_ */
             void pruneStartsGoals();
 
             /** \brief Prune all samples with a solution heuristic that is not less than the bestCost_ */
@@ -291,7 +307,7 @@ namespace ompl
             /** \brief Checks an edge for collision. A wrapper to SpaceInformation->checkMotion that tracks number of collision checks. */
             bool checkEdge(const VertexPtrPair& edge);
 
-            /** \brief Actually remove a sample from its NN struct: */
+            /** \brief Actually remove a sample from its NN struct.*/
             void dropSample(VertexPtr oldSample);
 
             /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. Updates solution information if the solution improves. */
@@ -507,6 +523,12 @@ namespace ompl
 
             /** \brief The goal states of the problem as vertices */
             std::list<VertexPtr>                                     goalVertices_;
+
+            /** \brief Any start states of the problem that have been pruned */
+            std::list<VertexPtr>                                     prunedStartVertices_;
+
+            /** \brief Any goal states of the problem that have been pruned */
+            std::list<VertexPtr>                                     prunedGoalVertices_;
 
             /** \brief The goal vertex of the current best solution */
             VertexPtr                                                curGoalVertex_;
