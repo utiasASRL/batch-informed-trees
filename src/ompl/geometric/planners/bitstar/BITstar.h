@@ -556,6 +556,12 @@ namespace ompl
             /** \brief The integrated queue of vertices to expand and edges to process ordered on "f-value", i.e., estimated solution cost. Remaining vertex queue "size" and edge queue size are accessible via vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
             IntegratedQueuePtr                                       intQueue_;
 
+            /** \brief A copy of the new samples from this batch */
+            std::vector<VertexPtr>                                   newSamples_;
+
+            /** \brief A copy of the vertices recycled into samples during this batch */
+            std::vector<VertexPtr>                                   recycledSamples_;
+
             /** \brief The number of states (vertices or samples) that were generated from a uniform distribution. Only valid when refreshSamplesOnPrune_ is true, in which case it's used to calculate the RGG term of the uniform subgraph.*/
             unsigned int                                             numUniformStates_;
 

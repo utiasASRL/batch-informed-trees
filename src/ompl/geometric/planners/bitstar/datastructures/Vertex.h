@@ -154,6 +154,24 @@ namespace ompl
             /** \brief Mark the vertex as old. */
             void markOld();
 
+            /** \brief Returns true if the vertex has been expanded towards samples. */
+            bool hasBeenExpandedToSamples() const;
+
+            /** \brief Mark the vertex as expanded towards samples. */
+            void markExpandedToSamples();
+
+            /** \brief Mark the vertex as not expanded towards samples. */
+            void markUnexpandedToSamples();
+
+            /** \brief Returns true if the vertex has been expanded towards vertices. */
+            bool hasBeenExpandedToVertices() const;
+
+            /** \brief Mark the vertex as expanded towards vertices. */
+            void markExpandedToVertices();
+
+            /** \brief Mark the vertex as not expanded towards vertices. */
+            void markUnexpandedToVertices();
+
             /** \brief Whether the vertex has been pruned */
             bool isPruned() const;
 
@@ -192,8 +210,14 @@ namespace ompl
             /** \brief Whether the vertex is a root */
             bool                                                     isRoot_;
 
-            /** \brief Whether the vertex is a new. Vertices are new until marked old. */
+            /** \brief Whether the vertex is new. */
             bool                                                     isNew_;
+
+            /** \brief Whether the vertex had been expanded to samples. */
+            bool                                                     hasBeenExpandedToSamples_;
+
+            /** \brief Whether the vertex has been expanded to vertices. */
+            bool                                                     hasBeenExpandedToVertices_;
 
             /** \brief Whether the vertex is pruned. Vertices throw if any member function other than isPruned() is access after they are pruned. */
             bool                                                     isPruned_;

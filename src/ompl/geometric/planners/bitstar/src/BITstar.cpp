@@ -87,6 +87,8 @@ namespace ompl
             freeStateNN_(),
             vertexNN_(),
             intQueue_(),
+            newSamples_(),
+            recycledSamples_(),
             numUniformStates_(0u),
             r_(0.0), //Purposeful Gibberish
             k_rgg_(0.0), //Purposeful Gibberish
@@ -119,7 +121,7 @@ namespace ompl
             useKNearest_(true),
             usePruning_(true),
             pruneFraction_(0.02),
-            delayRewiring_(false),
+            delayRewiring_(true),
             useJustInTimeSampling_(false),
             dropSamplesOnPrune_(false),
             useFailureTracking_(false),
@@ -330,6 +332,10 @@ namespace ompl
                 vertexNN_->clear();
                 vertexNN_.reset();
             }
+
+            //The list of new and recycled samples
+            newSamples_.clear();
+            recycledSamples_.clear();
 
             //The queue:
             if (static_cast<bool>(intQueue_) == true)
@@ -772,8 +778,28 @@ namespace ompl
             //Set the cost sampled to the minimum
             costSampled_ = minCost_;
 
-            //Finally, update the nearest-neighbour terms for the number of samples we *will* have.
+            //Update the nearest-neighbour terms for the number of samples we *will* have.
             this->updateNearestTerms();
+
+            //Relabel all the previous samples as old
+            for (unsigned int i = 0u; i < newSamples_.size(); ++i)
+            {
+                //If the sample still exists, mark as old. It can get pruned during a resort.
+                if (newSamples_.at(i)->isPruned() == false)
+                {
+                    newSamples_.at(i)->markOld();
+                }
+                //No else, this sample has been pruned and will shortly disappear
+            }
+
+            //Clear the list of new samples
+            newSamples_.clear();
+
+            //Make the recycled vertices to new:
+            newSamples_ = recycledSamples_;
+
+            //Clear the list of recycled
+            recycledSamples_.clear();
         }
 
 
@@ -869,9 +895,7 @@ namespace ompl
             {
                 //Variables:
                 //The current measure of the problem space:
-                double informedMeasure;
-
-                informedMeasure = sampler_->getInformedMeasure(bestCost_);
+                double informedMeasure = sampler_->getInformedMeasure(bestCost_);
 
                 //Is there good reason to prune? I.e., is the informed subset measurably less than the total problem domain? If an informed measure is not available, we'll assume yes:
                 if ( (sampler_->hasInformedMeasure() == true && informedMeasure < si_->getSpaceMeasure()) || (sampler_->hasInformedMeasure() == false) )
@@ -893,7 +917,7 @@ namespace ompl
 
                     //Prune the graph. This can be done extra efficiently by using some info in the integrated queue.
                     //This requires access to the nearest neighbour structures so vertices can be moved to free states.s
-                    numPruned = intQueue_->prune(curGoalVertex_, vertexNN_, freeStateNN_);
+                    numPruned = intQueue_->prune(curGoalVertex_, vertexNN_, freeStateNN_, &recycledSamples_);
 
                     //The number of vertices and samples pruned are incrementally updated.
                     numVerticesDisconnected_ = numVerticesDisconnected_ + numPruned.first;
@@ -923,9 +947,18 @@ namespace ompl
             //The number of vertices and samples pruned
             std::pair<unsigned int, unsigned int> numPruned;
 
-            //Resorting requires access to the nearest neighbour structures so vertices can be pruned instead of resorted.
-            //The number of vertices pruned is also incrementally updated.
-            numPruned = intQueue_->resort(vertexNN_, freeStateNN_);
+            //During resorting we can be lazy and skip resorting vertices that will just be pruned later. So, are we using pruning?
+            if (usePruning_ == true)
+            {
+                //We are, give the queue access to the nearest neighbour structures so vertices can be pruned instead of resorted.
+                //The number of vertices pruned is also incrementally updated.
+                numPruned = intQueue_->resort(vertexNN_, freeStateNN_, &recycledSamples_);
+            }
+            else
+            {
+                //We are not, give it empty NN structs
+                numPruned = intQueue_->resort(VertexPtrNNPtr(), VertexPtrNNPtr(), NULL);
+            }
 
             //The number of vertices and samples pruned are incrementally updated.
             numVerticesDisconnected_ = numVerticesDisconnected_ + numPruned.first;
@@ -1220,7 +1253,7 @@ namespace ompl
                         ++numFreeStatesPruned_;
 
                         //Remove the start vertex completely from the queue, they don't have parents
-                        intQueue_->eraseVertex(*startIter, false, vertexNN_, freeStateNN_);
+                        intQueue_->eraseVertex(*startIter, false, vertexNN_, freeStateNN_, &recycledSamples_);
 
                         //Store the start vertex in the pruned list, in case it later needs to be readded:
                         prunedStartVertices_.push_back(*startIter);
@@ -1261,7 +1294,7 @@ namespace ompl
                             ++numFreeStatesPruned_;
 
                             //And erase it from the queue:
-                            intQueue_->eraseVertex(*goalIter, (*goalIter)->hasParent(), vertexNN_, freeStateNN_);
+                            intQueue_->eraseVertex(*goalIter, (*goalIter)->hasParent(), vertexNN_, freeStateNN_, &recycledSamples_);
 
                             //Store the start vertex in the pruned list, in case it later needs to be readded:
                             prunedGoalVertices_.push_back(*goalIter);
@@ -1374,9 +1407,11 @@ namespace ompl
             }
             else
             {
-                //If not, we just add the vertex, first connect:
+                //If not, we just add the vertex, first mark the target vertex as no longer new and unexpanded:
+                newEdge.second->markUnexpandedToSamples();
+                newEdge.second->markUnexpandedToVertices();
 
-                //Add a child to the parent, not updating costs:
+                //Then add a child to the parent, not updating costs:
                 newEdge.first->addChild(newEdge.second, false);
 
                 //Add a parent to the child, updating descendant costs if requested:
@@ -1532,6 +1567,9 @@ namespace ompl
         {
             //Mark as new
             newSample->markNew();
+
+            //Add to the list of new samples
+            newSamples_.push_back(newSample);
 
             //Add to the NN structure:
             freeStateNN_->add(newSample);

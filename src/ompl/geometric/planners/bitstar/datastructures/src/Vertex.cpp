@@ -52,6 +52,8 @@ namespace ompl
             state_( si_->allocState() ),
             isRoot_(root),
             isNew_(true),
+            hasBeenExpandedToSamples_(false),
+            hasBeenExpandedToVertices_(false),
             isPruned_(false),
             depth_(0u),
             parentSPtr_( VertexPtr() ),
@@ -406,6 +408,60 @@ namespace ompl
             this->assertNotPruned();
 
             isNew_ = false;
+        }
+
+
+
+        bool BITstar::Vertex::hasBeenExpandedToSamples() const
+        {
+            this->assertNotPruned();
+
+            return hasBeenExpandedToSamples_;
+        }
+
+
+
+        void BITstar::Vertex::markExpandedToSamples()
+        {
+            this->assertNotPruned();
+
+            hasBeenExpandedToSamples_ = true;
+        }
+
+
+
+        void BITstar::Vertex::markUnexpandedToSamples()
+        {
+            this->assertNotPruned();
+
+            hasBeenExpandedToSamples_ = false;
+        }
+
+
+
+        bool BITstar::Vertex::hasBeenExpandedToVertices() const
+        {
+            this->assertNotPruned();
+
+            return hasBeenExpandedToVertices_;
+        }
+
+
+
+        void BITstar::Vertex::markExpandedToVertices()
+        {
+            this->assertNotPruned();
+
+            hasBeenExpandedToVertices_ = true;
+        }
+
+
+
+        void BITstar::Vertex::markUnexpandedToVertices()
+        {
+            this->assertNotPruned();
+
+            hasBeenExpandedToVertices_ = false;
         }
 
 
