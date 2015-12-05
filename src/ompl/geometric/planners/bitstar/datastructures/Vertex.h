@@ -192,9 +192,6 @@ namespace ompl
             void updateCostAndDepth(bool cascadeUpdates = true);
 
         private:
-            /** \brief The type of container used to store the failed children */
-            typedef boost::unordered_set<BITstar::VertexId>             FailedIdUSet;
-
             /** \brief The vertex ID */
             BITstar::VertexId                                           vId_;
 
@@ -236,9 +233,6 @@ namespace ompl
 
             /** \brief The child states as weak pointers, such that the ownership loop is broken and a state can be deleted once it's children are.*/
             std::vector<VertexWeakPtr>                           childWPtrs_;
-
-            /** \brief The unordered set of failed child vertices*/
-            FailedIdUSet                                              failedVIds_;
 
 
             /** \brief A helper function to check that the vertex is not pruned and throw if so */

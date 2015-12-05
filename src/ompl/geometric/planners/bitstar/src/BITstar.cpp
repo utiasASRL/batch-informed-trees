@@ -124,7 +124,6 @@ namespace ompl
             delayRewiring_(true),
             useJustInTimeSampling_(false),
             dropSamplesOnPrune_(false),
-            useFailureTracking_(false),
             stopOnSolnChange_(false)
         {
             //Specify my planner specs:
@@ -238,7 +237,6 @@ namespace ompl
             //Configure the queue
             //boost::make_shared can only take 9 arguments, so be careful:
             intQueue_ = boost::make_shared<IntegratedQueue> (opt_, boost::bind(&BITstar::nnDistance, this, _1, _2), boost::bind(&BITstar::nearestSamples, this, _1, _2), boost::bind(&BITstar::nearestVertices, this, _1, _2), boost::bind(&BITstar::lowerBoundHeuristicVertex, this, _1), boost::bind(&BITstar::currentHeuristicVertex, this, _1), boost::bind(&BITstar::lowerBoundHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdge, this, _1), boost::bind(&BITstar::currentHeuristicEdgeTarget, this, _1));
-            intQueue_->setUseFailureTracking(useFailureTracking_);
             intQueue_->setDelayedRewiring(delayRewiring_);
 
             //Set the best-cost, pruned-cost, sampled-cost and min-cost to the proper opt_-based values:
@@ -354,7 +352,6 @@ namespace ompl
             //delayRewiring_
             //useJustInTimeSampling_
             //dropSamplesOnPrune_
-            //useFailureTracking_
             //stopOnSolnChange_
 
             //Reset the various calculations? TODO: Should I recalculate them?
@@ -725,21 +722,9 @@ namespace ompl
                             }
                             //No else, this edge may be useful at some later date.
                         }
-                        else if (useFailureTracking_ == true)
-                        {
-                            //If the edge failed, and we're tracking failures, record.
-                            //This edge has a collision and can never be helpful. Poor edge. Add the target to the list of failed children for the source:
-                            bestEdge.first->markAsFailedChild(bestEdge.second);
-                        }
-                        //No else, we failed and we're not tracking those
+                        //No else, we failed
                     }
-                    else if (useFailureTracking_ == true)
-                    {
-                        //If the edge failed, and we're tracking failures, record.
-                        //This edge either has a very high edge cost and can never be helpful. Poor edge. Add the target to the list of failed children for the source
-                        bestEdge.first->markAsFailedChild(bestEdge.second);
-                    }
-                    //No else, we failed and we're not tracking those
+                    //No else, we failed
                 }
                 else if (intQueue_->isSorted() == false)
                 {
@@ -2234,27 +2219,6 @@ namespace ompl
         bool BITstar::getDropSamplesOnPrune() const
         {
             return dropSamplesOnPrune_;
-        }
-
-
-
-        void BITstar::setUseFailureTracking(bool trackFailures)
-        {
-            //Store
-            useFailureTracking_ = trackFailures;
-
-            //Configure queue if constructed:
-            if (intQueue_)
-            {
-                intQueue_->setUseFailureTracking(useFailureTracking_);
-            }
-        }
-
-
-
-        bool BITstar::getUseFailureTracking() const
-        {
-            return useFailureTracking_;
         }
 
 

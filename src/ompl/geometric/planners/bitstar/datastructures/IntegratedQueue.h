@@ -121,12 +121,6 @@ namespace ompl
 
             virtual ~IntegratedQueue();
 
-            /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
-            void setUseFailureTracking(bool trackFailures);
-
-            /** \brief Get whether a failed edge list is in use.*/
-            bool getUseFailureTracking() const;
-
             /** \brief Delay considering rewiring edges until an initial solution is found. This improves
             the time required to find an initial solution when doing so requires multiple batches and has
             no effects on theoretical asymptotic optimality (as the rewiring edges are eventually considered). */
@@ -401,9 +395,6 @@ namespace ompl
 
             /** \brief The current heuristic to the end of an edge. */
             EdgeHeuristicFunc                                        currentHeuristicEdgeTargetFunc_;
-
-            /** \brief Whether to use failure tracking or not */
-            bool                                                     useFailureTracking_;
 
             /** \brief Whether to delay rewiring until an initial solution is found or not */
             bool                                                     delayRewiring_;

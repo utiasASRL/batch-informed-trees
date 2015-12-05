@@ -57,7 +57,6 @@ namespace ompl
                 lowerBoundHeuristicEdgeFunc_(lowerBoundHeuristicEdge),
                 currentHeuristicEdgeFunc_(currentHeuristicEdge),
                 currentHeuristicEdgeTargetFunc_(currentHeuristicEdgeTarget),
-                useFailureTracking_(false),
                 delayRewiring_(true),
                 outgoingLookupTables_(true),
                 incomingLookupTables_(true),
@@ -1053,38 +1052,19 @@ namespace ompl
 
         void BITstar::IntegratedQueue::queueupEdge(const VertexPtr& parent, const VertexPtr& child)
         {
-            //Variables:
-            //A bool to store the conditional failed edge check
-            bool previouslyFailed;
+            //Variable:
+            //The edge:
+            VertexPtrPair newEdge;
 
-            //See if we're checking for previous failure:
-            if (useFailureTracking_ == true)
+            //Make the edge
+            newEdge = std::make_pair(parent, child);
+
+            //Should this edge be in the queue? I.e., is it *not* due to be pruned:
+            if (this->edgePruneCondition(newEdge) == false)
             {
-                previouslyFailed = parent->hasAlreadyFailed(child);
+                this->edgeInsertHelper(newEdge, edgeQueue_.end());
             }
-            else
-            {
-                previouslyFailed = false;
-            }
-
-            //Make sure the edge has not already failed
-            if (previouslyFailed == false)
-            {
-                //Variable:
-                //The edge:
-                VertexPtrPair newEdge;
-
-                //Make the edge
-                newEdge = std::make_pair(parent, child);
-
-                //Should this edge be in the queue? I.e., is it *not* due to be pruned:
-                if (this->edgePruneCondition(newEdge) == false)
-                {
-                    this->edgeInsertHelper(newEdge, edgeQueue_.end());
-                }
-                //No else, we assume that it's better to calculate this condition multiple times than have the list of failed sets become too large...?
-            }
-            //No else
+            //No else, it can never provide a better solution
         }
 
 
@@ -1689,20 +1669,6 @@ namespace ompl
 
         /////////////////////////////////////////////////////////////////////////////////////////////
         //Boring sets/gets (Public):
-        void BITstar::IntegratedQueue::setUseFailureTracking(bool trackFailures)
-        {
-            useFailureTracking_ = trackFailures;
-        }
-
-
-
-        bool BITstar::IntegratedQueue::getUseFailureTracking() const
-        {
-            return useFailureTracking_;
-        }
-
-
-
         void BITstar::IntegratedQueue::setDelayedRewiring(bool delayRewiring)
         {
             delayRewiring_ = delayRewiring;

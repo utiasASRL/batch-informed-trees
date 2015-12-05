@@ -249,12 +249,6 @@ namespace ompl
             /** \brief Get whether unconnected samples are dropped on pruning. */
             bool getDropSamplesOnPrune() const;
 
-            /** \brief Enable tracking of failed edges. This currently is too expensive to be useful.*/
-            void setUseFailureTracking(bool trackFailures);
-
-            /** \brief Get whether a failed edge list is in use.*/
-            bool getUseFailureTracking() const;
-
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by BIT*. */
             void setStopOnSolnImprovement(bool stopOnChange);
@@ -673,9 +667,6 @@ namespace ompl
 
             /** \brief Whether to refresh (i.e., forget) unconnected samples on pruning (param) */
             bool                                                     dropSamplesOnPrune_;
-
-            /** \brief Track edges that have been checked and failed so they never reenter the queue. (param) */
-            bool                                                     useFailureTracking_;
 
             /** \brief Whether to stop the planner as soon as the path changes (param) */
             bool                                                     stopOnSolnChange_;
