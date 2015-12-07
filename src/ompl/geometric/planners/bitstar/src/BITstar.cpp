@@ -1734,13 +1734,14 @@ namespace ompl
 
         ompl::base::Cost BITstar::neighbourhoodCost(const VertexConstPtr& vertex) const
         {
+            //Even though the problem domain is defined by prunedCost_ (the cost the last time we pruned), there is no point generating samples outside bestCost_ (which may be less).
             if (useJustInTimeSampling_ == true)
             {
-                return opt_->betterCost(prunedCost_, opt_->combineCosts(this->lowerBoundHeuristicVertex(vertex), ompl::base::Cost(2.0 * r_)));
+                return opt_->betterCost(bestCost_, opt_->combineCosts(this->lowerBoundHeuristicVertex(vertex), ompl::base::Cost(2.0 * r_)));
             }
             else
             {
-                return prunedCost_;
+                return bestCost_;
             }
         }
 
