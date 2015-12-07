@@ -120,7 +120,7 @@ namespace ompl
             samplesPerBatch_(100u),
             useKNearest_(true),
             usePruning_(true),
-            pruneFraction_(0.02),
+            pruneFraction_(0.01),
             delayRewiring_(true),
             useJustInTimeSampling_(false),
             dropSamplesOnPrune_(false),
