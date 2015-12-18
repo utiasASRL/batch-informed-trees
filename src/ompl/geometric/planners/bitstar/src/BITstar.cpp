@@ -126,6 +126,19 @@ namespace ompl
             dropSamplesOnPrune_(false),
             stopOnSolnChange_(false)
         {
+            //Make sure the default name reflects the default k-nearest setting, if not overridden to something else
+            if (useKNearest_ == true && Planner::getName() == "BITstar")
+            {
+                //It's the current default r-disc BIT* name, but we're using k-nearest, so change
+                Planner::setName("kBITstar");
+            }
+            else if (useKNearest_ == false && Planner::getName() == "kBITstar")
+            {
+                //It's the current default k-nearest BIT* name, but we're using r-disc, so change
+                Planner::setName("BITstar");
+            }
+            //It's not default named, don't change it
+
             //Specify my planner specs:
             Planner::specs_.recognizedGoal = ompl::base::GOAL_SAMPLEABLE_REGION;
             Planner::specs_.multithreaded = false;
@@ -2059,6 +2072,19 @@ namespace ompl
             //Check if the flag has changed
             if (useKNearest != useKNearest_)
             {
+                //If the planner is default named, we change it:
+                if (useKNearest_ == true && Planner::getName() == "kBITstar")
+                {
+                    //It's current the default k-nearest BIT* name, and we're toggling, so set to the default r-disc
+                    Planner::setName("BITstar");
+                }
+                else if (useKNearest_ == false && Planner::getName() == "BITstar")
+                {
+                    //It's current the default r-disc BIT* name, and we're toggling, so set to the default k-nearest
+                    Planner::setName("kBITstar");
+                }
+                //It's not default named, don't change it
+
                 //Set the k-nearest flag
                 useKNearest_ = useKNearest;
 
