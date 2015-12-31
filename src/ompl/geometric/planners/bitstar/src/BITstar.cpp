@@ -116,7 +116,7 @@ namespace ompl
             numNearestNeighbours_(0u),
             numEdgesProcessed_(0u),
             useStrictQueueOrdering_(true),
-            rewireFactor_(2.0),
+            rewireFactor_(1.1),
             samplesPerBatch_(100u),
             useKNearest_(true),
             usePruning_(true),
