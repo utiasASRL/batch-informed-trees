@@ -23,7 +23,16 @@ if(MSVC OR MSVC90 OR MSVC10)
     set(MSVC ON)
 endif (MSVC OR MSVC90 OR MSVC10)
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
+# add "${prefix}/share/cmake/Modules", which is where Eigen3's module is in MacPorts.
+if(${CMAKE_VERSION} VERSION_LESS 2.8.12)
+    get_filename_component(CMAKE_ROOT_DIR "${CMAKE_ROOT}" PATH)
+else()
+    get_filename_component(CMAKE_ROOT_DIR "${CMAKE_ROOT}" DIRECTORY)
+endif()
+set(CMAKE_MODULE_PATH
+    "${CMAKE_MODULE_PATH}"
+    "${CMAKE_ROOT_DIR}/cmake/Modules"
+    "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 include(GNUInstallDirs)
 include(CompilerSettings)
 include(OMPLVersion)
@@ -112,7 +121,7 @@ find_package(Boost COMPONENTS python QUIET)
 find_package(Eigen3 QUIET)
 if (EIGEN3_FOUND)
     set(OMPL_HAVE_EIGEN3 1)
-    include_directories("${EIGEN3_INCLUDE_DIRS}")
+    include_directories("${EIGEN3_INCLUDE_DIR}")
 endif()
 
 # MORSE is only needed for Modular OpenRobots Simulation Engine bindings
@@ -159,27 +168,26 @@ add_subdirectory(demos)
 add_subdirectory(scripts)
 add_subdirectory(doc)
 
-if (NOT MSVC)
-  target_link_flags(ompl)
-  set(PKG_NAME "ompl")
-  set(PKG_DESC "The Open Motion Planning Library")
-  set(PKG_OMPL_LIBS "-lompl ${ompl_LINK_FLAGS}")
-  set(pkg_conf_file "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules/ompl.pc")
-  configure_file("${pkg_conf_file}.in" "${pkg_conf_file}" @ONLY)
-  install(FILES "${pkg_conf_file}"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig/
-    COMPONENT ompl
-    RENAME "ompl${OMPL_INSTALL_SUFFIX}.pc")
+target_link_flags(ompl)
+set(PKG_NAME "ompl")
+set(PKG_DESC "The Open Motion Planning Library")
+set(PKG_EXTERNAL_DEPS "${ompl_PKG_DEPS}")
+set(PKG_OMPL_LIBS "-lompl ${ompl_LINK_FLAGS}")
+set(pkg_conf_file "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules/ompl.pc")
+configure_file("${pkg_conf_file}.in" "${pkg_conf_file}" @ONLY)
+install(FILES "${pkg_conf_file}"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig/
+  COMPONENT ompl
+  RENAME "ompl${OMPL_INSTALL_SUFFIX}.pc")
 
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/doc/markdown/FindOMPL.cmake"
-    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ompl${OMPL_INSTALL_SUFFIX}"
-    COMPONENT ompl
-    RENAME ompl-config.cmake)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/doc/markdown/FindOMPL.cmake"
+  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ompl${OMPL_INSTALL_SUFFIX}"
+  COMPONENT ompl
+  RENAME ompl-config.cmake)
 
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ompl.conf"
-    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ompl${OMPL_INSTALL_SUFFIX}"
-    COMPONENT ompl)
-endif()
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ompl.conf"
+  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ompl${OMPL_INSTALL_SUFFIX}"
+  COMPONENT ompl)
 
 # uninstall target
 configure_file(

@@ -41,8 +41,14 @@ sqlProblemParamSelect <- function(param, val) {
         # select all
         "1"
     else
-        # select specific parameter value
-        sprintf('experiments.%s = "%s"', param, val)
+        # select specific parameter value.
+        # Use fuzzy matching when comparing numbers because precision is lost
+        # when real-valued parameter values are converted to strings for
+        # parameter selection widget.
+        if (regexpr('[-+]?\\d*\\.\\d+|\\d+', val)[1] == -1)
+            sprintf('experiments.%s = "%s"', param, val)
+        else
+            sprintf('ABS(experiments.%s - %s) < 1e-10', param, val)
 }
 sqlPlannerSelect <- function(name) sprintf('plannerConfigs.name = "%s"', name)
 sqlVersionSelect <- function(version) sprintf('experiments.version = "%s"', version)
@@ -242,12 +248,18 @@ server <- function(input, output, session) {
                 div(class="well well-light",
                     checkboxInput("perfShowAsCDF", label = "Show as cumulative distribution function"),
                     checkboxInput("perfShowSimplified", label = "Include results after simplification"),
-                    checkboxInput("perfShowParameterizedBoxPlots", label = "Show box plots for parametrized benchmarks")
+                    checkboxInput("perfShowParameterizedBoxPlots", label = "Show box plots for parametrized benchmarks"),
+                    checkboxInput("perfShowSQLquery", label = "Show SQL query")
                 )
             )
         )
     })
-    output$regrAttrSelect <- renderUI({ perfAttrSelectWidget(con(), "regrAttr") })
+    output$regrAttrSelect <- renderUI({
+        list(
+            perfAttrSelectWidget(con(), "regrAttr"),
+            checkboxInput("regrShowSQLquery", label = "Show SQL query")
+        )
+    })
     output$progAttrSelect <- renderUI({
         progressAttrs <- dbGetQuery(con(), "PRAGMA table_info(progress)")
         # strip off first 2 names, which correspond to an internal id and time
@@ -256,9 +268,13 @@ server <- function(input, output, session) {
             conditionalDisable(selectInput("progress", label = h4("Progress attribute"),
                 choices = attrs
             ), length(attrs) < 2),
-            div(class="well well-light",
-                checkboxInput("progressShowMeasurements", label = "Show individual measurements"),
-                sliderInput("progressOpacity", label = "Measurement opacity", 0, 100, 50)
+            checkboxInput('progShowAdvOptions', 'Show advanced options', FALSE),
+            conditionalPanel(condition = 'input.progShowAdvOptions',
+                div(class="well well-light",
+                    checkboxInput("progressShowMeasurements", label = "Show individual measurements"),
+                    sliderInput("progressOpacity", label = "Measurement opacity", 0, 100, 50),
+                    checkboxInput("progShowSQLquery", label = "Show SQL query")
+                )
             )
         )
     })
@@ -416,7 +432,7 @@ server <- function(input, output, session) {
                 }
             }
         }
-        p
+        list(plot=p, query=query)
     })
     output$perfPlot <- renderPlot({
         validate(
@@ -425,21 +441,30 @@ server <- function(input, output, session) {
             need(input$perfAttr, 'Select a benchmark attribute'),
             need(input$perfPlanners, 'Select some planners')
         )
-        print(perfPlot())
+        print(perfPlot()$plot)
     })
     output$perfDownloadPlot <- downloadHandler(filename = 'perfplot.pdf',
         content = function(file) {
             pdf(file=file, width=input$paperWidth, height=input$paperHeight)
-            print(perfPlot())
+            print(perfPlot()$plot)
             dev.off()
         }
     )
     output$perfDownloadRdata <- downloadHandler(filename = 'perfplot.RData',
         content = function(file) {
-            perfplot <- perfPlot()
+            perfplot <- perfPlot()$plot
             save(perfplot, file = file)
         }
     )
+    output$perfSQLquery <- renderText({
+        validate(
+            need(input$perfVersion, 'Select a version'),
+            need(input$perfProblem, 'Select a problem'),
+            need(input$perfAttr, 'Select a benchmark attribute'),
+            need(input$perfPlanners, 'Select some planners')
+        )
+        perfPlot()$query
+    })
     output$perfMissingDataTable <- renderTable({
         validate(
             need(input$perfVersion, 'Select a version'),
@@ -499,7 +524,7 @@ server <- function(input, output, session) {
         data$planner <- factor(data$planner, unique(data$planner), labels = sapply(unique(data$planner), plannerNameMapping))
         if (!is.null(grouping))
             data$grouping <- factor(data$grouping)
-        list(data = data, grouping = grouping)
+        list(data = data, grouping = grouping, query = query)
     })
     progPlot <- reactive({
         attr <- gsub(" ", "_", input$progress)
@@ -557,6 +582,9 @@ server <- function(input, output, session) {
             save(progplot, prognummeasurementsplot, file = file)
         }
     )
+    output$progSQLquery <- renderText({
+        progPlotData()$query
+    })
 
     # regression plot
     regrPlot <- reactive({
@@ -590,6 +618,7 @@ server <- function(input, output, session) {
             stat_summary(fun.data = "mean_cl_boot", geom="errorbar", position = position_dodge())
         if (!is.null(grouping))
             p <- p + facet_grid(grouping ~ .)
+        list(plot = p, query = query)
     })
     output$regrPlot <- renderPlot({
         validate(
@@ -598,21 +627,24 @@ server <- function(input, output, session) {
             need(input$regrAttr, 'Select a benchmark attribute'),
             need(input$regrPlanners, 'Select some planners')
         )
-        print(regrPlot())
+        print(regrPlot()$plot)
     })
     output$regrDownloadPlot <- downloadHandler(filename = 'regrplot.pdf',
         content = function(file) {
             pdf(file=file, width=input$paperWidth, height=input$paperHeight)
-            print(regrPlot())
+            print(regrPlot()$plot)
             dev.off()
         }
     )
     output$regrDownloadRdata <- downloadHandler(filename = 'regrplot.RData',
         content = function(file) {
-            regrplot <- regrPlot()
+            regrplot <- regrPlot()$plot
             save(regrplot, file = file)
         }
     )
+    output$regrSQLquery <- renderText({
+        regrPlot()$query
+    })
 
     output$performancePage <- renderUI({
         validate(need(con(), noDatabaseText))
@@ -629,7 +661,13 @@ server <- function(input, output, session) {
                 span(downloadLink('perfDownloadRdata', 'Download plot as RData'), class="btn btn-default"),
                 plotOutput("perfPlot"),
                 h4("Number of missing data points out of the total number of runs per planner"),
-                tableOutput("perfMissingDataTable")
+                tableOutput("perfMissingDataTable"),
+                conditionalPanel(condition = 'input.perfShowSQLquery',
+                    div(
+                        h4("SQL query"),
+                        verbatimTextOutput("perfSQLquery")
+                    )
+                )
             )
         )
     })
@@ -648,7 +686,13 @@ server <- function(input, output, session) {
                 span(downloadLink('progDownloadPlot', 'Download plot as PDF'), class="btn btn-default"),
                 span(downloadLink('progDownloadRdata', 'Download plot as RData'), class="btn btn-default"),
                 plotOutput("progPlot"),
-                plotOutput("progNumMeasurementsPlot")
+                plotOutput("progNumMeasurementsPlot"),
+                conditionalPanel(condition = 'input.progShowSQLquery',
+                    div(
+                        h4("SQL query"),
+                        verbatimTextOutput("progSQLquery")
+                    )
+                )
             )
         )
     })
@@ -667,7 +711,13 @@ server <- function(input, output, session) {
             mainPanel(
                 span(downloadLink('regrDownloadPlot', 'Download plot as PDF'), class="btn btn-default"),
                 span(downloadLink('regrDownloadRdata', 'Download plot as RData'), class="btn btn-default"),
-                plotOutput("regrPlot")
+                plotOutput("regrPlot"),
+                conditionalPanel(condition = 'input.regrShowSQLquery',
+                    div(
+                        h4("SQL query"),
+                        verbatimTextOutput("regrSQLquery")
+                    )
+                )
             )
         )
     })
