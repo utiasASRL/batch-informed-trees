@@ -41,7 +41,7 @@
 #include "ompl/control/planners/PlannerIncludes.h"
 #include "ompl/base/ProjectionEvaluator.h"
 #include "ompl/datastructures/PDF.h"
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <vector>
 
 namespace ompl
@@ -78,11 +78,11 @@ namespace ompl
             /** \brief Constructor */
             EST(const SpaceInformationPtr &si);
 
-            virtual ~EST();
+            ~EST() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief In the process of randomly selecting states in
                 the state space to attempt to go towards, the
@@ -138,9 +138,9 @@ namespace ompl
                 return projectionEvaluator_;
             }
 
-            virtual void setup();
+            void setup() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
         protected:
 
@@ -152,18 +152,16 @@ namespace ompl
             {
             public:
 
-                Motion() : state(NULL), control(NULL), steps(0), parent(NULL)
+                Motion() : state(nullptr), control(nullptr), steps(0), parent(nullptr)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state and the control */
-                Motion(const SpaceInformation *si) : state(si->allocState()), control(si->allocControl()), steps(0), parent(NULL)
+                Motion(const SpaceInformation *si) : state(si->allocState()), control(si->allocControl()), steps(0), parent(nullptr)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The state contained by the motion */
                 base::State       *state;
@@ -181,10 +179,10 @@ namespace ompl
             struct MotionInfo;
 
             /** \brief A grid cell */
-            typedef Grid<MotionInfo>::Cell GridCell;
+            using GridCell = Grid<MotionInfo>::Cell;
 
             /** \brief A PDF of grid cells */
-            typedef PDF<GridCell*>        CellPDF;
+            using CellPDF = PDF<GridCell *>;
 
             /** \brief A struct containing an array of motions and a corresponding PDF element */
             struct MotionInfo

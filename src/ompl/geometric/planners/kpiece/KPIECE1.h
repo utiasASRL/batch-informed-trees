@@ -78,11 +78,11 @@ namespace ompl
             /** \brief Constructor */
             KPIECE1(const base::SpaceInformationPtr &si);
 
-            virtual ~KPIECE1();
+            ~KPIECE1() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Set the goal bias.
 
@@ -191,9 +191,9 @@ namespace ompl
                 return projectionEvaluator_;
             }
 
-            virtual void setup();
+            void setup() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
         protected:
 
@@ -202,18 +202,16 @@ namespace ompl
             {
             public:
 
-                Motion() : state(NULL), parent(NULL)
+                Motion() : state(nullptr), parent(nullptr)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state */
-                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(NULL)
+                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(nullptr)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The state contained by this motion */
                 base::State       *state;

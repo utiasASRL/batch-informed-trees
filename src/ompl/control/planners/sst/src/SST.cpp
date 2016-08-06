@@ -70,10 +70,10 @@ void ompl::control::SST::setup()
     base::Planner::setup();
     if (!nn_)
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
-    nn_->setDistanceFunction(boost::bind(&SST::distanceFunction, this, _1, _2));
+    nn_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
     if (!witnesses_)
         witnesses_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
-    witnesses_->setDistanceFunction(boost::bind(&SST::distanceFunction, this, _1, _2));
+    witnesses_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
     if (pdef_)
     {
@@ -114,34 +114,34 @@ void ompl::control::SST::freeMemory()
     {
         std::vector<Motion*> motions;
         nn_->list(motions);
-        for (unsigned int i = 0 ; i < motions.size() ; ++i)
+        for (auto & motion : motions)
         {
-            if (motions[i]->state_)
-                si_->freeState(motions[i]->state_);
-            if (motions[i]->control_)
-                siC_->freeControl(motions[i]->control_);
-            delete motions[i];
+            if (motion->state_)
+                si_->freeState(motion->state_);
+            if (motion->control_)
+                siC_->freeControl(motion->control_);
+            delete motion;
         }
     }
     if (witnesses_)
     {
         std::vector<Motion*> witnesses;
         witnesses_->list(witnesses);
-        for (unsigned int i = 0 ; i < witnesses.size() ; ++i)
+        for (auto & witness : witnesses)
         {
-            delete witnesses[i];
+            delete witness;
         }
     }
-    for (unsigned int i = 0 ; i < prevSolution_.size() ; ++i)
+    for (auto & i : prevSolution_)
     {
-        if (prevSolution_[i])
-            si_->freeState(prevSolution_[i]);
+        if (i)
+            si_->freeState(i);
     }
     prevSolution_.clear();
-    for (unsigned int i = 0 ; i < prevSolutionControls_.size() ; ++i)
+    for (auto & prevSolutionControl : prevSolutionControls_)
     {
-        if (prevSolutionControls_[i])
-            siC_->freeControl(prevSolutionControls_[i]);
+        if (prevSolutionControl)
+            siC_->freeControl(prevSolutionControl);
     }
     prevSolutionControls_.clear();
     prevSolutionSteps_.clear();
@@ -150,24 +150,24 @@ void ompl::control::SST::freeMemory()
 ompl::control::SST::Motion* ompl::control::SST::selectNode(ompl::control::SST::Motion *sample)
 {
     std::vector<Motion*> ret;
-    Motion *selected = NULL;
+    Motion *selected = nullptr;
     base::Cost bestCost = opt_->infiniteCost();
     nn_->nearestR(sample, selectionRadius_, ret);
-    for (unsigned int i = 0; i < ret.size(); i++)
+    for (auto & i : ret)
     {
-        if (!ret[i]->inactive_ && opt_->isCostBetterThan(ret[i]->accCost_, bestCost))
+        if (!i->inactive_ && opt_->isCostBetterThan(i->accCost_, bestCost))
         {
-            bestCost = ret[i]->accCost_;
-            selected = ret[i];
+            bestCost = i->accCost_;
+            selected = i;
         }
     }
-    if (selected == NULL)
+    if (selected == nullptr)
     {
         int k = 1;
-        while (selected == NULL)
+        while (selected == nullptr)
         {
             nn_->nearestK(sample, k, ret);
-            for (unsigned int i=0; i < ret.size() && selected == NULL; i++)
+            for (unsigned int i=0; i < ret.size() && selected == nullptr; i++)
                 if (!ret[i]->inactive_)
                     selected = ret[i];
             k += 5;
@@ -192,7 +192,7 @@ ompl::control::SST::Witness* ompl::control::SST::findClosestWitness(ompl::contro
     }
     else
     {
-        Witness* closest = new Witness(siC_);
+        auto* closest = new Witness(siC_);
         closest->linkRep(node);
         si_->copyState(closest->state_, node->state_);
         witnesses_->add(closest);
@@ -208,7 +208,7 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
 
     while (const base::State *st = pis_.nextStart())
     {
-        Motion *motion = new Motion(siC_);
+        auto *motion = new Motion(siC_);
         si_->copyState(motion->state_, st);
         siC_->nullControl(motion->control_);
         nn_->add(motion);
@@ -229,12 +229,12 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
 
     OMPL_INFORM("%s: Starting planning with %u states already in datastructure\n", getName().c_str(), nn_->size());
 
-    Motion *solution  = NULL;
-    Motion *approxsol = NULL;
+    Motion *solution  = nullptr;
+    Motion *approxsol = nullptr;
     double  approxdif = std::numeric_limits<double>::infinity();
     bool sufficientlyShort = false;
 
-    Motion      *rmotion = new Motion(siC_);
+    auto      *rmotion = new Motion(siC_);
     base::State  *rstate = rmotion->state_;
     Control       *rctrl = rmotion->control_;
     base::State  *xstate = si_->allocState();
@@ -272,7 +272,7 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
             {
                 Motion* oldRep = closestWitness->rep_;
                 /* create a motion */
-                Motion *motion = new Motion(siC_);
+                auto *motion = new Motion(siC_);
                 motion->accCost_ = cost;
                 si_->copyState(motion->state_, rmotion->state_);
                 siC_->copyControl(motion->control_, rctrl);
@@ -289,19 +289,19 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
                     approxdif = dist;
                     solution = motion;
 
-                    for (unsigned int i = 0 ; i < prevSolution_.size() ; ++i)
-                        if (prevSolution_[i])
-                            si_->freeState(prevSolution_[i]);
+                    for (auto & i : prevSolution_)
+                        if (i)
+                            si_->freeState(i);
                     prevSolution_.clear();
-                    for (unsigned int i = 0 ; i < prevSolutionControls_.size() ; ++i)
-                        if (prevSolutionControls_[i])
-                            siC_->freeControl(prevSolutionControls_[i]);
+                    for (auto & prevSolutionControl : prevSolutionControls_)
+                        if (prevSolutionControl)
+                            siC_->freeControl(prevSolutionControl);
                     prevSolutionControls_.clear();
                     prevSolutionSteps_.clear();
 
 
                     Motion* solTrav = solution;
-                    while(solTrav->parent_!=NULL)
+                    while(solTrav->parent_!=nullptr)
                     {
                         prevSolution_.push_back(si_->cloneState(solTrav->state_) );
                         prevSolutionControls_.push_back(siC_->cloneControl(solTrav->control_) );
@@ -319,25 +319,25 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
                     if (sufficientlyShort)
                         break;
                 }
-                if (solution==NULL && dist < approxdif)
+                if (solution==nullptr && dist < approxdif)
                 {
                     approxdif = dist;
                     approxsol = motion;
 
 
 
-                    for (unsigned int i = 0 ; i < prevSolution_.size() ; ++i)
-                        if (prevSolution_[i])
-                            si_->freeState(prevSolution_[i]);
+                    for (auto & i : prevSolution_)
+                        if (i)
+                            si_->freeState(i);
                     prevSolution_.clear();
-                    for (unsigned int i = 0 ; i < prevSolutionControls_.size() ; ++i)
-                        if (prevSolutionControls_[i])
-                            siC_->freeControl(prevSolutionControls_[i]);
+                    for (auto & prevSolutionControl : prevSolutionControls_)
+                        if (prevSolutionControl)
+                            siC_->freeControl(prevSolutionControl);
                     prevSolutionControls_.clear();
                     prevSolutionSteps_.clear();
 
                     Motion *solTrav = approxsol;
-                    while (solTrav->parent_!=NULL)
+                    while (solTrav->parent_!=nullptr)
                     {
                         prevSolution_.push_back(si_->cloneState(solTrav->state_) );
                         prevSolutionControls_.push_back(siC_->cloneControl(solTrav->control_) );
@@ -358,8 +358,8 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
                         if (oldRep->control_)
                             siC_->freeControl(oldRep->control_);
 
-                        oldRep->state_=NULL;
-                        oldRep->control_=NULL;
+                        oldRep->state_=nullptr;
+                        oldRep->control_=nullptr;
                         oldRep->parent_->numChildren_--;
                         Motion* oldRepParent = oldRep->parent_;
                         delete oldRep;
@@ -374,16 +374,16 @@ ompl::base::PlannerStatus ompl::control::SST::solve(const base::PlannerTerminati
 
     bool solved = false;
     bool approximate = false;
-    if (solution == NULL)
+    if (solution == nullptr)
     {
         solution = approxsol;
         approximate = true;
     }
 
-    if (solution != NULL)
+    if (solution != nullptr)
     {
         /* set the solution path */
-        PathControl *path = new PathControl(si_);
+        auto *path = new PathControl(si_);
         for (int i = prevSolution_.size() - 1 ; i >= 1 ; --i)
             path->append(prevSolution_[i], prevSolutionControls_[i-1], prevSolutionSteps_[i-1] * siC_->getPropagationStepSize());
         path->append(prevSolution_[0]);
@@ -412,16 +412,16 @@ void ompl::control::SST::getPlannerData(base::PlannerData &data) const
     if (nn_)
         nn_->list(motions);
 
-    for(unsigned i=0;i<motions.size();i++)
+    for(auto & motion : motions)
     {
-        if(motions[i]->numChildren_==0)
+        if(motion->numChildren_==0)
         {
-            allMotions.push_back(motions[i]);
+            allMotions.push_back(motion);
         }
     }
     for(unsigned i=0;i<allMotions.size();i++)
     {
-        if(allMotions[i]->parent_!=NULL)
+        if(allMotions[i]->parent_!=nullptr)
         {
             allMotions.push_back(allMotions[i]->parent_);
         }
@@ -432,9 +432,8 @@ void ompl::control::SST::getPlannerData(base::PlannerData &data) const
     if (prevSolution_.size()!=0)
         data.addGoalVertex(base::PlannerDataVertex(prevSolution_[0]));
 
-    for (unsigned int i = 0 ; i < allMotions.size() ; ++i)
+    for (auto m : allMotions)
     {
-        const Motion *m = allMotions[i];
         if (m->parent_)
         {
             if (data.hasControls())

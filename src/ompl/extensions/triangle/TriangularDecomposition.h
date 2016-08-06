@@ -59,10 +59,9 @@ namespace ompl
         public:
             struct Vertex
             {
-                Vertex(void) {}
+                Vertex() = default;
                 Vertex(double vx, double vy);
                 bool operator==(const Vertex& v) const;
-                friend std::size_t hash_value(const Vertex& v);
                 double x, y;
             };
 
@@ -70,14 +69,14 @@ namespace ompl
             struct Polygon
             {
                 Polygon(int nv) : pts(nv) {}
-                virtual ~Polygon() {}
+                virtual ~Polygon() = default;
                 std::vector<Vertex> pts;
             };
 
             struct Triangle : public Polygon
             {
                 Triangle() : Polygon(3) {}
-                virtual ~Triangle() {}
+                ~Triangle() override = default;
                 std::vector<int> neighbors;
                 double volume;
             };
@@ -89,35 +88,35 @@ namespace ompl
                 polygons. No two obstacles may overlap, and no two regions of interest may overlap.*/
             TriangularDecomposition(
                 const base::RealVectorBounds &bounds,
-                const std::vector<Polygon> &holes = std::vector<Polygon>(),
-                const std::vector<Polygon> &intRegs = std::vector<Polygon>()
+                std::vector<Polygon> holes = std::vector<Polygon>(),
+                std::vector<Polygon> intRegs = std::vector<Polygon>()
             );
 
-            virtual ~TriangularDecomposition(void);
+            ~TriangularDecomposition() override;
 
-            virtual int getNumRegions(void) const { return triangles_.size(); }
+            int getNumRegions() const override { return triangles_.size(); }
 
-            virtual double getRegionVolume(int triID);
+            double getRegionVolume(int triID) override;
 
-            virtual void getNeighbors(int triID, std::vector<int>& neighbors) const;
+            void getNeighbors(int triID, std::vector<int>& neighbors) const override;
 
-            virtual int locateRegion(const base::State* s) const;
+            int locateRegion(const base::State* s) const override;
 
-            virtual void sampleFromRegion(int triID, RNG& rng, std::vector<double>& coord) const;
+            void sampleFromRegion(int triID, RNG& rng, std::vector<double>& coord) const override;
 
-            void setup(void);
+            void setup();
 
             void addHole(const Polygon& hole);
 
             void addRegionOfInterest(const Polygon& region);
 
-            int getNumHoles(void) const;
+            int getNumHoles() const;
 
-            int getNumRegionsOfInterest(void) const;
+            int getNumRegionsOfInterest() const;
 
-            const std::vector<Polygon>& getHoles(void) const;
+            const std::vector<Polygon>& getHoles() const;
 
-            const std::vector<Polygon>& getAreasOfInterest(void) const;
+            const std::vector<Polygon>& getAreasOfInterest() const;
 
             /** \brief Returns the region of interest that contains the given triangle ID.
                 Returns -1 if the triangle ID is not within a region of interest. */
@@ -149,16 +148,14 @@ namespace ompl
                 {
                 }
 
-                virtual ~LocatorGrid()
-                {
-                }
+                ~LocatorGrid() override = default;
 
-                virtual void project(const base::State *s, std::vector<double>& coord) const
+                void project(const base::State *s, std::vector<double>& coord) const override
                 {
                     triDecomp->project(s, coord);
                 }
 
-                virtual void sampleFullState(const base::StateSamplerPtr& /*sampler*/, const std::vector<double>& /*coord*/, base::State* /*s*/) const
+                void sampleFullState(const base::StateSamplerPtr& /*sampler*/, const std::vector<double>& /*coord*/, base::State* /*s*/) const override
                 {
                 }
 

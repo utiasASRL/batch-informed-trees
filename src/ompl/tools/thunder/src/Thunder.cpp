@@ -75,7 +75,7 @@ void ompl::tools::Thunder::initialize()
     OMPL_INFORM("Thunder Framework initialized.");
 }
 
-void ompl::tools::Thunder::setup(void)
+void ompl::tools::Thunder::setup()
 {
     if (!configured_ || !si_->isSetup() || !planner_->isSetup() || !rrPlanner_->isSetup() )
     {
@@ -172,7 +172,7 @@ void ompl::tools::Thunder::setup(void)
     }
 }
 
-void ompl::tools::Thunder::clear(void)
+void ompl::tools::Thunder::clear()
 {
     if (planner_)
         planner_->clear();
@@ -209,7 +209,7 @@ ompl::base::PlannerStatus ompl::tools::Thunder::solve(const base::PlannerTermina
     time::point start = time::now();
 
     // Warn if there are queued paths that have not been added to the experience database
-    if (!QueuedSolutionPaths_.empty())
+    if (!queuedSolutionPaths_.empty())
     {
         OMPL_WARN("Previous solved paths are currently uninserted into the experience database and are in the post-proccessing queue");
     }
@@ -331,10 +331,10 @@ ompl::base::PlannerStatus ompl::tools::Thunder::solve(const base::PlannerTermina
                 stats_.numSolutionsFromRecallSaved_++;
 
                 // Queue the solution path for future insertion into experience database (post-processing)
-                QueuedSolutionPaths_.push_back(solutionPath);
+                queuedSolutionPaths_.push_back(solutionPath);
 
                 // Logging
-                log.insertion_failed = 0; // TODO this is wrong logging data
+                log.insertion_failed = false; // TODO this is wrong logging data
                 log.is_saved = "always_attempt";
             }
             else // never add when from recall
@@ -376,9 +376,9 @@ ompl::base::PlannerStatus ompl::tools::Thunder::solve(const base::PlannerTermina
                 log.is_saved = "saving";
 
                 // Queue the solution path for future insertion into experience database (post-processing)
-                QueuedSolutionPaths_.push_back(solutionPath);
+                queuedSolutionPaths_.push_back(solutionPath);
 
-                log.insertion_failed = 0; // TODO fix this wrong logging info
+                log.insertion_failed = false; // TODO fix this wrong logging info
             }
         }
     }
@@ -487,7 +487,7 @@ void ompl::tools::Thunder::getAllPlannerDatas(std::vector<ob::PlannerDataPtr> &p
     experienceDB_->getAllPlannerDatas(plannerDatas);
 }
 
-void ompl::tools::Thunder::convertPlannerData(const ob::PlannerDataPtr plannerData, og::PathGeometric &path)
+void ompl::tools::Thunder::convertPlannerData(const ob::PlannerDataPtr& plannerData, og::PathGeometric &path)
 {
     // Convert the planner data verticies into a vector of states
     for (std::size_t i = 0; i < plannerData->numVertices(); ++i)
@@ -525,18 +525,18 @@ bool ompl::tools::Thunder::doPostProcessing()
 {
     OMPL_INFORM("Performing post-processing");
 
-    for (std::size_t i = 0; i < QueuedSolutionPaths_.size(); ++i)
+    for (auto & queuedSolutionPath : queuedSolutionPaths_)
     {
         // Time to add a path to experience database
         double insertionTime;
 
-        experienceDB_->addPath(QueuedSolutionPaths_[i], insertionTime);
+        experienceDB_->addPath(queuedSolutionPath, insertionTime);
         OMPL_INFORM("Finished inserting experience path in %f seconds", insertionTime);
         stats_.totalInsertionTime_ += insertionTime; // used for averaging
     }
 
     // Remove all inserted paths from the queue
-    QueuedSolutionPaths_.clear();
+    queuedSolutionPaths_.clear();
 
     return true;
 }

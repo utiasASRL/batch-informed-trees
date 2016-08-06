@@ -38,10 +38,11 @@
 #define OMPL_GEOMETRIC_PLANNERS_PRM_CONNECTION_STRATEGY_
 
 #include "ompl/datastructures/NearestNeighbors.h"
-#include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
+#include <functional>
+#include <memory>
 #include <boost/math/constants/constants.hpp>
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 namespace ompl
@@ -61,18 +62,16 @@ namespace ompl
             /** \brief Constructor takes the maximum number of nearest neighbors to return (\e k) and the
                 nearest neighbors datastruture to use (\e nn) */
             KStrategy(const unsigned int k,
-                      const boost::shared_ptr< NearestNeighbors<Milestone> > &nn) :
-                k_(k), nn_(nn)
+                      std::shared_ptr< NearestNeighbors<Milestone> > nn) :
+                k_(k), nn_(std::move(nn))
             {
                 neighbors_.reserve(k_);
             }
 
-            virtual ~KStrategy()
-            {
-            }
+            virtual ~KStrategy() = default;
 
             /** \brief Set the nearest neighbors datastructure to use */
-            void setNearestNeighbors(const boost::shared_ptr< NearestNeighbors<Milestone> > &nn)
+            void setNearestNeighbors(const std::shared_ptr< NearestNeighbors<Milestone> > &nn)
             {
                 nn_ = nn;
             }
@@ -92,7 +91,7 @@ namespace ompl
             unsigned int                                     k_;
 
             /** \brief Nearest neighbors data structure */
-            boost::shared_ptr< NearestNeighbors<Milestone> > nn_;
+            std::shared_ptr< NearestNeighbors<Milestone> > nn_;
 
             /** \brief Scratch space for storing k-nearest neighbors */
             std::vector<Milestone>                           neighbors_;
@@ -127,7 +126,7 @@ namespace ompl
         class KStarStrategy : public KStrategy<Milestone>
         {
         public:
-            typedef boost::function<unsigned int()> NumNeighborsFn;
+            using NumNeighborsFn = std::function<unsigned int ()>;
             /**
              * \brief Constructor
              *
@@ -138,7 +137,7 @@ namespace ompl
              * is valid for all problem instances.
              */
             KStarStrategy(const NumNeighborsFn& n,
-                          const boost::shared_ptr< NearestNeighbors<Milestone> > &nn,
+                          const std::shared_ptr< NearestNeighbors<Milestone> > &nn,
                           const unsigned int d = 1) :
                 KStrategy<Milestone>(n(), nn), n_(n),
                 kPRMConstant_(boost::math::constants::e<double>() + (boost::math::constants::e<double>() / (double)d))
@@ -177,7 +176,7 @@ namespace ompl
              */
             KBoundedStrategy(const unsigned int k,
                              const double bound,
-                             const boost::shared_ptr< NearestNeighbors<Milestone> > &nn) :
+                             const std::shared_ptr< NearestNeighbors<Milestone> > &nn) :
                 KStrategy<Milestone>(k, nn), bound_(bound)
             {
             }

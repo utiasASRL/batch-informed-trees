@@ -46,10 +46,10 @@
 #include <list>
 //std::multimap
 #include <map>
-//boost::unordered_map (pre-C++11 std::unordered_map)
-#include <boost/unordered_map.hpp>
-//For boost::function
-#include <boost/function.hpp>
+//std::unordered_map
+#include <unordered_map>
+//For std::function
+#include <functional>
 
 //OMPL:
 //The cost class:
@@ -91,24 +91,24 @@ namespace ompl
         {
         public:
             ////////////////////////////////
-            //Data typedefs:
-            /** \brief A typedef for a pair of costs, i.e., the edge sorting key */
-            typedef std::pair<ompl::base::Cost, ompl::base::Cost> CostPair;
+            //Data alias declarations:
+            /** \brief An alias declaration for a pair of costs, i.e., the edge sorting key */
+            using CostPair = std::pair<ompl::base::Cost, ompl::base::Cost>;
             ////////////////////////////////
 
             ////////////////////////////////
-            //Function typedefs:
-            /** \brief A boost::function definition of a heuristic function for a vertex. */
-            typedef boost::function<ompl::base::Cost (const VertexConstPtr&)> VertexHeuristicFunc;
+            //Function alias declarations:
+            /** \brief A std::function definition of a heuristic function for a vertex. */
+            using VertexHeuristicFunc = std::function<ompl::base::Cost (const VertexConstPtr &)>;
 
-            /** \brief A boost::function definition of a heuristic function for an edge. */
-            typedef boost::function<ompl::base::Cost (const VertexConstPtrPair&)> EdgeHeuristicFunc;
+            /** \brief A std::function definition of a heuristic function for an edge. */
+            using EdgeHeuristicFunc = std::function<ompl::base::Cost (const VertexConstPtrPair &)>;
 
-            /** \brief A boost::function definition for the distance between two vertices. */
-            typedef boost::function<double (const VertexConstPtr&, const VertexConstPtr&)> DistanceFunc;
+            /** \brief A std::function definition for the distance between two vertices. */
+            using DistanceFunc = std::function<double (const VertexConstPtr &, const VertexConstPtr &)>;
 
-            /** \brief A boost::function definition for the neighbourhood of a vertex . */
-            typedef boost::function<unsigned int (const VertexPtr&, std::vector<VertexPtr>*)> NeighbourhoodFunc;
+            /** \brief A std::function definition for the neighbourhood of a vertex . */
+            using NeighbourhoodFunc = std::function<unsigned int (const VertexPtr &, std::vector<VertexPtr> *)>;
             ////////////////////////////////
 
 
@@ -116,8 +116,8 @@ namespace ompl
             ////////////////////////////////
             //Public functions:
             /** \brief Construct an integrated queue. */
-            //boost::make_shared can only take 9 arguments, so be careful:
-            IntegratedQueue(const ompl::base::OptimizationObjectivePtr& opt, const DistanceFunc& distanceFunc, const NeighbourhoodFunc& nearSamplesFunc, const NeighbourhoodFunc& nearVerticesFunc, const VertexHeuristicFunc& lowerBoundHeuristicVertex, const VertexHeuristicFunc& currentHeuristicVertex, const EdgeHeuristicFunc& lowerBoundHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdge, const EdgeHeuristicFunc& currentHeuristicEdgeTarget);
+            //std::make_shared can only take 9 arguments, so be careful:
+            IntegratedQueue(ompl::base::OptimizationObjectivePtr  opt, DistanceFunc  distanceFunc, NeighbourhoodFunc  nearSamplesFunc, NeighbourhoodFunc  nearVerticesFunc, VertexHeuristicFunc  lowerBoundHeuristicVertex, VertexHeuristicFunc  currentHeuristicVertex, EdgeHeuristicFunc  lowerBoundHeuristicEdge, EdgeHeuristicFunc  currentHeuristicEdge, EdgeHeuristicFunc  currentHeuristicEdgeTarget);
 
             virtual ~IntegratedQueue();
 
@@ -252,27 +252,27 @@ namespace ompl
 
         private:
             ////////////////////////////////
-            //Helpful typedefs:
-            /** \brief A typedef to the underlying vertex queue as a multiset.  The advantage to a multimap over a multiset is that a copy of the key is stored with the value, which guarantees that the ordering remains sane. Even if the inherent key for a value has changed, it will still be sorted under the old key until manually updated and the map will be sorted */
-            typedef std::multimap<ompl::base::Cost, VertexPtr, boost::function<bool (const ompl::base::Cost&, const ompl::base::Cost&)> > CostToVertexMMap;
+            //Helpful alias declarations:
+            /** \brief An alias declaration to the underlying vertex queue as a multiset.  The advantage to a multimap over a multiset is that a copy of the key is stored with the value, which guarantees that the ordering remains sane. Even if the inherent key for a value has changed, it will still be sorted under the old key until manually updated and the map will be sorted */
+            using CostToVertexMMap = std::multimap<ompl::base::Cost, VertexPtr, std::function<bool (const ompl::base::Cost&, const ompl::base::Cost&)>>;
 
-            /** \brief A typedef to the underlying edge queue as a multimap. Multimapped for the same reason as CostToVertexMMap */
-            typedef std::multimap<CostPair, VertexPtrPair, boost::function<bool (const CostPair&, const CostPair&)> > CostToVertexPtrPairMMap;
+            /** \brief An alias declaration to the underlying edge queue as a multimap. Multimapped for the same reason as CostToVertexMMap */
+            using CostToVertexPtrPairMMap = std::multimap<CostPair, VertexPtrPair, std::function<bool (const CostPair&, const CostPair&)>>;
 
-            /** \brief A typedef for an iterator into the vertex queue multimap */
-            typedef CostToVertexMMap::iterator VertexQueueIter;
+            /** \brief An alias declaration for an iterator into the vertex queue multimap */
+            using VertexQueueIter = CostToVertexMMap::iterator;
 
-            /** \brief A typedef for an unordered_map of vertex queue iterators indexed on vertex*/
-            typedef boost::unordered_map<BITstar::VertexId, VertexQueueIter> VertexIdToVertexQueueIterUMap;
+            /** \brief An alias declaration for an unordered_map of vertex queue iterators indexed on vertex*/
+            using VertexIdToVertexQueueIterUMap = std::unordered_map<BITstar::VertexId, VertexQueueIter>;
 
-            /** \brief A typedef for an iterator into the edge queue multimap */
-            typedef CostToVertexPtrPairMMap::iterator EdgeQueueIter;
+            /** \brief An alias declaration for an iterator into the edge queue multimap */
+            using EdgeQueueIter = CostToVertexPtrPairMMap::iterator;
 
-            /** \brief A typedef for a list of edge queue iterators*/
-            typedef std::list<EdgeQueueIter> EdgeQueueIterList;
+            /** \brief An alias declaration for a list of edge queue iterators*/
+            using EdgeQueueIterList = std::list<EdgeQueueIter>;
 
-            /** \brief A typedef for an unordered_map of edge queue iterators indexed by vertex*/
-            typedef boost::unordered_map<BITstar::VertexId, EdgeQueueIterList> VertexIdToEdgeQueueIterListUMap;
+            /** \brief An alias declaration for an unordered_map of edge queue iterators indexed by vertex*/
+            using VertexIdToEdgeQueueIterListUMap = std::unordered_map<BITstar::VertexId, EdgeQueueIterList>;
             ////////////////////////////////
 
 
@@ -311,7 +311,7 @@ namespace ompl
 
             /** \brief Remove a vertex from the queue and optionally its entries in the various lookups. Returns the number of vertices that are completely deleted. */
             //This is *NOT* by const-reference so that the oldVertex pointer doesn't go out of scope on me... which was happening if it was being called with an iter->second where the iter gets deleted in this function...
-            unsigned int vertexRemoveHelper(VertexPtr oldVertex, const VertexPtrNNPtr& vertexNN, const VertexPtrNNPtr& freeStateNN, std::vector<VertexPtr>* recycledVertices, bool removeLookups);
+            unsigned int vertexRemoveHelper(const VertexPtr& oldVertex, const VertexPtrNNPtr& vertexNN, const VertexPtrNNPtr& freeStateNN, std::vector<VertexPtr>* recycledVertices, bool removeLookups);
             ////////////////////////////////
 
             ////////////////////////////////

@@ -50,8 +50,8 @@ ompl::geometric::GeneticSearch::GeneticSearch(const base::SpaceInformationPtr &s
 
 ompl::geometric::GeneticSearch::~GeneticSearch()
 {
-    for (unsigned int i = 0 ; i < pool_.size() ; ++i)
-        si_->freeState(pool_[i].state);
+    for (auto & i : pool_)
+        si_->freeState(i.state);
 }
 
 bool ompl::geometric::GeneticSearch::solve(double solveTime, const base::GoalRegion &goal, base::State *result, const std::vector<base::State*> &hint)
@@ -279,7 +279,7 @@ void ompl::geometric::GeneticSearch::tryToImprove(const base::GoalRegion &goal, 
     hc_.tryToImprove(goal, state, dist, &distance);
     hc_.tryToImprove(goal, state, dist / 3.0, &distance);
     hc_.tryToImprove(goal, state, dist / 10.0, &distance);
-    OMPL_DEBUG("Improvement took  %u ms", (time::now() - start).total_milliseconds());
+    OMPL_DEBUG("Improvement took  %u ms", std::chrono::duration_cast<std::chrono::milliseconds>(time::now() - start).count());
     OMPL_DEBUG("Distance to goal after improvement: %g", distance);
 }
 

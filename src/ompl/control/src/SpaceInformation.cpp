@@ -98,11 +98,11 @@ void ompl::control::SpaceInformation::setStatePropagator(const StatePropagatorFn
     {
     public:
 
-        BoostFnStatePropagator(SpaceInformation *si, const StatePropagatorFn &fn) : StatePropagator(si), fn_(fn)
+        BoostFnStatePropagator(SpaceInformation *si, StatePropagatorFn fn) : StatePropagator(si), fn_(std::move(fn))
         {
         }
 
-        virtual void propagate(const base::State *state, const Control *control, const double duration, base::State *result) const
+        void propagate(const base::State *state, const Control *control, const double duration, base::State *result) const override
         {
             fn_(state, control, duration, result);
         }
@@ -209,8 +209,8 @@ void ompl::control::SpaceInformation::propagate(const base::State *state, const 
     if (alloc)
     {
         result.resize(steps);
-        for (unsigned int i = 0 ; i < result.size() ; ++i)
-            result[i] = allocState();
+        for (auto & i : result)
+            i = allocState();
     }
     else
     {

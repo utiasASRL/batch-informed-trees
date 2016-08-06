@@ -40,8 +40,7 @@
 #include "ompl/base/State.h"
 #include "ompl/control/Control.h"
 #include "ompl/util/ClassForward.h"
-#include <boost/function.hpp>
-#include <boost/noncopyable.hpp>
+#include <functional>
 
 namespace ompl
 {
@@ -54,24 +53,25 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::DirectedControlSamplerPtr
-            \brief A boost shared pointer wrapper for ompl::control::DirectedControlSampler */
+            \brief A shared pointer wrapper for ompl::control::DirectedControlSampler */
 
         /** \brief Abstract definition of a directed control sampler. Motion
             planners that need to sample controls that take the system to a desired direction will call functions
             from this class. Planners should call the versions of sampleTo() with most arguments, whenever this information is available.
             If no direction information is available, the use of a ControlSampler is perhaps more appropriate. */
-        class DirectedControlSampler : private boost::noncopyable
+        class DirectedControlSampler
         {
         public:
+            // non-copyable
+            DirectedControlSampler(const DirectedControlSampler&) = delete;
+            DirectedControlSampler& operator=(const DirectedControlSampler&) = delete;
 
             /** \brief Constructor takes the state space to construct samples for as argument */
             DirectedControlSampler(const SpaceInformation *si) : si_(si)
             {
             }
 
-            virtual ~DirectedControlSampler()
-            {
-            }
+            virtual ~DirectedControlSampler() = default;
 
             /** \brief Sample a control given that it will be applied to state
                 \e state and the intention is to reach state \e target. This is
@@ -101,7 +101,7 @@ namespace ompl
         };
 
         /** \brief Definition of a function that can allocate a directed control sampler */
-        typedef boost::function<DirectedControlSamplerPtr(const SpaceInformation*)> DirectedControlSamplerAllocator;
+        using DirectedControlSamplerAllocator = std::function<DirectedControlSamplerPtr (const SpaceInformation *)>;
     }
 }
 

@@ -87,9 +87,9 @@ void ompl::geometric::STRIDE::setupTree()
 {
     tree_.reset(new NearestNeighborsGNAT<Motion*>(degree_, minDegree_, maxDegree_, maxNumPtsPerLeaf_, estimatedDimension_));
     if (useProjectedDistance_)
-        tree_->setDistanceFunction(boost::bind(&STRIDE::projectedDistanceFunction, this, _1, _2));
+        tree_->setDistanceFunction([this](const Motion *a, const Motion *b) { return projectedDistanceFunction(a, b); });
     else
-        tree_->setDistanceFunction(boost::bind(&STRIDE::distanceFunction, this, _1, _2));
+        tree_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 }
 
 void ompl::geometric::STRIDE::clear()
@@ -106,11 +106,11 @@ void ompl::geometric::STRIDE::freeMemory()
     {
         std::vector<Motion*> motions;
         tree_->list(motions);
-        for (std::size_t i = 0 ; i < motions.size() ; ++i)
+        for (auto & motion : motions)
         {
-            if (motions[i]->state)
-                si_->freeState(motions[i]->state);
-            delete motions[i];
+            if (motion->state)
+                si_->freeState(motion->state);
+            delete motion;
         }
         tree_.reset();
     }
@@ -124,7 +124,7 @@ ompl::base::PlannerStatus ompl::geometric::STRIDE::solve(const base::PlannerTerm
 
     while (const base::State *st = pis_.nextStart())
     {
-        Motion *motion = new Motion(si_);
+        auto *motion = new Motion(si_);
         si_->copyState(motion->state, st);
         addMotion(motion);
     }
@@ -140,8 +140,8 @@ ompl::base::PlannerStatus ompl::geometric::STRIDE::solve(const base::PlannerTerm
 
     OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), tree_->size());
 
-    Motion *solution  = NULL;
-    Motion *approxsol = NULL;
+    Motion *solution  = nullptr;
+    Motion *approxsol = nullptr;
     double  approxdif = std::numeric_limits<double>::infinity();
     base::State *xstate = si_->allocState();
 
@@ -164,7 +164,7 @@ ompl::base::PlannerStatus ompl::geometric::STRIDE::solve(const base::PlannerTerm
         if (keep)
         {
             /* create a motion */
-            Motion *motion = new Motion(si_);
+            auto *motion = new Motion(si_);
             si_->copyState(motion->state, xstate);
             motion->parent = existing;
 
@@ -187,24 +187,24 @@ ompl::base::PlannerStatus ompl::geometric::STRIDE::solve(const base::PlannerTerm
 
     bool solved = false;
     bool approximate = false;
-    if (solution == NULL)
+    if (solution == nullptr)
     {
         solution = approxsol;
         approximate = true;
     }
 
-    if (solution != NULL)
+    if (solution != nullptr)
     {
         /* construct the solution path */
         std::vector<Motion*> mpath;
-        while (solution != NULL)
+        while (solution != nullptr)
         {
             mpath.push_back(solution);
             solution = solution->parent;
         }
 
         /* set the solution path */
-        PathGeometric *path = new PathGeometric(si_);
+        auto *path = new PathGeometric(si_);
         for (int i = mpath.size() - 1 ; i >= 0 ; --i)
             path->append(mpath[i]->state);
         pdef_->addSolutionPath(base::PathPtr(path), approximate, approxdif, getName());
@@ -234,11 +234,11 @@ void ompl::geometric::STRIDE::getPlannerData(base::PlannerData &data) const
 
     std::vector<Motion*> motions;
     tree_->list(motions);
-    for (std::vector<Motion*>::iterator it=motions.begin(); it!=motions.end(); it++)
+    for (auto & motion : motions)
     {
-        if((*it)->parent == NULL)
-            data.addStartVertex(base::PlannerDataVertex((*it)->state,1));
+        if(motion->parent == nullptr)
+            data.addStartVertex(base::PlannerDataVertex(motion->state,1));
         else
-            data.addEdge(base::PlannerDataVertex((*it)->parent->state,1),base::PlannerDataVertex((*it)->state,1));
+            data.addEdge(base::PlannerDataVertex(motion->parent->state,1),base::PlannerDataVertex(motion->state,1));
     }
 }

@@ -43,9 +43,10 @@
 #include <ompl/tools/thunder/ThunderDB.h>
 #include "ompl/tools/config/MagicConstants.h"
 
-#include <boost/thread.hpp>
+#include <thread>
 
 #include <limits>
+#include <utility>
 
 namespace ompl
 {
@@ -53,9 +54,9 @@ namespace ompl
 namespace geometric
 {
 
-ThunderRetrieveRepair::ThunderRetrieveRepair(const base::SpaceInformationPtr &si, const tools::ThunderDBPtr &experienceDB)
+ThunderRetrieveRepair::ThunderRetrieveRepair(const base::SpaceInformationPtr &si, tools::ThunderDBPtr experienceDB)
     : base::Planner(si, "Thunder_Retrieve_Repair")
-    , experienceDB_(experienceDB)
+    , experienceDB_(std::move(experienceDB))
     , nearestK_(ompl::magic::NEAREST_K_RECALL_SOLUTIONS) // default value
     , smoothingEnabled_(false) // makes understanding recalled paths more difficult if enabled
 {
@@ -68,12 +69,12 @@ ThunderRetrieveRepair::ThunderRetrieveRepair(const base::SpaceInformationPtr &si
     path_simplifier_.reset(new PathSimplifier(si_));
 }
 
-ThunderRetrieveRepair::~ThunderRetrieveRepair(void)
+ThunderRetrieveRepair::~ThunderRetrieveRepair()
 {
     freeMemory();
 }
 
-void ThunderRetrieveRepair::clear(void)
+void ThunderRetrieveRepair::clear()
 {
     Planner::clear();
     freeMemory();
@@ -96,7 +97,7 @@ void ThunderRetrieveRepair::setRepairPlanner(const base::PlannerPtr &planner)
     setup_ = false;
 }
 
-void ThunderRetrieveRepair::setup(void)
+void ThunderRetrieveRepair::setup()
 {
     Planner::setup();
 
@@ -105,7 +106,7 @@ void ThunderRetrieveRepair::setup(void)
     if (!repairPlanner_)
     {
         // Set the repair planner
-        boost::shared_ptr<RRTConnect> repair_planner( new RRTConnect( si_ ) );
+        std::shared_ptr<RRTConnect> repair_planner( new RRTConnect( si_ ) );
 
         OMPL_DEBUG("No repairing planner specified. Using default: %s", repair_planner->getName().c_str() );
         repairPlanner_ = repair_planner; //Planner( repair_planer );
@@ -119,7 +120,7 @@ void ThunderRetrieveRepair::setup(void)
         repairPlanner_->setup();
 }
 
-void ThunderRetrieveRepair::freeMemory(void)
+void ThunderRetrieveRepair::freeMemory()
 {
 }
 
@@ -171,7 +172,7 @@ base::PlannerStatus ThunderRetrieveRepair::solve(const base::PlannerTerminationC
       //ompl::geometric::PathGeometric pg = candidateSolution.getGeometricPath(); // TODO do not copy to new type
       path_simplifier_->simplify(candidateSolution.getGeometricPath(), ptc);
       double simplifyTime = time::seconds(time::now() - simplifyStart);
-      OMPL_INFORM("ThunderRetrieveRepair: Path simplification took %f seconds and removed %d states", 
+      OMPL_INFORM("ThunderRetrieveRepair: Path simplification took %f seconds and removed %d states",
                   simplifyTime, numStates - candidateSolution.getGeometricPath().getStateCount());
     }
 
@@ -368,9 +369,8 @@ void ThunderRetrieveRepair::getPlannerData(base::PlannerData &data) const
     OMPL_INFORM("ThunderRetrieveRepair getPlannerData: including %d similar paths", nearestPaths_.size());
 
     // Visualize the n candidate paths that we recalled from the database
-    for (std::size_t i = 0 ; i < nearestPaths_.size() ; ++i)
+    for (auto path : nearestPaths_)
     {
-        PathGeometric path = nearestPaths_[i];
         for (std::size_t j = 1; j < path.getStateCount(); ++j)
         {
             data.addEdge(

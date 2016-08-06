@@ -36,19 +36,19 @@
 
 #include "ompl/extensions/opende/OpenDEStateSpace.h"
 #include "ompl/util/Console.h"
-#include <boost/lexical_cast.hpp>
 #include <limits>
 #include <queue>
+#include <utility>
 
-ompl::control::OpenDEStateSpace::OpenDEStateSpace(const OpenDEEnvironmentPtr &env,
+ompl::control::OpenDEStateSpace::OpenDEStateSpace(OpenDEEnvironmentPtr env,
                                                   double positionWeight, double linVelWeight, double angVelWeight, double orientationWeight) :
-    base::CompoundStateSpace(), env_(env)
+    base::CompoundStateSpace(), env_(std::move(env))
 {
     setName("OpenDE" + getName());
     type_ = base::STATE_SPACE_TYPE_COUNT + 1;
     for (unsigned int i = 0 ; i < env_->stateBodies_.size() ; ++i)
     {
-        std::string body = ":B" + boost::lexical_cast<std::string>(i);
+        std::string body = ":B" + std::to_string(i);
 
         addSubspace(base::StateSpacePtr(new base::RealVectorStateSpace(3)), positionWeight); // position
         components_.back()->setName(components_.back()->getName() + body + ":position");
@@ -82,8 +82,8 @@ void ompl::control::OpenDEStateSpace::setDefaultBounds()
     bool found = false;
 
     std::queue<dSpaceID> spaces;
-    for (unsigned int i = 0 ; i < env_->collisionSpaces_.size() ; ++i)
-        spaces.push(env_->collisionSpaces_[i]);
+    for (auto & collisionSpace : env_->collisionSpaces_)
+        spaces.push(collisionSpace);
 
     while (!spaces.empty())
     {
@@ -104,8 +104,8 @@ void ompl::control::OpenDEStateSpace::setDefaultBounds()
                 dGeomGetAABB(geom, aabb);
 
                 // things like planes are infinite; we want to ignore those
-                for (int k = 0 ; k < 6 ; ++k)
-                    if (fabs(aabb[k]) >= std::numeric_limits<dReal>::max())
+                for (double k : aabb)
+                    if (fabs(k) >= std::numeric_limits<dReal>::max())
                     {
                         valid = false;
                         break;
@@ -237,7 +237,7 @@ void ompl::control::OpenDEStateSpace::setAngularVelocityBounds(const base::RealV
 
 ompl::base::State* ompl::control::OpenDEStateSpace::allocState() const
 {
-    StateType *state = new StateType();
+    auto *state = new StateType();
     allocStateComponents(state);
     return state;
 }
@@ -264,23 +264,23 @@ namespace ompl
         class WrapperForOpenDESampler : public ompl::base::StateSampler
         {
         public:
-            WrapperForOpenDESampler(const base::StateSpace *space, const base::StateSamplerPtr &wrapped) : base::StateSampler(space), wrapped_(wrapped)
+            WrapperForOpenDESampler(const base::StateSpace *space, base::StateSamplerPtr wrapped) : base::StateSampler(space), wrapped_(std::move(wrapped))
             {
             }
 
-            virtual void sampleUniform(ompl::base::State *state)
+            void sampleUniform(ompl::base::State *state) override
             {
                 wrapped_->sampleUniform(state);
                 state->as<OpenDEStateSpace::StateType>()->collision = 0;
             }
 
-            virtual void sampleUniformNear(base::State *state, const base::State *near, const double distance)
+            void sampleUniformNear(base::State *state, const base::State *near, const double distance) override
             {
                 wrapped_->sampleUniformNear(state, near, distance);
                 state->as<OpenDEStateSpace::StateType>()->collision = 0;
             }
 
-            virtual void sampleGaussian(base::State *state, const base::State *mean, const double stdDev)
+            void sampleGaussian(base::State *state, const base::State *mean, const double stdDev) override
             {
                 wrapped_->sampleGaussian(state, mean, stdDev);
                 state->as<OpenDEStateSpace::StateType>()->collision = 0;

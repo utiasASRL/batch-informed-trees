@@ -48,7 +48,7 @@ ompl::geometric::BiTRRT::BiTRRT(const base::SpaceInformationPtr &si) : base::Pla
     specs_.directed = true;
 
     maxDistance_ = 0.0; // set in setup()
-    connectionPoint_ = std::make_pair<Motion*, Motion*>(NULL, NULL);
+    connectionPoint_ = std::make_pair<Motion*, Motion*>(nullptr, nullptr);
 
     Planner::declareParam<double>("range", this, &BiTRRT::setRange, &BiTRRT::getRange, "0.:1.:10000.");
 
@@ -78,22 +78,22 @@ void ompl::geometric::BiTRRT::freeMemory()
     if (tStart_)
     {
         tStart_->list(motions);
-        for (unsigned int i = 0 ; i < motions.size() ; ++i)
+        for (auto & motion : motions)
         {
-            if (motions[i]->state)
-                si_->freeState(motions[i]->state);
-            delete motions[i];
+            if (motion->state)
+                si_->freeState(motion->state);
+            delete motion;
         }
     }
 
     if (tGoal_)
     {
         tGoal_->list(motions);
-        for (unsigned int i = 0 ; i < motions.size() ; ++i)
+        for (auto & motion : motions)
         {
-            if (motions[i]->state)
-                si_->freeState(motions[i]->state);
-            delete motions[i];
+            if (motion->state)
+                si_->freeState(motion->state);
+            delete motion;
         }
     }
 }
@@ -106,7 +106,7 @@ void ompl::geometric::BiTRRT::clear()
         tStart_->clear();
     if (tGoal_)
         tGoal_->clear();
-    connectionPoint_ = std::make_pair<Motion*, Motion*>(NULL, NULL);
+    connectionPoint_ = std::make_pair<Motion*, Motion*>(nullptr, nullptr);
 
     // TRRT specific variables
     temp_ = initTemperature_;
@@ -133,8 +133,8 @@ void ompl::geometric::BiTRRT::setup()
         tStart_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
     if (!tGoal_)
         tGoal_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
-    tStart_->setDistanceFunction(boost::bind(&BiTRRT::distanceFunction, this, _1, _2));
-    tGoal_->setDistanceFunction(boost::bind(&BiTRRT::distanceFunction, this, _1, _2));
+    tStart_->setDistanceFunction([this] (const Motion *a, const Motion *b) { return distanceFunction(a, b); });
+    tGoal_->setDistanceFunction([this] (const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
     // Setup the optimization objective, if it isn't specified
     if (!pdef_ || !pdef_->hasOptimizationObjective())
@@ -162,11 +162,11 @@ void ompl::geometric::BiTRRT::setup()
 
 ompl::geometric::BiTRRT::Motion* ompl::geometric::BiTRRT::addMotion(const base::State* state, TreeData& tree, Motion* parent)
 {
-    Motion *motion = new Motion(si_);
+    auto *motion = new Motion(si_);
     si_->copyState(motion->state, state);
     motion->cost = opt_->stateCost(motion->state);
     motion->parent = parent;
-    motion->root = parent ? parent->root : NULL;
+    motion->root = parent ? parent->root : nullptr;
 
     if (opt_->isCostBetterThan(motion->cost, bestCost_)) // motion->cost is better than the existing best
         bestCost_ = motion->cost;
@@ -280,7 +280,7 @@ bool ompl::geometric::BiTRRT::connectTrees(Motion* nmotion, TreeData& tree, Moti
     // extension into segments, just in case one piece fails
     // the transition test
     GrowResult result;
-    Motion* next = NULL;
+    Motion* next = nullptr;
     do
     {
         // Extend tree from nearest toward xmotion
@@ -341,7 +341,7 @@ ompl::base::PlannerStatus ompl::geometric::BiTRRT::solve(const base::PlannerTerm
     // Loop through the (valid) input states and add them to the start tree
     while (const base::State *state = pis_.nextStart())
     {
-        Motion *motion = new Motion(si_);
+        auto *motion = new Motion(si_);
         si_->copyState(motion->state, state);
         motion->cost = opt_->stateCost(motion->state);
         motion->root = motion->state; // this state is the root of a tree
@@ -380,10 +380,10 @@ ompl::base::PlannerStatus ompl::geometric::BiTRRT::solve(const base::PlannerTerm
 
     base::StateSamplerPtr sampler = si_->allocStateSampler();
 
-    Motion   *rmotion   = new Motion(si_);
+    auto   *rmotion   = new Motion(si_);
     base::State *rstate = rmotion->state;
 
-    Motion   *xmotion   = new Motion(si_);
+    auto   *xmotion   = new Motion(si_);
     base::State *xstate = xmotion->state;
 
     TreeData tree = tStart_;
@@ -415,7 +415,7 @@ ompl::base::PlannerStatus ompl::geometric::BiTRRT::solve(const base::PlannerTerm
                 // The trees have been connected.  Construct the solution path
                 Motion *solution = connectionPoint_.first;
                 std::vector<Motion*> mpath1;
-                while (solution != NULL)
+                while (solution != nullptr)
                 {
                     mpath1.push_back(solution);
                     solution = solution->parent;
@@ -423,18 +423,18 @@ ompl::base::PlannerStatus ompl::geometric::BiTRRT::solve(const base::PlannerTerm
 
                 solution = connectionPoint_.second;
                 std::vector<Motion*> mpath2;
-                while (solution != NULL)
+                while (solution != nullptr)
                 {
                     mpath2.push_back(solution);
                     solution = solution->parent;
                 }
 
-                PathGeometric *path = new PathGeometric(si_);
+                auto *path = new PathGeometric(si_);
                 path->getStates().reserve(mpath1.size() + mpath2.size());
                 for (int i = mpath1.size() - 1 ; i >= 0 ; --i)
                     path->append(mpath1[i]->state);
-                for (unsigned int i = 0 ; i < mpath2.size() ; ++i)
-                    path->append(mpath2[i]->state);
+                for (auto & i : mpath2)
+                    path->append(i->state);
 
                 pdef_->addSolutionPath(base::PathPtr(path), false, 0.0, getName());
                 solved = true;
@@ -461,29 +461,29 @@ void ompl::geometric::BiTRRT::getPlannerData(base::PlannerData &data) const
     std::vector<Motion*> motions;
     if (tStart_)
         tStart_->list(motions);
-    for (unsigned int i = 0 ; i < motions.size() ; ++i)
+    for (auto & motion : motions)
     {
-        if (motions[i]->parent == NULL)
-            data.addStartVertex(base::PlannerDataVertex(motions[i]->state, 1));
+        if (motion->parent == nullptr)
+            data.addStartVertex(base::PlannerDataVertex(motion->state, 1));
         else
         {
-            data.addEdge(base::PlannerDataVertex(motions[i]->parent->state, 1),
-                         base::PlannerDataVertex(motions[i]->state, 1));
+            data.addEdge(base::PlannerDataVertex(motion->parent->state, 1),
+                         base::PlannerDataVertex(motion->state, 1));
         }
     }
 
     motions.clear();
     if (tGoal_)
         tGoal_->list(motions);
-    for (unsigned int i = 0 ; i < motions.size() ; ++i)
+    for (auto & motion : motions)
     {
-        if (motions[i]->parent == NULL)
-            data.addGoalVertex(base::PlannerDataVertex(motions[i]->state, 2));
+        if (motion->parent == nullptr)
+            data.addGoalVertex(base::PlannerDataVertex(motion->state, 2));
         else
         {
             // The edges in the goal tree are reversed to be consistent with start tree
-            data.addEdge(base::PlannerDataVertex(motions[i]->state, 2),
-                         base::PlannerDataVertex(motions[i]->parent->state, 2));
+            data.addEdge(base::PlannerDataVertex(motion->state, 2),
+                         base::PlannerDataVertex(motion->parent->state, 2));
         }
     }
 

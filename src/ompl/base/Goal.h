@@ -43,7 +43,6 @@
 #include "ompl/base/GoalTypes.h"
 #include "ompl/util/Console.h"
 #include <iostream>
-#include <boost/noncopyable.hpp>
 #include <boost/concept_check.hpp>
 #include <vector>
 
@@ -57,20 +56,21 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::GoalPtr
-            \brief A boost shared pointer wrapper for ompl::base::Goal */
+            \brief A shared pointer wrapper for ompl::base::Goal */
 
         /** \brief Abstract definition of goals.*/
-        class Goal : private boost::noncopyable
+        class Goal
         {
         public:
+            // non-copyable
+            Goal(const Goal&) = delete;
+            Goal& operator=(const Goal&) = delete;
 
             /** \brief Constructor. The goal must always know the space information it is part of */
-            Goal(const SpaceInformationPtr &si);
+            Goal(SpaceInformationPtr si);
 
             /** \brief Destructor.*/
-            virtual ~Goal()
-            {
-            }
+            virtual ~Goal() = default;
 
             /** \brief Cast this instance to a desired type. */
             template<class T>

@@ -58,7 +58,7 @@ class KinematicCarModel : public oc::StatePropagator
             timeStep_  = 0.01;
         }
 
-        virtual void propagate(const ob::State *state, const oc::Control* control, const double duration, ob::State *result) const
+        void propagate(const ob::State *state, const oc::Control* control, const double duration, ob::State *result) const override
         {
             EulerIntegration(state, control, duration, result);
         }
@@ -164,7 +164,7 @@ public:
 };
 /// @endcond
 
-void planWithSimpleSetup(void)
+void planWithSimpleSetup()
 {
     /// construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE2StateSpace());
@@ -190,7 +190,9 @@ void planWithSimpleSetup(void)
     oc::SimpleSetup ss(cspace);
 
     // set state validity checking for this space
-    ss.setStateValidityChecker(boost::bind(&isStateValid, ss.getSpaceInformation().get(), _1));
+    oc::SpaceInformation *si = ss.getSpaceInformation().get();
+    ss.setStateValidityChecker(
+        [si](const ob::State *state) { return isStateValid(si, state); });
 
     // Setting the propagation routine for this space:
     // KinematicCarModel does NOT use ODESolver

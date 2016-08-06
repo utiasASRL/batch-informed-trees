@@ -39,7 +39,6 @@
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/geometric/planners/prm/ConnectionStrategy.h"
 #include "ompl/tools/config/SelfConfig.h"
-#include <boost/lambda/bind.hpp>
 #include <boost/graph/astar_search.hpp>
 #include <boost/graph/incremental_components.hpp>
 #include <boost/graph/lookup_edge.hpp>
@@ -88,19 +87,13 @@ ompl::geometric::LazyPRM::LazyPRM(const base::SpaceInformationPtr &si, bool star
     if (!starStrategy_)
         Planner::declareParam<unsigned int>("max_nearest_neighbors", this, &LazyPRM::setMaxNearestNeighbors, std::string("8:1000"));
 
-    addPlannerProgressProperty("iterations INTEGER",
-                               boost::bind(&LazyPRM::getIterationCount, this));
-    addPlannerProgressProperty("best cost REAL",
-                               boost::bind(&LazyPRM::getBestCost, this));
-    addPlannerProgressProperty("milestone count INTEGER",
-                               boost::bind(&LazyPRM::getMilestoneCountString, this));
-    addPlannerProgressProperty("edge count INTEGER",
-                               boost::bind(&LazyPRM::getEdgeCountString, this));
+    addPlannerProgressProperty("iterations INTEGER", [this] { return getIterationCount(); });
+    addPlannerProgressProperty("best cost REAL", [this] { return getBestCost(); });
+    addPlannerProgressProperty("milestone count INTEGER", [this] { return getMilestoneCountString(); });
+    addPlannerProgressProperty("edge count INTEGER", [this] { return getEdgeCountString(); });
 }
 
-ompl::geometric::LazyPRM::~LazyPRM()
-{
-}
+ompl::geometric::LazyPRM::~LazyPRM() = default;
 
 void ompl::geometric::LazyPRM::setup()
 {
@@ -111,17 +104,17 @@ void ompl::geometric::LazyPRM::setup()
     if (!nn_)
     {
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Vertex>(this));
-        nn_->setDistanceFunction(boost::bind(&LazyPRM::distanceFunction, this, _1, _2));
+        nn_->setDistanceFunction([this](const Vertex a, const Vertex b) { return distanceFunction(a, b); });
     }
     if (!connectionStrategy_)
     {
         if (starStrategy_)
-            connectionStrategy_ = KStarStrategy<Vertex>(boost::bind(&LazyPRM::milestoneCount, this), nn_, si_->getStateDimension());
+            connectionStrategy_ = KStarStrategy<Vertex>([this] { return milestoneCount(); }, nn_, si_->getStateDimension());
         else
             connectionStrategy_ = KBoundedStrategy<Vertex>(magic::DEFAULT_NEAREST_NEIGHBORS_LAZY, maxDistance_, nn_);
     }
     if (!connectionFilter_)
-        connectionFilter_ = boost::lambda::constant(true);
+        connectionFilter_ = [](const Vertex&, const Vertex&) { return true; };
 
     // Setup optimization objective
     //
@@ -152,7 +145,7 @@ void ompl::geometric::LazyPRM::setRange(double distance)
 {
     maxDistance_ = distance;
     if (!userSetConnectionStrategy_)
-        connectionStrategy_.clear();
+        connectionStrategy_ = ConnectionStrategy();
     if (isSetup())
         setup();
 }
@@ -164,10 +157,10 @@ void ompl::geometric::LazyPRM::setMaxNearestNeighbors(unsigned int k)
     if (!nn_)
     {
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Vertex>(this));
-        nn_->setDistanceFunction(boost::bind(&LazyPRM::distanceFunction, this, _1, _2));
+        nn_->setDistanceFunction([this](const Vertex a, const Vertex b) { return distanceFunction(a, b); });
     }
     if (!userSetConnectionStrategy_)
-        connectionStrategy_.clear();
+        connectionStrategy_ = ConnectionStrategy();
     if (isSetup())
         setup();
 }
@@ -419,12 +412,10 @@ ompl::base::PathPtr ompl::geometric::LazyPRM::constructSolution(const Vertex &st
     {
         // Consider using a persistent distance_map if it's slow
         boost::astar_search(g_, start,
-                            boost::bind(&LazyPRM::costHeuristic, this, _1, goal),
+                            [this, goal](Vertex v) { return costHeuristic(v, goal); },
                             boost::predecessor_map(prev).
-                            distance_compare(boost::bind(&base::OptimizationObjective::
-                                                         isCostBetterThan, opt_.get(), _1, _2)).
-                            distance_combine(boost::bind(&base::OptimizationObjective::
-                                                         combineCosts, opt_.get(), _1, _2)).
+                            distance_compare([this](base::Cost c1, base::Cost c2) { return opt_->isCostBetterThan(c1, c2); }).
+                            distance_combine([this](base::Cost c1, base::Cost c2) { return opt_->combineCosts(c1, c2); }).
                             distance_inf(opt_->infiniteCost()).
                             distance_zero(opt_->identityCost()).
                             visitor(AStarGoalVisitor<Vertex>(goal)));
@@ -462,7 +453,7 @@ ompl::base::PathPtr ompl::geometric::LazyPRM::constructSolution(const Vertex &st
         unsigned long int comp = vertexComponentProperty_[start];
         // Remember the current neighbors.
         std::set<Vertex> neighbors;
-        for (std::set<Vertex>::iterator it = milestonesToRemove.begin() ; it != milestonesToRemove.end() ; ++it)
+        for (auto it = milestonesToRemove.begin() ; it != milestonesToRemove.end() ; ++it)
         {
             boost::graph_traits<Graph>::adjacency_iterator nbh, last;
             for (boost::tie(nbh, last) = boost::adjacent_vertices(*it, g_) ; nbh != last ; ++nbh)
@@ -478,13 +469,13 @@ ompl::base::PathPtr ompl::geometric::LazyPRM::constructSolution(const Vertex &st
             boost::remove_vertex(*it, g_);
         }
         // Update the connected component ID for neighbors.
-        for (std::set<Vertex>::iterator it = neighbors.begin() ; it != neighbors.end() ; ++it)
+        for (auto neighbor : neighbors)
         {
-            if (comp == vertexComponentProperty_[*it])
+            if (comp == vertexComponentProperty_[neighbor])
             {
                 unsigned long int newComponent = componentCount_++;
                 componentSize_[newComponent] = 0;
-                markComponent(*it, newComponent);
+                markComponent(neighbor, newComponent);
             }
         }
         return base::PathPtr();
@@ -520,7 +511,7 @@ ompl::base::PathPtr ompl::geometric::LazyPRM::constructSolution(const Vertex &st
     }
     while (prevVertex != pos);
 
-    PathGeometric *p = new PathGeometric(si_);
+    auto *p = new PathGeometric(si_);
     for (std::vector<const base::State*>::const_reverse_iterator st = states.rbegin(); st != states.rend(); ++st)
         p->append(*st);
     return base::PathPtr(p);
@@ -537,11 +528,11 @@ void ompl::geometric::LazyPRM::getPlannerData(base::PlannerData &data) const
 
     // Explicitly add start and goal states. Tag all states known to be valid as 1.
     // Unchecked states are tagged as 0.
-    for (size_t i = 0; i < startM_.size(); ++i)
-        data.addStartVertex(base::PlannerDataVertex(stateProperty_[startM_[i]], 1));
+    for (auto i : startM_)
+        data.addStartVertex(base::PlannerDataVertex(stateProperty_[i], 1));
 
-    for (size_t i = 0; i < goalM_.size(); ++i)
-        data.addGoalVertex(base::PlannerDataVertex(stateProperty_[goalM_[i]], 1));
+    for (auto i : goalM_)
+        data.addGoalVertex(base::PlannerDataVertex(stateProperty_[i], 1));
 
     // Adding edges and all other vertices simultaneously
     foreach(const Edge e, boost::edges(g_))

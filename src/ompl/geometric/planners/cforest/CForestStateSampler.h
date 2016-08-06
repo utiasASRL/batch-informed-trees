@@ -39,7 +39,8 @@
 
 #include "ompl/base/StateSpace.h"
 
-#include <boost/thread/mutex.hpp>
+#include <mutex>
+#include <utility>
 
 namespace ompl
 {
@@ -53,27 +54,27 @@ namespace ompl
         public:
 
             /** \brief Constructor */
-            CForestStateSampler(const StateSpace *space, StateSamplerPtr sampler) : StateSampler(space), sampler_(sampler)
+            CForestStateSampler(const StateSpace *space, StateSamplerPtr sampler) : StateSampler(space), sampler_(std::move(sampler))
             {
             }
 
             /** \brief Destructor */
-            ~CForestStateSampler()
+            ~CForestStateSampler() override
             {
                 clear();
             }
 
             /** \brief It will sample the next state of the vector StatesToSample_. If this is empty,
                 it will call the sampleUniform() method of the specified sampler. */
-            virtual void sampleUniform(State *state);
+            void sampleUniform(State *state) override;
 
             /** \brief It will sample the next state of the vector StatesToSample_. If this is empty,
                 it will call the sampleUniformNear() method of the specified sampler. */
-            virtual void sampleUniformNear(State *state, const State *near, const double distance);
+            void sampleUniformNear(State *state, const State *near, const double distance) override;
 
             /** \brief It will sample the next state of the vector StatesToSample_. If this is empty,
                 it will call the sampleGaussian() method of the specified sampler. */
-            virtual void sampleGaussian(State *state, const State *mean, const double stdDev);
+            void sampleGaussian(State *state, const State *mean, const double stdDev) override;
 
             const StateSpace* getStateSpace() const
             {
@@ -98,7 +99,7 @@ namespace ompl
             StateSamplerPtr sampler_;
 
             /** \brief Lock to control the access to the statesToSample_ vector. */
-            boost::mutex statesLock_;
+            std::mutex statesLock_;
         };
 
     }

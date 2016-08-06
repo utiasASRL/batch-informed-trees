@@ -58,7 +58,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::LightningRetrieveRepairPtr
-            \brief A boost shared pointer wrapper for ompl::base::LightningRetrieveRepair */
+            \brief A shared pointer wrapper for ompl::base::LightningRetrieveRepair */
 
         /**
            @anchor LightningRetrieveRepair - Lightning Retrieve and Repair
@@ -79,12 +79,12 @@ namespace ompl
         public:
 
             /** \brief Constructor */
-            LightningRetrieveRepair(const base::SpaceInformationPtr &si, const tools::LightningDBPtr &experienceDB);
+            LightningRetrieveRepair(const base::SpaceInformationPtr &si, tools::LightningDBPtr experienceDB);
 
-            virtual ~LightningRetrieveRepair();
+            ~LightningRetrieveRepair() override;
 
             /** \brief Get information about the exploration data structure the planning from scratch motion planner used. */
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /**
              *  \brief Get debug information about the top recalled paths that were chosen for further filtering
@@ -107,9 +107,9 @@ namespace ompl
             /** \brief Get information about the exploration data structure the repair motion planner used each call. */
             void getRepairPlannerDatas(std::vector<base::PlannerDataPtr> &data) const;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Pass a pointer of the database from the lightning framework */
             void setLightningDB(const tools::LightningDBPtr &experienceDB);
@@ -117,7 +117,7 @@ namespace ompl
             /** \brief Set the planner that will be used for repairing invalid paths recalled from experience */
             void setRepairPlanner(const base::PlannerPtr &planner);
 
-            virtual void setup();
+            void setup() override;
 
             /**
              * \brief Repairs a path to be valid in the current planning environment

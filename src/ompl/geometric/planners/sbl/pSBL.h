@@ -42,7 +42,8 @@
 #include "ompl/base/StateSamplerArray.h"
 #include "ompl/datastructures/Grid.h"
 #include "ompl/datastructures/PDF.h"
-#include <boost/thread/mutex.hpp>
+#include <thread>
+#include <mutex>
 #include <vector>
 
 namespace ompl
@@ -90,7 +91,7 @@ namespace ompl
 
             pSBL(const base::SpaceInformationPtr &si);
 
-            virtual ~pSBL();
+            ~pSBL() override;
 
             /** \brief Set the projection evaluator. This class is
                 able to compute the projection of a given state. */
@@ -137,13 +138,13 @@ namespace ompl
                 return threadCount_;
             }
 
-            virtual void setup();
+            void setup() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
         protected:
 
@@ -151,33 +152,31 @@ namespace ompl
             struct MotionInfo;
 
             /** \brief A grid cell */
-            typedef Grid<MotionInfo>::Cell GridCell;
+            using GridCell = Grid<MotionInfo>::Cell;
 
             /** \brief A PDF of grid cells */
-            typedef PDF<GridCell*>         CellPDF;
+            using CellPDF = PDF<GridCell *>;
 
             class Motion
             {
             public:
 
-                Motion() : root(NULL), state(NULL), parent(NULL), valid(false)
+                Motion() : root(nullptr), state(nullptr), parent(nullptr), valid(false)
                 {
                 }
 
-                Motion(const base::SpaceInformationPtr &si) : root(NULL), state(si->allocState()), parent(NULL), valid(false)
+                Motion(const base::SpaceInformationPtr &si) : root(nullptr), state(si->allocState()), parent(nullptr), valid(false)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 const base::State   *root;
                 base::State         *state;
                 Motion              *parent;
                 bool                 valid;
                 std::vector<Motion*> children;
-                boost::mutex         lock;
+                std::mutex         lock;
             };
 
             /** \brief A struct containing an array of motions and a corresponding PDF element */
@@ -220,14 +219,14 @@ namespace ompl
                 Grid<MotionInfo> grid;
                 unsigned int     size;
                 CellPDF          pdf;
-                boost::mutex     lock;
+                std::mutex       lock;
             };
 
             struct SolutionInfo
             {
                 std::vector<Motion*> solution;
                 bool                 found;
-                boost::mutex         lock;
+                std::mutex           lock;
             };
 
             struct PendingRemoveMotion
@@ -239,7 +238,7 @@ namespace ompl
             struct MotionsToBeRemoved
             {
                 std::vector<PendingRemoveMotion> motions;
-                boost::mutex                     lock;
+                std::mutex                       lock;
             };
 
             void threadSolve(unsigned int tid, const base::PlannerTerminationCondition &ptc, SolutionInfo *sol);
@@ -266,8 +265,8 @@ namespace ompl
             TreeData                                         tGoal_;
 
             MotionsToBeRemoved                               removeList_;
-            boost::mutex                                     loopLock_;
-            boost::mutex                                     loopLockCounter_;
+            std::mutex                                       loopLock_;
+            std::mutex                                       loopLockCounter_;
             unsigned int                                     loopCounter_;
 
             double                                           maxDistance_;

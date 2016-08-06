@@ -51,20 +51,20 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::LTLProblemDefinitionPtr
-            \brief A boost shared pointer wrapper for ompl::control::LTLProblemDefinition */
+            \brief A shared pointer wrapper for ompl::control::LTLProblemDefinition */
         class LTLProblemDefinition : public base::ProblemDefinition
         {
         public:
             LTLProblemDefinition(const control::LTLSpaceInformationPtr& ltlsi);
 
-            virtual ~LTLProblemDefinition(void) {}
+            ~LTLProblemDefinition() override = default;
 
             void addLowerStartState(const base::State* s);
 
-            base::PathPtr getLowerSolutionPath(void) const;
+            base::PathPtr getLowerSolutionPath() const;
 
         protected:
-            void createGoal(void);
+            void createGoal();
 
             LTLSpaceInformationPtr ltlsi_;
         };

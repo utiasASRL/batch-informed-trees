@@ -39,6 +39,7 @@
 
 #include "ompl/control/DirectedControlSampler.h"
 #include "ompl/control/StatePropagator.h"
+#include "ompl/control/SpaceInformation.h"
 #include <cmath>
 
 namespace ompl
@@ -59,11 +60,9 @@ namespace ompl
             {
             }
 
-            virtual ~SteeredControlSampler()
-            {
-            }
+            ~SteeredControlSampler() override = default;
 
-            virtual unsigned int sampleTo(Control *control, const base::State *source, base::State *dest)
+            unsigned int sampleTo(Control *control, const base::State *source, base::State *dest) override
             {
                 double duration;
                 if (!si_->getStatePropagator()->steer(source, dest, control, duration)) return 0;
@@ -71,7 +70,7 @@ namespace ompl
                 return si_->propagateWhileValid(source, control, steps, dest);
             }
 
-            virtual unsigned int sampleTo(Control *control, const Control *previous, const base::State *source, base::State *dest)
+            unsigned int sampleTo(Control *control, const Control *previous, const base::State *source, base::State *dest) override
             {
                 return sampleTo(control, source, dest);
             }

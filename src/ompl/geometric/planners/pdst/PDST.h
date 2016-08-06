@@ -39,6 +39,8 @@
 #ifndef OMPL_GEOMETRIC_PLANNERS_PDST_PDST_
 #define OMPL_GEOMETRIC_PLANNERS_PDST_PDST_
 
+#include <utility>
+
 #include "ompl/base/Planner.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/geometric/PathGeometric.h"
@@ -83,14 +85,14 @@ namespace ompl
 
             PDST(const base::SpaceInformationPtr &si);
 
-            virtual ~PDST();
+            ~PDST() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
-            virtual void clear();
-            virtual void setup();
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
+            void clear() override;
+            void setup() override;
 
             /// Extracts the planner data from the priority queue into data.
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /// Set the projection evaluator. This class is able to compute the projection of a given state.
             void setProjectionEvaluator(const base::ProjectionEvaluatorPtr &projectionEvaluator)
@@ -148,13 +150,13 @@ namespace ompl
             public:
                 Motion(base::State *startState, base::State *endState, double priority, Motion *parent)
                     : startState_(startState), endState_(endState), priority_(priority),
-                    parent_(parent), cell_(NULL), heapElement_(NULL), isSplit_(false)
+                    parent_(parent), cell_(nullptr), heapElement_(nullptr), isSplit_(false)
                 {
                 }
                 /// constructor for start states
                 Motion(base::State *state)
                     : startState_(state), endState_(state), priority_(0.),
-                    parent_(NULL), cell_(NULL), heapElement_(NULL), isSplit_(false)
+                    parent_(nullptr), cell_(nullptr), heapElement_(nullptr), isSplit_(false)
                 {
                 }
                 /// The score is used to order motions in a priority queue.
@@ -194,10 +196,10 @@ namespace ompl
             /// Cell is a Binary Space Partition
             struct Cell
             {
-                Cell(double volume, const ompl::base::RealVectorBounds &bounds,
+                Cell(double volume, ompl::base::RealVectorBounds bounds,
                     unsigned int splitDimension = 0)
                     : volume_(volume), splitDimension_(splitDimension), splitValue_(0.0),
-                    left_(NULL), right_(NULL), bounds_(bounds)
+                    left_(nullptr), right_(nullptr), bounds_(std::move(bounds))
                 {
                 }
 
@@ -217,7 +219,7 @@ namespace ompl
                 Cell* stab(const ompl::base::EuclideanProjection& projection) const
                 {
                     Cell *containingCell = const_cast<Cell*>(this);
-                    while (containingCell->left_ != NULL)
+                    while (containingCell->left_ != nullptr)
                     {
                         if (projection[containingCell->splitDimension_] <= containingCell->splitValue_)
                             containingCell = containingCell->left_;
@@ -248,9 +250,9 @@ namespace ompl
                 unsigned int                 splitDimension_;
                 /// The midpoint between the bounds_ at the splitDimension_
                 double                       splitValue_;
-                /// The left child cell (NULL for a leaf cell)
+                /// The left child cell (nullptr for a leaf cell)
                 Cell*                        left_;
-                /// The right child cell (NULL for a leaf cell)
+                /// The right child cell (nullptr for a leaf cell)
                 Cell*                        right_;
                 /// A bounding box for this cell
                 ompl::base::RealVectorBounds bounds_;
@@ -270,7 +272,7 @@ namespace ompl
                     motion->heapElement_ = priorityQueue_.insert(motion);
             }
             /// \brief Select a state along motion and propagate a new motion from there.
-            /// Return NULL if no valid motion could be generated starting at the
+            /// Return nullptr if no valid motion could be generated starting at the
             /// selected state.
             Motion* propagateFrom(Motion *motion, base::State*, base::State*);
 

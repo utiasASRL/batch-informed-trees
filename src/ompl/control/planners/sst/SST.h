@@ -63,19 +63,19 @@ namespace ompl
             /** \brief Constructor */
             SST(const SpaceInformationPtr &si);
 
-            virtual ~SST();
+            ~SST() override;
 
-            virtual void setup();
+            void setup() override;
 
             /** \brief Continue solving for some amount of time. Return true if solution was found. */
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /** \brief Clear datastructures. Call this function if the
                 input data to the planner has changed and you do not
                 want to continue planning */
-            virtual void clear();
+            void clear() override;
 
             /** In the process of randomly selecting states in the state
                 space to attempt to go towards, the algorithm may in fact
@@ -155,18 +155,16 @@ namespace ompl
             {
             public:
 
-                Motion() : accCost_(0), state_(NULL), control_(NULL), steps_(0), parent_(NULL), numChildren_(0), inactive_(false)
+                Motion() : accCost_(0), state_(nullptr), control_(nullptr), steps_(0), parent_(nullptr), numChildren_(0), inactive_(false)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state and the control */
-                Motion(const SpaceInformation *si) : accCost_(0), state_(si->allocState()), control_(si->allocControl()), steps_(0), parent_(NULL), numChildren_(0), inactive_(false)
+                Motion(const SpaceInformation *si) : accCost_(0), state_(si->allocState()), control_(si->allocControl()), steps_(0), parent_(nullptr), numChildren_(0), inactive_(false)
                 {
                 }
 
-                virtual ~Motion()
-                {
-                }
+                virtual ~Motion() = default;
 
                 virtual base::State* getState() const
                 {
@@ -204,18 +202,18 @@ namespace ompl
             {
             public:
 
-                Witness() : Motion(), rep_(NULL)
+                Witness() : Motion(), rep_(nullptr)
                 {
                 }
 
-                Witness(const SpaceInformation *si) : Motion(si), rep_(NULL)
+                Witness(const SpaceInformation *si) : Motion(si), rep_(nullptr)
                 {
                 }
-                virtual base::State* getState() const
+                base::State* getState() const override
                 {
                     return rep_->state_;
                 }
-                virtual Motion* getParent() const
+                Motion* getParent() const override
                 {
                     return rep_->parent_;
                 }
@@ -254,11 +252,11 @@ namespace ompl
             const SpaceInformation                        *siC_;
 
             /** \brief A nearest-neighbors datastructure containing the tree of motions */
-            boost::shared_ptr< NearestNeighbors<Motion*> > nn_;
+            std::shared_ptr< NearestNeighbors<Motion*> > nn_;
 
 
             /** \brief A nearest-neighbors datastructure containing the tree of witness motions */
-            boost::shared_ptr< NearestNeighbors<Motion*> > witnesses_;
+            std::shared_ptr< NearestNeighbors<Motion*> > witnesses_;
 
             /** \brief The fraction of time the goal is picked as the state to expand towards (if such a state is available) */
             double                                         goalBias_;

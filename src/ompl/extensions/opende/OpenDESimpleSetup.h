@@ -69,9 +69,7 @@ namespace ompl
             explicit
             OpenDESimpleSetup(const OpenDEEnvironmentPtr &env);
 
-            virtual ~OpenDESimpleSetup()
-            {
-            }
+            ~OpenDESimpleSetup() override = default;
 
             /** \brief Get the OpenDE environment associated to the state and control spaces */
             const OpenDEEnvironmentPtr& getEnvironment() const
@@ -129,7 +127,7 @@ namespace ompl
                 Construct a path representing this action. */
             base::PathPtr simulate(unsigned int steps) const;
 
-            virtual void setup();
+            void setup() override;
 
         private:
 

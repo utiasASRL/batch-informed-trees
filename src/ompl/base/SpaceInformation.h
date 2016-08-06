@@ -47,10 +47,7 @@
 #include "ompl/util/Console.h"
 #include "ompl/util/Exception.h"
 
-#include <boost/noncopyable.hpp>
-#include <boost/function.hpp>
-#include <boost/bind.hpp>
-
+#include <functional>
 #include <utility>
 #include <cstdlib>
 #include <vector>
@@ -72,27 +69,29 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::SpaceInformationPtr
-            \brief A boost shared pointer wrapper for ompl::base::SpaceInformation */
+            \brief A shared pointer wrapper for ompl::base::SpaceInformation */
 
         /** \brief If no state validity checking class is specified
-            (StateValidityChecker), a boost function can be specified
+            (StateValidityChecker), a std::function can be specified
             instead */
-        typedef boost::function<bool(const State*)> StateValidityCheckerFn;
+        using StateValidityCheckerFn = std::function<bool (const State *)>;
 
 
         /** \brief The base class for space information. This contains
             all the information about the space planning is done in.
             setup() needs to be called as well, before use */
-        class SpaceInformation : private boost::noncopyable
+        class SpaceInformation
         {
         public:
+            // non-copyable
+            SpaceInformation(const SpaceInformation&) = delete;
+            SpaceInformation& operator=(const SpaceInformation&) = delete;
 
             /** \brief Constructor. Sets the instance of the state space to plan with. */
-            SpaceInformation(const StateSpacePtr &space);
+            SpaceInformation(StateSpacePtr space);
 
             virtual ~SpaceInformation()
-            {
-            }
+            = default;
 
             /** \brief Check if a given state is valid or not */
             bool isValid(const State *state) const
@@ -154,7 +153,7 @@ namespace ompl
             }
 
             /** \brief If no state validity checking class is
-                specified (StateValidityChecker), a boost function can
+                specified (StateValidityChecker), a function can
                 be specified instead. This version however incurs a
                 small additional overhead when calling the function,
                 since there is one more level of indirection */
@@ -229,8 +228,8 @@ namespace ompl
             /** \brief Allocate memory for each element of the array \e states */
             void allocStates(std::vector<State*> &states) const
             {
-                for (unsigned int i = 0 ; i < states.size() ; ++i)
-                    states[i] = stateSpace_->allocState();
+                for (auto & state : states)
+                    state = stateSpace_->allocState();
             }
 
             /** \brief Free the memory of a state */
@@ -242,8 +241,8 @@ namespace ompl
             /** \brief Free the memory of an array of states */
             void freeStates(std::vector<State*> &states) const
             {
-                for (unsigned int i = 0 ; i < states.size() ; ++i)
-                    stateSpace_->freeState(states[i]);
+                for (auto & state : states)
+                    stateSpace_->freeState(state);
             }
 
             /** \brief Copy a state to another */
@@ -255,9 +254,7 @@ namespace ompl
             /** \brief Clone a state */
             State* cloneState(const State *source) const
             {
-                State *copy = stateSpace_->allocState();
-                stateSpace_->copyState(copy, source);
-                return copy;
+                return stateSpace_->cloneState(source);
             }
 
             /**  @} */
@@ -328,7 +325,7 @@ namespace ompl
                 0 and s2 being at t = 1. This function assumes s1 is valid.
                 \param s1 start state of the motion to be checked (assumed to be valid)
                 \param s2 final state of the motion to be checked
-                \param lastValid first: storage for the last valid state (may be NULL); this need not be different from \e s1 or \e s2. second: the time (between 0 and 1) of  the last valid state, on the motion from \e s1 to \e s2 */
+                \param lastValid first: storage for the last valid state (may be nullptr); this need not be different from \e s1 or \e s2. second: the time (between 0 and 1) of  the last valid state, on the motion from \e s1 to \e s2 */
             bool checkMotion(const State *s1, const State *s2, std::pair<State*, double> &lastValid) const
             {
                 return motionValidator_->checkMotion(s1, s2, lastValid);

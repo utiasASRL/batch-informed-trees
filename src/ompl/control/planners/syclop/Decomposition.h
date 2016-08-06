@@ -56,7 +56,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::DecompositionPtr
-            \brief A boost shared pointer wrapper for ompl::control::Decomposition */
+            \brief A shared pointer wrapper for ompl::control::Decomposition */
 
         /** \brief A Decomposition is a partition of a bounded Euclidean space into a fixed number of regions which are denoted by integers. */
         class Decomposition
@@ -74,9 +74,7 @@ namespace ompl
                     OMPL_WARN("Decomposition: dimension of given bounds exceeds argument 'dim'. Using the first 'dim' values of bounds");
             }
 
-            virtual ~Decomposition()
-            {
-            }
+            virtual ~Decomposition() = default;
 
             /** \brief Returns the number of regions in this Decomposition. */
             virtual int getNumRegions() const = 0;

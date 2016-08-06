@@ -44,9 +44,10 @@
 #include "ompl/datastructures/PDF.h"
 #endif
 #include "ompl/util/Exception.h"
-#include <boost/unordered_set.hpp>
+#include <unordered_set>
 #include <queue>
 #include <algorithm>
+#include <utility>
 
 namespace ompl
 {
@@ -74,7 +75,7 @@ namespace ompl
         /// \cond IGNORE
         // internally, we use a priority queue for nearest neighbors, paired
         // with their distance to the query point
-        typedef std::pair<const _T*, double> DataDist;
+        using DataDist = std::pair<const _T*, double>;
         struct DataDistCompare
         {
             bool operator()(const DataDist& d0, const DataDist& d1)
@@ -82,7 +83,7 @@ namespace ompl
                 return d0.second < d1.second;
             }
         };
-        typedef std::priority_queue<DataDist, std::vector<DataDist>, DataDistCompare> NearQueue;
+        using NearQueue = std::priority_queue<DataDist, std::vector<DataDist>, DataDistCompare>;
         /// \endcond
 
     public:
@@ -93,7 +94,7 @@ namespace ompl
             , double estimatedDimension = 6.0
 #endif
             )
-            : NearestNeighbors<_T>(), tree_(NULL), degree_(degree),
+            : NearestNeighbors<_T>(), tree_(nullptr), degree_(degree),
             minDegree_(std::min(degree,minDegree)), maxDegree_(std::max(maxDegree,degree)),
             maxNumPtsPerLeaf_(maxNumPtsPerLeaf), size_(0),
             rebuildSize_(rebalancing ? maxNumPtsPerLeaf*degree : std::numeric_limits<std::size_t>::max()),
@@ -105,13 +106,13 @@ namespace ompl
         {
         }
 
-        virtual ~NearestNeighborsGNATNoThreadSafety()
+        ~NearestNeighborsGNATNoThreadSafety() override
         {
             if (tree_)
                 delete tree_;
         }
         /// \brief Set the distance function to use
-        virtual void setDistanceFunction(const typename NearestNeighbors<_T>::DistanceFunction &distFun)
+        void setDistanceFunction(const typename NearestNeighbors<_T>::DistanceFunction &distFun) override
         {
             NearestNeighbors<_T>::setDistanceFunction(distFun);
             pivotSelector_.setDistanceFunction(distFun);
@@ -119,12 +120,12 @@ namespace ompl
                 rebuildDataStructure();
         }
 
-        virtual void clear()
+        void clear() override
         {
             if (tree_)
             {
                 delete tree_;
-                tree_ = NULL;
+                tree_ = nullptr;
             }
             size_ = 0;
             removed_.clear();
@@ -132,12 +133,12 @@ namespace ompl
                 rebuildSize_ = maxNumPtsPerLeaf_ * degree_;
         }
 
-        virtual bool reportsSortedResults() const
+        bool reportsSortedResults() const override
         {
             return true;
         }
 
-        virtual void add(const _T &data)
+        void add(const _T &data) override
         {
             if (tree_)
             {
@@ -151,7 +152,7 @@ namespace ompl
                 size_ = 1;
             }
         }
-        virtual void add(const std::vector<_T> &data)
+        void add(const std::vector<_T> &data) override
         {
             if (tree_)
                 NearestNeighbors<_T>::add(data);
@@ -181,7 +182,7 @@ namespace ompl
         /// for removal in the removed_ cache. When the cache is full, the tree
         /// will be rebuilt and the elements marked for removal will actually
         /// be removed.
-        virtual bool remove(const _T &data)
+        bool remove(const _T &data) override
         {
             if (!size_) return false;
             // find data in tree
@@ -199,7 +200,7 @@ namespace ompl
             return true;
         }
 
-        virtual _T nearest(const _T &data) const
+        _T nearest(const _T &data) const override
         {
             if (size_)
             {
@@ -215,7 +216,7 @@ namespace ompl
         }
 
         /// Return the k nearest neighbors in sorted order
-        virtual void nearestK(const _T &data, std::size_t k, std::vector<_T> &nbh) const
+        void nearestK(const _T &data, std::size_t k, std::vector<_T> &nbh) const override
         {
             nbh.clear();
             if (k == 0) return;
@@ -227,7 +228,7 @@ namespace ompl
         }
 
         /// Return the nearest neighbors within distance \c radius in sorted order
-        virtual void nearestR(const _T &data, double radius, std::vector<_T> &nbh) const
+        void nearestR(const _T &data, double radius, std::vector<_T> &nbh) const override
         {
             nbh.clear();
             if (size_)
@@ -239,7 +240,7 @@ namespace ompl
             assert(nodeQueue_.empty());
         }
 
-        virtual std::size_t size() const
+        std::size_t size() const override
         {
             return size_;
         }
@@ -255,7 +256,7 @@ namespace ompl
         }
 #endif
 
-        virtual void list(std::vector<_T> &data) const
+        void list(std::vector<_T> &data) const override
         {
             data.clear();
             data.reserve(size());
@@ -272,7 +273,7 @@ namespace ompl
                 if (!gnat.removed_.empty())
                 {
                     out << "Elements marked for removal:\n";
-                    for (typename boost::unordered_set<const _T*>::const_iterator it = gnat.removed_.begin();
+                    for (typename std::unordered_set<const _T*>::const_iterator it = gnat.removed_.begin();
                         it != gnat.removed_.end(); it++)
                         out << **it << '\t';
                     out << std::endl;
@@ -285,12 +286,12 @@ namespace ompl
         void integrityCheck()
         {
             std::vector<_T> lst;
-            boost::unordered_set<const _T*> tmp;
+            std::unordered_set<const _T*> tmp;
             // get all elements, including those marked for removal
             removed_.swap(tmp);
             list(lst);
             // check if every element marked for removal is also in the tree
-            for (typename boost::unordered_set<const _T*>::iterator it=tmp.begin(); it!=tmp.end(); it++)
+            for (typename std::unordered_set<const _T*>::iterator it=tmp.begin(); it!=tmp.end(); it++)
             {
                 unsigned int i;
                 for (i=0; i<lst.size(); ++i)
@@ -314,7 +315,7 @@ namespace ompl
             assert(lst.size() == size_);
         }
     protected:
-        typedef NearestNeighborsGNATNoThreadSafety<_T> GNAT;
+        using GNAT = NearestNeighborsGNATNoThreadSafety<_T>;
 
         /// Return true iff data has been marked for removal.
         bool isRemoved(const _T &data) const
@@ -382,8 +383,8 @@ namespace ompl
         public:
             /// \brief Construct a node of given degree with at most
             /// \e capacity data elements and with given pivot.
-            Node(int degree, int capacity, const _T &pivot)
-                : degree_(degree), pivot_(pivot),
+            Node(int degree, int capacity, _T pivot)
+                : degree_(degree), pivot_(std::move(pivot)),
                 minRadius_(std::numeric_limits<double>::infinity()),
                 maxRadius_(-minRadius_), minRange_(degree, minRadius_),
                 maxRange_(degree, maxRadius_)
@@ -486,8 +487,8 @@ namespace ompl
 
                 children_.reserve(degree_);
                 gnat.pivotSelector_.kcenters(data_, degree_, pivots, dists);
-                for(unsigned int i=0; i<pivots.size(); i++)
-                    children_.push_back(new Node(degree_, gnat.maxNumPtsPerLeaf_, data_[pivots[i]]));
+                for(unsigned int & pivot : pivots)
+                    children_.push_back(new Node(degree_, gnat.maxNumPtsPerLeaf_, data_[pivot]));
                 degree_ = pivots.size(); // in case fewer than degree_ pivots were found
                 for (unsigned int j=0; j<data_.size(); ++j)
                 {
@@ -646,9 +647,9 @@ namespace ompl
             double getSamplingWeight(const GNAT &gnat) const
             {
                 double minR = std::numeric_limits<double>::max();
-                for(size_t i = 0; i<minRange_.size(); i++)
-                    if(minRange_[i] < minR && minRange_[i] > 0.0)
-                        minR =  minRange_[i];
+                for(auto minRange : minRange_)
+                    if(minRange < minR && minRange > 0.0)
+                        minR =  minRange;
                 minR = std::max(minR, maxRadius_);
                 return std::pow(minR, gnat.estimatedDimension_) / (double) subtreeSize_;
             }
@@ -659,8 +660,8 @@ namespace ompl
                     if (rng.uniform01() < 1./(double) subtreeSize_)
                         return pivot_;
                     PDF<const Node*> distribution;
-                    for(unsigned int i = 0; i < children_.size(); ++i)
-                        distribution.add(children_[i], children_[i]->getSamplingWeight(gnat));
+                    for(const auto & child : children_)
+                        distribution.add(child, child->getSamplingWeight(gnat));
                     return distribution.sample(rng.uniform01())->sample(gnat, rng);
                 }
                 else
@@ -756,7 +757,7 @@ namespace ompl
                 return (n0->distToPivot_ - n0->maxRadius_) > (n1->distToPivot_ - n1->maxRadius_);
             }
         };
-        typedef std::priority_queue<Node*, std::vector<Node*>, NodeCompare> NodeQueue;
+        using NodeQueue = std::priority_queue<Node*, std::vector<Node*>, NodeCompare>;
         /// \endcond
 
         /// \brief The data structure containing the elements stored in this structure.
@@ -788,7 +789,7 @@ namespace ompl
         /// \brief The data structure used to split data into subtrees.
         GreedyKCenters<_T>              pivotSelector_;
         /// \brief Cache of removed elements.
-        boost::unordered_set<const _T*> removed_;
+        std::unordered_set<const _T*> removed_;
 
         /// \name Internal scratch space
         /// \{

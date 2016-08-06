@@ -37,19 +37,19 @@
 #include "ompl/tools/debug/PlannerMonitor.h"
 #include "ompl/util/Time.h"
 #include <limits>
-#include <boost/bind.hpp>
+#include <functional>
 
 void ompl::tools::PlannerMonitor::startMonitor()
 {
-    if (monitorThread_) 
+    if (monitorThread_)
         return;
     shouldMonitor_ = true;
-    monitorThread_.reset(new boost::thread(boost::bind(&PlannerMonitor::threadFunction, this)));
+    monitorThread_.reset(new std::thread([this] { threadFunction(); }));
 }
 
 void ompl::tools::PlannerMonitor::stopMonitor()
 {
-    if (!monitorThread_) 
+    if (!monitorThread_)
         return;
     shouldMonitor_ = false;
     monitorThread_->join();
@@ -58,7 +58,7 @@ void ompl::tools::PlannerMonitor::stopMonitor()
 
 void ompl::tools::PlannerMonitor::threadFunction()
 {
-    time::point startTime = time::now(); 
+    time::point startTime = time::now();
     time::point lastOutputTime = startTime;
 
     while (shouldMonitor_)
@@ -66,7 +66,7 @@ void ompl::tools::PlannerMonitor::threadFunction()
         double timeSinceOutput = time::seconds(time::now() - lastOutputTime);
         if (timeSinceOutput < period_)
         {
-            boost::this_thread::sleep(time::seconds(0.01));
+            std::this_thread::sleep_for(time::seconds(0.01));
             continue;
         }
         out_.seekp(0);
@@ -78,13 +78,13 @@ void ompl::tools::PlannerMonitor::threadFunction()
             return;
         }
         const base::Planner::PlannerProgressProperties &props = planner_->getPlannerProgressProperties();
-        for (base::Planner::PlannerProgressProperties::const_iterator it = props.begin() ; it != props.end() ; ++it)
+        for (const auto & prop : props)
         {
-            out_ << "    \t * " << it->first << " \t : " << it->second() << std::endl;
+            out_ << "    \t * " << prop.first << " \t : " << prop.second() << std::endl;
         }
         out_ << std::endl;
         out_.flush();
         lastOutputTime = time::now();
-        boost::this_thread::sleep(time::seconds(0.01));
+        std::this_thread::sleep_for(time::seconds(0.01));
     }
 }

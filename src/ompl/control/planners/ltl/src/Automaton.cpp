@@ -1,9 +1,44 @@
+/*********************************************************************
+* Software License Agreement (BSD License)
+*
+*  Copyright (c) 2012, Rice University
+*  All rights reserved.
+*
+*  Redistribution and use in source and binary forms, with or without
+*  modification, are permitted provided that the following conditions
+*  are met:
+*
+*   * Redistributions of source code must retain the above copyright
+*     notice, this list of conditions and the following disclaimer.
+*   * Redistributions in binary form must reproduce the above
+*     copyright notice, this list of conditions and the following
+*     disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+*   * Neither the name of the Rice University nor the names of its
+*     contributors may be used to endorse or promote products derived
+*     from this software without specific prior written permission.
+*
+*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+*  POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************/
+
+/* Author: Matt Maly */
+
 #include "ompl/control/planners/ltl/Automaton.h"
 #include "ompl/control/planners/ltl/World.h"
 #include <boost/range/irange.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/unordered_map.hpp>
-#include <boost/unordered_set.hpp>
+#include <unordered_map>
+#include <unordered_set>
 #include <boost/dynamic_bitset.hpp>
 #include <ostream>
 #include <limits>
@@ -12,18 +47,17 @@
 
 int ompl::control::Automaton::TransitionMap::eval(const World& w) const
 {
-    typedef boost::unordered_map<World, unsigned int>::const_iterator DestIter;
-    DestIter d = entries.find(w);
+    const auto d = entries.find(w);
     if (d != entries.end())
         return d->second;
-    for (d = entries.begin(); d != entries.end(); ++d)
+    for (const auto & entry : entries)
     {
-        if (w.satisfies(d->first))
+        if (w.satisfies(entry.first))
         {
             //Since w satisfies another world that leads to d->second,
             //we can add an edge directly from w to d->second.
-            entries[w] = d->second;
-            return d->second;
+            entries[w] = entry.second;
+            return entry.second;
         }
     }
     return -1;
@@ -63,13 +97,13 @@ void ompl::control::Automaton::setStartState(unsigned int s)
     startState_ = s;
 }
 
-int ompl::control::Automaton::getStartState(void) const
+int ompl::control::Automaton::getStartState() const
 {
     return startState_;
 }
 
 void ompl::control::Automaton::addTransition(
-    unsigned int src, 
+    unsigned int src,
     const World& w,
     unsigned int dest)
 {
@@ -80,9 +114,9 @@ void ompl::control::Automaton::addTransition(
 bool ompl::control::Automaton::run(const std::vector<World>& trace) const
 {
     int current = startState_;
-    for (std::vector<World>::const_iterator w = trace.begin(); w != trace.end(); ++w)
+    for (const auto & w : trace)
     {
-        current = step(current, *w);
+        current = step(current, w);
         if (current == -1)
             return false;
     }
@@ -101,21 +135,20 @@ ompl::control::Automaton::TransitionMap& ompl::control::Automaton::getTransition
     return transitions_[src];
 }
 
-unsigned int ompl::control::Automaton::numStates(void) const
+unsigned int ompl::control::Automaton::numStates() const
 {
     return numStates_;
 }
 
-unsigned int ompl::control::Automaton::numTransitions(void) const
+unsigned int ompl::control::Automaton::numTransitions() const
 {
     unsigned int ntrans = 0;
-    typedef std::vector<TransitionMap>::const_iterator TransIter;
-    for (TransIter i = transitions_.begin(); i != transitions_.end(); ++i)
-        ntrans += i->entries.size();
+    for (const auto & transition : transitions_)
+        ntrans += transition.entries.size();
     return ntrans;
 }
 
-unsigned int ompl::control::Automaton::numProps(void) const
+unsigned int ompl::control::Automaton::numProps() const
 {
     return numProps_;
 }
@@ -126,17 +159,15 @@ void ompl::control::Automaton::print(std::ostream& out) const
     out << "rankdir=LR" << std::endl;
     for (unsigned int i = 0; i < numStates_; ++i)
     {
-        out << i << " [label=\"" << i << "\",shape=";
+        out << i << R"( [label=")" << i << R"(",shape=)";
         out << (accepting_[i] ? "doublecircle" : "circle") << "]" << std::endl;
 
-        const TransitionMap& map = transitions_[i];
-        boost::unordered_map<World, unsigned int>::const_iterator e;
-        for (e = map.entries.begin(); e != map.entries.end(); ++e)
+        for (const auto & e : transitions_[i].entries)
         {
-            const World& w = e->first;
-            unsigned int dest = e->second;
+            const World& w = e.first;
+            unsigned int dest = e.second;
             const std::string formula = w.formula();
-            out << i << " -> " << dest << " [label=\"" << formula << "\"]" << std::endl;
+            out << i << " -> " << dest << R"( [label=")" << formula << R"("])" << std::endl;
         }
     }
     out << "}" << std::endl;
@@ -149,8 +180,8 @@ unsigned int ompl::control::Automaton::distFromAccepting(unsigned int s, unsigne
     if (accepting_[s])
         return 0;
     std::queue<unsigned int> q;
-    boost::unordered_set<unsigned int> processed;
-    boost::unordered_map<unsigned int, unsigned int> distance;
+    std::unordered_set<unsigned int> processed;
+    std::unordered_map<unsigned int, unsigned int> distance;
 
     q.push(s);
     distance[s] = 0;
@@ -165,11 +196,9 @@ unsigned int ompl::control::Automaton::distFromAccepting(unsigned int s, unsigne
             distances_[s] = distance[current];
             return distance[current];
         }
-        const TransitionMap& map = transitions_[current];
-        boost::unordered_map<World, unsigned int>::const_iterator e;
-        for (e = map.entries.begin(); e != map.entries.end(); ++e)
+        for (const auto & e : transitions_[current].entries)
         {
-            unsigned int neighbor = e->second;
+            unsigned int neighbor = e.second;
             if (processed.count(neighbor) > 0)
                 continue;
             q.push(neighbor);
@@ -249,11 +278,11 @@ ompl::control::AutomatonPtr ompl::control::Automaton::DisjunctionAutomaton(unsig
 {
     AutomatonPtr disj(new Automaton(numProps, 2));
     World loop(numProps);
-    for (std::vector<unsigned int>::const_iterator p = disjProps.begin(); p != disjProps.end(); ++p)
+    for (unsigned int disjProp : disjProps)
     {
         World satisfy(numProps);
-        satisfy[*p] = true;
-        loop[*p] = false;
+        satisfy[disjProp] = true;
+        loop[disjProp] = false;
         disj->addTransition(0, satisfy, 1);
     }
     disj->addTransition(0, loop, 0);

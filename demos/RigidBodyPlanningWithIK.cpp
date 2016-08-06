@@ -56,7 +56,7 @@ public:
         setThreshold(1e-2);
     }
 
-    virtual double distanceGoal(const ob::State *state) const
+    double distanceGoal(const ob::State *state) const override
     {
         // goal region is given by states where x + y = z and orientation is close to identity
         double d = fabs(state->as<ob::SE3StateSpace::StateType>()->getX()
@@ -99,7 +99,7 @@ bool regionSamplingWithGS(const ob::SpaceInformationPtr &si, const ob::ProblemDe
     return cont && gls->maxSampleCount() < 3 && !pd->hasSolution();
 }
 
-void planWithIK(void)
+void planWithIK()
 {
     // construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE3StateSpace());
@@ -125,7 +125,11 @@ void planWithIK(void)
 
     // bind a sampling function that fills its argument with a sampled state and returns true while it can produce new samples
     // we don't need to check if new samples are different from ones previously computed as this is pefromed automatically by GoalLazySamples
-    ob::GoalSamplingFn samplingFunction = boost::bind(&regionSamplingWithGS, ss.getSpaceInformation(), ss.getProblemDefinition(), &region, _1, _2);
+    ob::GoalSamplingFn samplingFunction = [&ss, &region](const ob::GoalLazySamples *gls, ob::State *result)
+        {
+            return regionSamplingWithGS(ss.getSpaceInformation(), ss.getProblemDefinition(), &region,
+                gls, result);
+        };
 
     // create an instance of GoalLazySamples:
     ob::GoalPtr goal(new ob::GoalLazySamples(ss.getSpaceInformation(), samplingFunction));

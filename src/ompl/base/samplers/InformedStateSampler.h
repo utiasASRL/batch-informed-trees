@@ -44,10 +44,8 @@
 // We use a pointer to the problem definition to access problem and solution data.
 #include "ompl/base/ProblemDefinition.h"
 
-//For boost::function
-#include <boost/function.hpp>
-//For boost::noncopyable
-#include <boost/noncopyable.hpp>
+//For std::function
+#include <functional>
 
 namespace ompl
 {
@@ -60,16 +58,18 @@ namespace ompl
         /** \brief An abstract class for the concept of using information about the state space
         and the current solution cost to limit future search to a planning
         subproblem that contains all possibly better solutions. */
-        class InformedSampler : private boost::noncopyable
+        class InformedSampler
         {
         public:
+            // non-copyable
+            InformedSampler(const InformedSampler&) = delete;
+            InformedSampler& operator=(const InformedSampler&) = delete;
+
             /** \brief Construct a sampler that only generates states with a heuristic solution estimate that is less than the cost of the current solution. Requires a function pointer to a method to query the cost of the current solution.
             If iteration is required, only maxNumberCalls are attempted, to assure that the function returns. */
             InformedSampler(const ProblemDefinitionPtr &probDefn, unsigned int maxNumberCalls);
 
-            virtual ~InformedSampler(void)
-            {
-            }
+            virtual ~InformedSampler() = default;
 
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost, i.e. in the interval [0, maxCost). Returns false if such a state was not found in the specified number of iterations. */
             virtual bool sampleUniform(State *statePtr, const Cost &maxCost) = 0;
@@ -110,7 +110,7 @@ namespace ompl
         public:
 
             /** \brief The definition of a function pointer for querying the current solution cost. */
-            typedef boost::function<Cost ()> GetCurrentCostFunc;
+            using GetCurrentCostFunc = std::function<Cost ()>;
 
             /** \brief Construct a sampler that only generates states with a heuristic solution estimate that is less than the cost of the current solution using the default informed sampler for the current optimization objective. Requires a function pointer to a method to query the cost of the current solution. */
             InformedStateSampler(const ProblemDefinitionPtr &probDefn, unsigned int maxNumberCalls, const GetCurrentCostFunc &costFunc);
@@ -118,18 +118,16 @@ namespace ompl
             /** \brief Construct a sampler that only generates states with a heuristic solution estimate that is less than the cost of the current solution using the provided informed sampler. Requires a function pointer to a method to query the cost of the current solution. */
             InformedStateSampler(const ProblemDefinitionPtr &probDefn, const GetCurrentCostFunc &costFunc, const InformedSamplerPtr &infSampler);
 
-            virtual ~InformedStateSampler(void)
-            {
-            }
+            ~InformedStateSampler() override = default;
 
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the current best cost (as defined by the pointer passed at construction). By default just calls sampleUniform(State*, Cost) with cost given by the member variable. */
-            virtual void sampleUniform(State *statePtr);
+            void sampleUniform(State *statePtr) override;
 
             /** \brief By default sampleUniformNear throws. This can be overloaded by a specific informed sampler if desired. */
-            virtual void sampleUniformNear(State *statePtr, const State *near, const double distance);
+            void sampleUniformNear(State *statePtr, const State *near, const double distance) override;
 
             /** \brief By default sampleGaussian throws. This can be overloaded by a specific informed sampler if desired. */
-            virtual void sampleGaussian(State *statePtr, const State *mean, const double stdDev);
+            void sampleGaussian(State *statePtr, const State *mean, const double stdDev) override;
 
         private:
             /** \brief A helper function for construction */

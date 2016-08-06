@@ -46,7 +46,6 @@
 #include <vector>
 #include <valarray>
 #include <iostream>
-#include <boost/noncopyable.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 
 namespace ompl
@@ -56,10 +55,10 @@ namespace ompl
     {
 
         /** \brief Grid cells corresponding to a projection value are described in terms of their coordinates. */
-        typedef std::vector<int> ProjectionCoordinates;
+        using ProjectionCoordinates = std::vector<int>;
 
         /** \brief The datatype for state projections. This class contains a real vector. */
-        typedef boost::numeric::ublas::vector<double> EuclideanProjection;
+        using EuclideanProjection = boost::numeric::ublas::vector<double>;
 
 
         /** \brief A projection matrix -- it allows multiplication of
@@ -70,7 +69,7 @@ namespace ompl
         public:
 
             /** \brief Datatype for projection matrices */
-            typedef boost::numeric::ublas::matrix<double> Matrix;
+            using Matrix = boost::numeric::ublas::matrix<double>;
 
             /** \brief Compute a random projection matrix with \e from
                 columns and \e to rows. A vector with \e from elements
@@ -127,7 +126,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::ProjectionEvaluatorPtr
-            \brief A boost shared pointer wrapper for ompl::base::ProjectionEvaluator */
+            \brief A shared pointer wrapper for ompl::base::ProjectionEvaluator */
 
         /** \brief Abstract definition for a class computing
             projections to R<sup>n</sup>. Implicit integer grids are
@@ -135,9 +134,12 @@ namespace ompl
             sizes. Before use, the user must supply cell sizes
             for the integer grid (setCellSizes()). The
             implementation of this class is thread safe. */
-        class ProjectionEvaluator : private boost::noncopyable
+        class ProjectionEvaluator
         {
         public:
+            // non-copyable
+            ProjectionEvaluator(const ProjectionEvaluator&) = delete;
+            ProjectionEvaluator& operator=(const ProjectionEvaluator&) = delete;
 
             /** \brief Construct a projection evaluator for a specific state space */
             ProjectionEvaluator(const StateSpace *space);
@@ -303,13 +305,13 @@ namespace ompl
                 projection to use can be specified by \e projToUse. If
                 the projection is not specified, the default one for
                 the subspace at position \e index is used. */
-            SubspaceProjectionEvaluator(const StateSpace *space, unsigned int index, const ProjectionEvaluatorPtr &projToUse = ProjectionEvaluatorPtr());
+            SubspaceProjectionEvaluator(const StateSpace *space, unsigned int index, ProjectionEvaluatorPtr projToUse = ProjectionEvaluatorPtr());
 
-            virtual void setup();
+            void setup() override;
 
-            virtual unsigned int getDimension() const;
+            unsigned int getDimension() const override;
 
-            virtual void project(const State *state, EuclideanProjection &projection) const;
+            void project(const State *state, EuclideanProjection &projection) const override;
 
         protected:
 

@@ -36,15 +36,16 @@
 
 #include "ompl/base/Goal.h"
 #include <limits>
+#include <utility>
 
-ompl::base::Goal::Goal(const SpaceInformationPtr &si) :
-    type_(GOAL_ANY), si_(si)
+ompl::base::Goal::Goal(SpaceInformationPtr si) :
+    type_(GOAL_ANY), si_(std::move(si))
 {
 }
 
 bool ompl::base::Goal::isSatisfied(const State *st, double *distance) const
 {
-    if (distance != NULL)
+    if (distance != nullptr)
         *distance = std::numeric_limits<double>::max();
     return isSatisfied(st);
 }

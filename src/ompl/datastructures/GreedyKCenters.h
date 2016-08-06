@@ -38,6 +38,7 @@
 #define OMPL_DATASTRUCTURES_GREEDY_K_CENTERS_
 
 #include "ompl/util/RandomNumbers.h"
+#include <functional>
 #include <boost/numeric/ublas/matrix.hpp>
 
 namespace ompl
@@ -50,17 +51,13 @@ namespace ompl
     {
     public:
         /** \brief The definition of a distance function */
-        typedef boost::function<double(const _T&, const _T&)> DistanceFunction;
+        using DistanceFunction = std::function<double(const _T&, const _T&)>;
         /** \brief A matrix type for storing distances between points and centers */
-        typedef boost::numeric::ublas::matrix<double> Matrix;
+        using Matrix = boost::numeric::ublas::matrix<double>;
 
-        GreedyKCenters()
-        {
-        }
+        GreedyKCenters() = default;
 
-        virtual ~GreedyKCenters()
-        {
-        }
+        virtual ~GreedyKCenters() = default;
 
         /** \brief Set the distance function to use */
         void setDistanceFunction(const DistanceFunction &distFun)

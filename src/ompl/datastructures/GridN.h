@@ -49,13 +49,13 @@ namespace ompl
     public:
 
         /// Datatype for cell in base class
-        typedef typename Grid<_T>::Cell      BaseCell;
+        using BaseCell = typename Grid<_T>::Cell;
 
         /// Datatype for array of cells in base class
-        typedef typename Grid<_T>::CellArray BaseCellArray;
+        using BaseCellArray = typename Grid<_T>::CellArray;
 
         /// Datatype for cell coordinates
-        typedef typename Grid<_T>::Coord     Coord;
+        using Coord = typename Grid<_T>::Coord;
 
         /// Definition of a cell in this grid
         struct Cell : public BaseCell
@@ -70,13 +70,11 @@ namespace ompl
             {
             }
 
-            virtual ~Cell()
-            {
-            }
+            ~Cell() override = default;
         };
 
         /// The datatype for arrays of cells
-        typedef std::vector<Cell*> CellArray;
+        using CellArray = std::vector<Cell *>;
 
 
         /// The constructor takes the dimension of the grid as argument
@@ -88,9 +86,7 @@ namespace ompl
             setDimension(dimension);
         }
 
-        virtual ~GridN()
-        {
-        }
+        ~GridN() override = default;
 
         /// Update the dimension of the grid; this should not be done
         /// unless the grid is empty
@@ -163,15 +159,15 @@ namespace ompl
         /// this call only creates the cell, but does not add it to
         /// the grid.  It however updates the neighbor count for
         /// neighboring cells
-        virtual BaseCell* createCell(const Coord& coord, BaseCellArray *nbh = NULL)
+        BaseCell* createCell(const Coord& coord, BaseCellArray *nbh = nullptr) override
         {
-            Cell *cell = new Cell();
+            auto *cell = new Cell();
             cell->coord = coord;
 
             BaseCellArray *list = nbh ? nbh : new BaseCellArray();
             Grid<_T>::neighbors(cell->coord, *list);
 
-            for (typename BaseCellArray::iterator cl = list->begin() ; cl != list->end() ; ++cl)
+            for (auto cl = list->begin() ; cl != list->end() ; ++cl)
             {
                 Cell* c = static_cast<Cell*>(*cl);
                 c->neighbors++;
@@ -191,13 +187,13 @@ namespace ompl
 
         /// Remove a cell from the grid. If the cell has not been
         /// Added to the grid, only update the neighbor list
-        virtual bool remove(BaseCell *cell)
+        bool remove(BaseCell *cell) override
         {
             if (cell)
             {
-                BaseCellArray *list = new BaseCellArray();
+                auto *list = new BaseCellArray();
                 Grid<_T>::neighbors(cell->coord, *list);
-                for (typename BaseCellArray::iterator cl = list->begin() ; cl != list->end() ; ++cl)
+                for (auto cl = list->begin() ; cl != list->end() ; ++cl)
                 {
                     Cell* c = static_cast<Cell*>(*cl);
                     c->neighbors--;
@@ -205,7 +201,7 @@ namespace ompl
                         c->border = true;
                 }
                 delete list;
-                typename Grid<_T>::CoordHash::iterator pos = Grid<_T>::hash_.find(&cell->coord);
+                auto pos = Grid<_T>::hash_.find(&cell->coord);
                 if (pos != Grid<_T>::hash_.end())
                 {
                     Grid<_T>::hash_.erase(pos);
@@ -218,7 +214,7 @@ namespace ompl
         /// Get the set of instantiated cells in the grid
         void getCells(CellArray &cells) const
         {
-            for (typename Grid<_T>::CoordHash::const_iterator i = Grid<_T>::hash_.begin() ;
+            for (auto i = Grid<_T>::hash_.begin() ;
                  i != Grid<_T>::hash_.end() ; ++i)
                 cells.push_back(static_cast<Cell*>(i->second));
         }

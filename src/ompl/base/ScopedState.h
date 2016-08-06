@@ -40,6 +40,7 @@
 #include "ompl/base/SpaceInformation.h"
 #include <boost/concept_check.hpp>
 #include <iostream>
+#include <utility>
 
 namespace ompl
 {
@@ -64,7 +65,7 @@ namespace ompl
         public:
 
             /** \brief The type of the contained state */
-            typedef typename T::StateType StateType;
+            using StateType = typename T::StateType;
 
             /** \brief Given the space that we are working with,
                 allocate a state from the corresponding
@@ -84,7 +85,7 @@ namespace ompl
             /** \brief Given the state space that we are working with,
                 allocate a state. */
             explicit
-            ScopedState(const StateSpacePtr &space) : space_(space)
+            ScopedState(StateSpacePtr space) : space_(std::move(space))
             {
                 State *s = space_->allocState();
 
@@ -123,7 +124,7 @@ namespace ompl
 
             /** \brief Given the state space that we are working with,
                 allocate a state and fill that state with a given value. */
-            ScopedState(const StateSpacePtr &space, const State *state) : space_(space)
+            ScopedState(StateSpacePtr space, const State *state) : space_(std::move(space))
             {
                 State *s = space_->allocState();
                 space_->copyState(s, state);
@@ -291,7 +292,7 @@ namespace ompl
             double& operator[](const std::string &name)
             {
                 const std::map<std::string, StateSpace::ValueLocation> &vm = space_->getValueLocationsByName();
-                std::map<std::string, StateSpace::ValueLocation>::const_iterator it = vm.find(name);
+                auto it = vm.find(name);
                 if (it != vm.end())
                 {
                     double *val = space_->getValueAddressAtLocation(state_, it->second);
@@ -305,7 +306,7 @@ namespace ompl
             double operator[](const std::string &name) const
             {
                 const std::map<std::string, StateSpace::ValueLocation> &vm = space_->getValueLocationsByName();
-                std::map<std::string, StateSpace::ValueLocation>::const_iterator it = vm.find(name);
+                auto it = vm.find(name);
                 if (it != vm.end())
                 {
                     const double *val = space_->getValueAddressAtLocation(state_, it->second);
@@ -554,7 +555,7 @@ namespace ompl
         }
 
         /** \brief Shared pointer to a ScopedState<> */
-        typedef boost::shared_ptr< ScopedState<> > ScopedStatePtr;
+        using ScopedStatePtr = std::shared_ptr<ScopedState<> >;
     }
 }
 

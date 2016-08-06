@@ -43,12 +43,11 @@
 #include "ompl/util/Time.h"
 
 #include <boost/range/adaptor/map.hpp>
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/pending/disjoint_sets.hpp>
-#include <boost/function.hpp>
-#include <boost/thread.hpp>
+#include <mutex>
 #include <iostream>
 #include <fstream>
 #include <utility>
@@ -92,43 +91,33 @@ namespace ompl
             };
 
             struct vertex_state_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_representative_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_color_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_list_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_interface_list_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             /** \brief The type used internally for representing vertex IDs */
-            typedef unsigned long int VertexIndexType;
+            using VertexIndexType = unsigned long;
 
             /** \brief Hash for storing interface information. */
-            typedef boost::unordered_map<VertexIndexType, std::set<VertexIndexType>, boost::hash<VertexIndexType> > InterfaceHash;
+            using InterfaceHash = std::unordered_map<VertexIndexType, std::set<VertexIndexType>>;
 
             /** \brief Internal representation of a dense path */
-            typedef std::deque<base::State*> DensePath;
-
-            // The InterfaceHash structure is wrapped inside of this struct due to a compilation error on
-            // GCC 4.6 with Boost 1.48.  An implicit assignment operator overload does not compile with these
-            // components, so an explicit overload is given here.
-            // Remove this struct when the minimum Boost requirement is > v1.48.
-            struct InterfaceHashStruct
-            {
-                InterfaceHashStruct& operator=(const InterfaceHashStruct &rhs) { interfaceHash = rhs.interfaceHash; return *this; }
-                InterfaceHash interfaceHash;
-            };
+            using DensePath = std::deque<base::State *>;
 
             /**
              @brief The constructed roadmap spanner.
@@ -142,25 +131,25 @@ namespace ompl
 
              @par SparseEdges should be undirected and have a weight property.
              */
-            typedef boost::adjacency_list <
+            using SpannerGraph = boost::adjacency_list <
                 boost::vecS, boost::vecS, boost::undirectedS,
                 boost::property < vertex_state_t, base::State*,
                 boost::property < boost::vertex_predecessor_t, VertexIndexType,
                 boost::property < boost::vertex_rank_t, VertexIndexType,
                 boost::property < vertex_color_t, GuardType,
                 boost::property < vertex_list_t, std::set<VertexIndexType>,
-                boost::property < vertex_interface_list_t, InterfaceHashStruct > > > > > >,
+                boost::property < vertex_interface_list_t, InterfaceHash > > > > > >,
                 boost::property < boost::edge_weight_t, base::Cost >
-            > SpannerGraph;
+            >;
 
             /** \brief A vertex in the sparse roadmap that is constructed */
-            typedef boost::graph_traits<SpannerGraph>::vertex_descriptor SparseVertex;
+            using SparseVertex = boost::graph_traits<SpannerGraph>::vertex_descriptor;
 
             /** \brief An edge in the sparse roadmap that is constructed */
-            typedef boost::graph_traits<SpannerGraph>::edge_descriptor   SparseEdge;
+            using SparseEdge = boost::graph_traits<SpannerGraph>::edge_descriptor;
 
             /** \brief Nearest neighbor structure which works over the SpannerGraph */
-            typedef boost::shared_ptr< NearestNeighbors<SparseVertex> > SparseNeighbors;
+            using SparseNeighbors = std::shared_ptr<NearestNeighbors<SparseVertex> >;
 
             /**
              @brief The underlying roadmap graph.
@@ -177,32 +166,32 @@ namespace ompl
 
              @par DenseEdges should be undirected and have a weight property.
              */
-            typedef boost::adjacency_list <
+            using DenseGraph = boost::adjacency_list <
                 boost::vecS, boost::vecS, boost::undirectedS,
                 boost::property < vertex_state_t, base::State*,
                 boost::property < boost::vertex_predecessor_t, VertexIndexType,
                 boost::property < boost::vertex_rank_t, VertexIndexType,
                 boost::property < vertex_representative_t, SparseVertex > > > >,
                 boost::property < boost::edge_weight_t, double >
-            > DenseGraph;
+            >;
 
             /** \brief A vertex in DenseGraph */
-            typedef boost::graph_traits<DenseGraph>::vertex_descriptor DenseVertex;
+            using DenseVertex = boost::graph_traits<DenseGraph>::vertex_descriptor;
 
             /** \brief An edge in DenseGraph */
-            typedef boost::graph_traits<DenseGraph>::edge_descriptor   DenseEdge;
+            using DenseEdge = boost::graph_traits<DenseGraph>::edge_descriptor;
 
             /** \brief Nearest neighbor structure which works over the DenseGraph */
-            typedef boost::shared_ptr< NearestNeighbors<DenseVertex> > DenseNeighbors;
+            using DenseNeighbors = std::shared_ptr<NearestNeighbors<DenseVertex> >;
 
             /** \brief Constructor. */
             SPARS(const base::SpaceInformationPtr &si);
             /** \brief Destructor. */
-            virtual ~SPARS();
+            ~SPARS() override;
 
-            virtual void setProblemDefinition(const base::ProblemDefinitionPtr &pdef);
+            void setProblemDefinition(const base::ProblemDefinitionPtr &pdef) override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /** \brief While the termination condition permits, construct the spanner graph */
             void constructRoadmap(const base::PlannerTerminationCondition &ptc);
@@ -223,7 +212,7 @@ namespace ompl
                 input states should be however cleared, without
                 clearing the roadmap itself. This can be done using
                 the clearQuery() function. */
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
             /** \brief Clear the query previously loaded from the ProblemDefinition.
                 Subsequent calls to solve() will reuse the previously computed roadmap,
@@ -231,7 +220,7 @@ namespace ompl
                 This enables multi-query functionality for PRM. */
             void clearQuery();
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Set a different nearest neighbors datastructure for the roadmap graph.
                 This nearest neighbor structure contains only information on the nodes
@@ -242,7 +231,7 @@ namespace ompl
             void setDenseNeighbors()
             {
                 nn_.reset(new NN<DenseVertex>());
-                connectionStrategy_.clear();
+                connectionStrategy_ = std::function<const std::vector<DenseVertex>&(const DenseVertex)>();
                 if (isSetup())
                     setup();
             }
@@ -321,7 +310,7 @@ namespace ompl
                 return stretchFactor_;
             }
 
-            virtual void setup();
+            void setup() override;
 
             /** \brief Retrieve the underlying dense graph structure.  This is built as a PRM* and asymptotically approximates best paths through the space. */
             const DenseGraph& getDenseGraph() const
@@ -536,7 +525,7 @@ namespace ompl
                                                                                 sparseDJSets_;
 
             /** \brief Function that returns the milestones to attempt connections with */
-            boost::function<const std::vector<DenseVertex>&(const DenseVertex)> connectionStrategy_;
+            std::function<const std::vector<DenseVertex>&(const DenseVertex)> connectionStrategy_;
 
             /** \brief A counter for the number of consecutive failed iterations of the algorithm */
             unsigned int                                                        consecutiveFailures_;
@@ -566,7 +555,7 @@ namespace ompl
             RNG                                                                 rng_;
 
             /** \brief Mutex to guard access to the graphs */
-            mutable boost::mutex                                                graphMutex_;
+            mutable std::mutex                                                  graphMutex_;
 
             /** \brief Objective cost function for PRM graph edges */
             base::OptimizationObjectivePtr                                      opt_;

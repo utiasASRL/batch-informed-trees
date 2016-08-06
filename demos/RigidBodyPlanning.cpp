@@ -63,7 +63,7 @@ bool isStateValid(const ob::State *state)
     return (const void*)rot != (const void*)pos;
 }
 
-void plan(void)
+void plan()
 {
     // construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE3StateSpace());
@@ -79,7 +79,7 @@ void plan(void)
     ob::SpaceInformationPtr si(new ob::SpaceInformation(space));
 
     // set state validity checking for this space
-    si->setStateValidityChecker(boost::bind(&isStateValid, _1));
+    si->setStateValidityChecker(isStateValid);
 
     // create a random start state
     ob::ScopedState<> start(space);
@@ -128,7 +128,7 @@ void plan(void)
         std::cout << "No solution found" << std::endl;
 }
 
-void planWithSimpleSetup(void)
+void planWithSimpleSetup()
 {
     // construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE3StateSpace());
@@ -144,7 +144,7 @@ void planWithSimpleSetup(void)
     og::SimpleSetup ss(space);
 
     // set state validity checking for this space
-    ss.setStateValidityChecker(boost::bind(&isStateValid, _1));
+    ss.setStateValidityChecker([](const ob::State *state) { return isStateValid(state); });
 
     // create a random start state
     ob::ScopedState<> start(space);

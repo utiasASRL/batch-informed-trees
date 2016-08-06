@@ -39,7 +39,7 @@
 
 #include "ompl/control/planners/ltl/World.h"
 #include "ompl/util/ClassForward.h"
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <limits>
 #include <ostream>
 #include <vector>
@@ -54,7 +54,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::AutomatonPtr
-            \brief A boost shared pointer wrapper for ompl::control::Automaton */
+            \brief A shared pointer wrapper for ompl::control::Automaton */
 
         /** \brief A class to represent a deterministic finite automaton,
             each edge of which corresponds to a World.
@@ -80,13 +80,9 @@ namespace ompl
                     Returns -1 if no such transition exists. */
                 int eval(const World& w) const;
 
-                TransitionMap& operator=(const TransitionMap& tm)
-                {
-                    entries = tm.entries;
-                    return *this;
-                }
+                TransitionMap& operator=(const TransitionMap& tm) = default;
 
-                mutable boost::unordered_map<World, unsigned int> entries;
+                mutable std::unordered_map<World, unsigned int> entries;
             };
 
             /** \brief Creates an automaton with a given number of propositions and states. */
@@ -106,7 +102,7 @@ namespace ompl
 
             /** \brief Returns the start state of the automaton.
                 Returns -1 if no start state has been set. */
-            int getStartState(void) const;
+            int getStartState() const;
 
             /** \brief Adds a given transition to the automaton. */
             void addTransition(unsigned int src, const World& w,
@@ -128,13 +124,13 @@ namespace ompl
             TransitionMap& getTransitions(unsigned int src);
 
             /** \brief Returns the number of states in this automaton. */
-            unsigned int numStates(void) const;
+            unsigned int numStates() const;
 
             /** \brief Returns the number of transitions in this automaton. */
-            unsigned int numTransitions(void) const;
+            unsigned int numTransitions() const;
 
             /** \brief Returns the number of propositions used by this automaton. */
-            unsigned int numProps(void) const;
+            unsigned int numProps() const;
 
             /** \brief Prints the automaton to a given output stream, in Graphviz dot format. */
             void print(std::ostream& out) const;

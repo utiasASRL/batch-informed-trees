@@ -36,7 +36,7 @@
 
 #define BOOST_TEST_MODULE "State"
 #include <boost/test/unit_test.hpp>
-#include <boost/thread.hpp>
+#include <thread>
 #include <iostream>
 
 #include "ompl/base/ScopedState.h"
@@ -52,7 +52,7 @@ using namespace ompl;
 
 BOOST_AUTO_TEST_CASE(Scoped)
 {
-    base::SE3StateSpace *mSE3 = new base::SE3StateSpace();
+    auto *mSE3 = new base::SE3StateSpace();
     base::StateSpacePtr pSE3(mSE3);
 
     base::RealVectorBounds b(3);
@@ -61,17 +61,17 @@ BOOST_AUTO_TEST_CASE(Scoped)
     mSE3->setBounds(b);
     mSE3->setup();
 
-    base::CompoundStateSpace *mC0 = new base::CompoundStateSpace();
+    auto *mC0 = new base::CompoundStateSpace();
     base::StateSpacePtr pC0(mC0);
     mC0->addSubspace(pSE3, 1.0);
     mC0->setup();
 
-    base::CompoundStateSpace *mC1 = new base::CompoundStateSpace();
+    auto *mC1 = new base::CompoundStateSpace();
     base::StateSpacePtr pC1(mC1);
     mC1->addSubspace(pC0, 1.0);
     mC1->setup();
 
-    base::CompoundStateSpace *mC2 = new base::CompoundStateSpace();
+    auto *mC2 = new base::CompoundStateSpace();
     base::StateSpacePtr pC2(mC2);
     mC2->addSubspace(mSE3->getSubspace(1), 1.0);
     mC2->addSubspace(mSE3->getSubspace(0), 1.0);
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(Scoped)
     BOOST_CHECK_EQUAL(sSE3_copy, sSE3);
     BOOST_CHECK_EQUAL(sSE3[6], r[6]);
     BOOST_CHECK_EQUAL(sSE3[0], r[0]);
-    BOOST_CHECK_EQUAL(sSE3.getSpace()->getValueAddressAtIndex(sSE3.get(), 7), (double*)NULL);
+    BOOST_CHECK_EQUAL(sSE3.getSpace()->getValueAddressAtIndex(sSE3.get(), 7), (double*)nullptr);
 
     sSE3_R = 0.5;
     BOOST_CHECK_EQUAL(sSE3_R[0], 0.5);
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(Allocation)
 
     const unsigned int N = 30000;
     const unsigned int M = 20;
-    std::vector<base::State*> states(N, NULL);
+    std::vector<base::State*> states(N, nullptr);
 
     ompl::time::point start = ompl::time::now();
     for (unsigned int j = 0 ; j < M ; ++j)
@@ -246,21 +246,21 @@ void randomizedAllocator(const base::SpaceInformation *si)
     RNG r;
     const unsigned int n = 500;
 
-    std::vector<base::State*> states(n + 1, NULL);
+    std::vector<base::State*> states(n + 1, nullptr);
     for (unsigned int i = 0 ; i < n * 1000 ; ++i)
     {
         int j = r.uniformInt(0, n);
-        if (states[j] == NULL)
+        if (states[j] == nullptr)
             states[j] = si->allocState();
         else
         {
             si->freeState(states[j]);
-            states[j] = NULL;
+            states[j] = nullptr;
         }
     }
-    for (unsigned int i = 0 ; i < states.size() ; ++i)
-        if (states[i])
-            si->freeState(states[i]);
+    for (auto & state : states)
+        if (state)
+            si->freeState(state);
 }
 
 BOOST_AUTO_TEST_CASE(AllocationWithThreads)
@@ -274,9 +274,9 @@ BOOST_AUTO_TEST_CASE(AllocationWithThreads)
     si.setup();
     const int NT = 10;
     ompl::time::point start = ompl::time::now();
-    std::vector<boost::thread*> threads;
+    std::vector<std::thread*> threads;
     for (int i = 0 ; i < NT ; ++i)
-        threads.push_back(new boost::thread(boost::bind(&randomizedAllocator, &si)));
+        threads.push_back(new std::thread([&si] { randomizedAllocator(&si); }));
     for (int i = 0 ; i < NT ; ++i)
     {
         threads[i]->join();

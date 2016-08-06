@@ -42,7 +42,7 @@
 #error The ProlateHyperspheroid class uses Eigen3, which was not detected at build time.
 #endif
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 //For ease-of-use shared_ptr definition
 #include <ompl/util/ClassForward.h>
@@ -82,16 +82,16 @@ namespace ompl
         bool isOnPhs(const double point[]) const;
 
         /** \brief The dimension of the PHS */
-        unsigned int getPhsDimension(void) const;
+        unsigned int getPhsDimension() const;
 
         /** \brief The measure of the PHS */
-        double getPhsMeasure(void) const;
+        double getPhsMeasure() const;
 
         /** \brief The measure of the PHS for a given transverse diameter */
         double getPhsMeasure(double tranDiam) const;
 
         /** \brief The minimum transverse diameter of the PHS, i.e., the distance between the foci */
-        double getMinTransverseDiameter(void) const;
+        double getMinTransverseDiameter() const;
 
         /** \brief Calculate length of a line that originates from one focus, passes through the given point, and terminates at the other focus, i.e., the transverse diameter of the ellipse on which the given sample lies*/
         double getPathLength(const double point[]) const;
@@ -106,14 +106,14 @@ namespace ompl
         struct PhsData;
 
         /** \brief A shared pointer to the actual data of a ProlateHyperspheroid. Used to hide Eigen from the header. */
-        boost::shared_ptr<PhsData> dataPtr_;
+        std::shared_ptr<PhsData> dataPtr_;
 
         // Functions
         /** \brief Calculate the rotation from the PHS frame to the world frame via singular-value decomposition using the transverse symmetry of the PHS. */
-        void updateRotation(void);
+        void updateRotation();
 
         /** \brief Calculate the hyperspheroid to PHS transformation matrix */
-        void updateTransformation(void);
+        void updateTransformation();
     };
 }
 

@@ -41,7 +41,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/serialization/vector.hpp>
-#include <boost/function.hpp>
+#include <functional>
 #include <iostream>
 
 namespace ompl
@@ -63,7 +63,7 @@ namespace ompl
         public:
 
             /** \brief The state space to store states for is specified as argument */
-            StateStorage(const StateSpacePtr &space);
+            StateStorage(StateSpacePtr space);
             virtual ~StateStorage();
 
             /** \brief Get the state space this class maintains states for */
@@ -128,7 +128,7 @@ namespace ompl
 
             /** \brief Sort the states according to the less-equal operator \e op. Metadata is NOT sorted;
                 if metadata was added, the index values of the metadata will not match after the sort. */
-            void sort(const boost::function<bool(const State*, const State*)> &op);
+            void sort(const std::function<bool(const State*, const State*)> &op);
 
             /** \brief Get a sampler allocator to a sampler that can be specified for a StateSpace, such that all sampled
                 states are actually from this storage structure. */
@@ -212,7 +212,7 @@ namespace ompl
         public:
 
             /** \brief the datatype of the metadata */
-            typedef M MetadataType;
+            using MetadataType = M;
 
             /** \brief The state space to store states for is specified as argument */
             StateStorageWithMetadata(const StateSpacePtr &space) : StateStorage(space)
@@ -223,7 +223,7 @@ namespace ompl
             /** \brief Add a state to the set of states maintained by
                 this storage structure. The state is copied to
                 internal storage and metadata with default values is stored as well. */
-            virtual void addState(const State *state)
+            void addState(const State *state) override
             {
                 addState(state, M());
             }
@@ -236,7 +236,7 @@ namespace ompl
                 metadata_.push_back(metadata);
             }
 
-            virtual void clear()
+            void clear() override
             {
                 StateStorage::clear();
                 metadata_.clear();
@@ -258,14 +258,14 @@ namespace ompl
 
         protected:
 
-            virtual void loadMetadata(const Header& /*h*/, boost::archive::binary_iarchive &ia)
+            void loadMetadata(const Header& /*h*/, boost::archive::binary_iarchive &ia) override
             {
                 // clear default metadata that was added by StateStorage::loadStates()
                 metadata_.clear();
                 ia >> metadata_;
             }
 
-            virtual void storeMetadata(const Header& /*h*/, boost::archive::binary_oarchive &oa)
+            void storeMetadata(const Header& /*h*/, boost::archive::binary_oarchive &oa) override
             {
                 oa << metadata_;
             }
@@ -276,8 +276,8 @@ namespace ompl
         };
 
         /** \brief Storage of states where the metadata is a vector of indices. This is is typically used to store a graph */
-        typedef StateStorageWithMetadata<std::vector<std::size_t> > GraphStateStorage;
-        typedef boost::shared_ptr<GraphStateStorage> GraphStateStoragePtr;
+        using GraphStateStorage = StateStorageWithMetadata<std::vector<std::size_t> >;
+        using GraphStateStoragePtr = std::shared_ptr<GraphStateStorage>;
     }
 }
 #endif

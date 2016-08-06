@@ -52,8 +52,8 @@
 namespace ob = ompl::base;
 namespace oc = ompl::control;
 
-typedef oc::PropositionalTriangularDecomposition::Polygon Polygon;
-typedef oc::PropositionalTriangularDecomposition::Vertex Vertex;
+using Polygon = oc::PropositionalTriangularDecomposition::Polygon;
+using Vertex = oc::PropositionalTriangularDecomposition::Vertex;
 
 // a decomposition is only needed for SyclopRRT and SyclopEST
 // use TriangularDecomp
@@ -62,24 +62,21 @@ class MyDecomposition : public oc::PropositionalTriangularDecomposition
 public:
     MyDecomposition(const ob::RealVectorBounds& bounds)
         : oc::PropositionalTriangularDecomposition(bounds) { }
-    virtual ~MyDecomposition() { }
+    ~MyDecomposition() override = default;
 
-    virtual void project(const ob::State* s, std::vector<double>& coord) const
+    void project(const ob::State* s, std::vector<double>& coord) const override
     {
         coord.resize(2);
         coord[0] = s->as<ob::SE2StateSpace::StateType>()->getX();
         coord[1] = s->as<ob::SE2StateSpace::StateType>()->getY();
     }
 
-    virtual void sampleFullState(const ob::StateSamplerPtr& sampler, const std::vector<double>& coord, ob::State* s) const
+    void sampleFullState(const ob::StateSamplerPtr& sampler, const std::vector<double>& coord, ob::State* s) const override
     {
        sampler->sampleUniform(s);
        ob::SE2StateSpace::StateType* ws = s->as<ob::SE2StateSpace::StateType>();
        ws->setXY(coord[0], coord[1]);
     }
-
-private:
-    ompl::RNG rng_;
 };
 
 void addObstaclesAndPropositions(oc::PropositionalTriangularDecomposition* decomp)
@@ -134,16 +131,16 @@ bool isStateValid(
         return false;
     const ob::SE2StateSpace::StateType* se2 = state->as<ob::SE2StateSpace::StateType>();
 
-	double x = se2->getX();
-	double y = se2->getY();
+    double x = se2->getX();
+    double y = se2->getY();
     const std::vector<Polygon>& obstacles = decomp->getHoles();
-    typedef std::vector<Polygon>::const_iterator ObstacleIter;
-    for (ObstacleIter o = obstacles.begin(); o != obstacles.end(); ++o)
+    using ObstacleIter = std::vector<Polygon>::const_iterator;
+    for (const auto & obstacle : obstacles)
     {
-        if (polyContains(*o, x, y))
+        if (polyContains(obstacle, x, y))
             return false;
     }
-	return true;
+    return true;
 }
 
 void propagate(const ob::State *start, const oc::Control *control, const double duration, ob::State *result)
@@ -164,7 +161,7 @@ void propagate(const ob::State *start, const oc::Control *control, const double 
     SO2.enforceBounds (so2out);
 }
 
-void plan(void)
+void plan()
 {
     // construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE2StateSpace());
@@ -177,7 +174,7 @@ void plan(void)
     space->as<ob::SE2StateSpace>()->setBounds(bounds);
 
     // create triangulation that ignores obstacle and respects propositions
-    MyDecomposition* ptd = new MyDecomposition(bounds);
+    auto* ptd = new MyDecomposition(bounds);
     // helper method that adds an obstacle, as well as three propositions p0,p1,p2
     addObstaclesAndPropositions(ptd);
     ptd->setup();
@@ -194,8 +191,12 @@ void plan(void)
     cspace->as<oc::RealVectorControlSpace>()->setBounds(cbounds);
 
     oc::SpaceInformationPtr si(new oc::SpaceInformation(space, cspace));
-    si->setStateValidityChecker(boost::bind(&isStateValid, si.get(), ptd, _1));
-    si->setStatePropagator(boost::bind(&propagate, _1, _2, _3, _4));
+    si->setStateValidityChecker(
+        [&si, ptd](const ob::State *state)
+        {
+            return isStateValid(si.get(), ptd, state);
+        });
+    si->setStatePropagator(propagate);
     si->setPropagationStepSize(0.025);
 
     //LTL co-safety sequencing formula: visit p2,p0 in that order

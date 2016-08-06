@@ -39,10 +39,10 @@
 #include "ompl/util/Exception.h"
 #include <fstream>
 #include <algorithm>
-#include <boost/bind.hpp>
 
 #include <boost/serialization/binary_object.hpp>
 #include <boost/archive/archive_exception.hpp>
+#include <utility>
 
 /// @cond IGNORE
 static ompl::base::StateSamplerPtr allocPrecomputedStateSampler(const ompl::base::StateSpace *space,
@@ -57,11 +57,11 @@ static ompl::base::StateSamplerPtr allocPrecomputedStateSampler(const ompl::base
         std::stringstream ss;
         ss << "Cannot allocate state sampler for a state space whose signature does not match that of the stored states. ";
         ss << "Expected signature ";
-        for (std::size_t i = 0 ; i < expectedSignature.size() ; ++i)
-            ss << expectedSignature[i] << " ";
+        for (int i : expectedSignature)
+            ss << i << " ";
         ss << "but space " << space->getName() << " has signature ";
-        for (std::size_t i = 0 ; i < sig.size() ; ++i)
-            ss << sig[i] << " ";
+        for (int i : sig)
+            ss << i << " ";
         throw ompl::Exception(ss.str());
     }
     return ompl::base::StateSamplerPtr(new ompl::base::PrecomputedStateSampler(space, *states, minIndex, maxIndex));
@@ -70,7 +70,7 @@ static ompl::base::StateSamplerPtr allocPrecomputedStateSampler(const ompl::base
 static const boost::uint32_t OMPL_ARCHIVE_MARKER = 0x4C504D4F; // this spells OMPL
 /// @endcond
 
-ompl::base::StateStorage::StateStorage(const StateSpacePtr &space) : space_(space), hasMetadata_(false)
+ompl::base::StateStorage::StateStorage(StateSpacePtr space) : space_(std::move(space)), hasMetadata_(false)
 {
 }
 
@@ -136,7 +136,7 @@ void ompl::base::StateStorage::loadStates(const Header &h, boost::archive::binar
     OMPL_DEBUG("Deserializing %u states", h.state_count);
     // load the file
     unsigned int l = space_->getSerializationLength();
-    char *buffer = new char[l];
+    auto *buffer = new char[l];
     State *s = space_->allocState();
     for (std::size_t i = 0 ; i < h.state_count ; ++i)
     {
@@ -184,10 +184,10 @@ void ompl::base::StateStorage::storeStates(const Header& /*h*/, boost::archive::
     OMPL_DEBUG("Serializing %u states", (unsigned int)states_.size());
 
     unsigned int l = space_->getSerializationLength();
-    char *buffer = new char[l];
-    for (std::size_t i = 0 ; i < states_.size() ; ++i)
+    auto *buffer = new char[l];
+    for (auto & state : states_)
     {
-        space_->serialize(buffer, states_[i]);
+        space_->serialize(buffer, state);
         oa << boost::serialization::make_binary_object(buffer, l);
     }
     delete[] buffer;
@@ -219,8 +219,8 @@ void ompl::base::StateStorage::generateSamples(unsigned int count)
 
 void ompl::base::StateStorage::freeMemory()
 {
-    for (std::size_t i = 0 ; i < states_.size() ; ++i)
-        space_->freeState(const_cast<State*>(states_[i]));
+    for (auto & state : states_)
+        space_->freeState(const_cast<State*>(state));
 }
 
 void ompl::base::StateStorage::clear()
@@ -229,7 +229,7 @@ void ompl::base::StateStorage::clear()
     states_.clear();
 }
 
-void ompl::base::StateStorage::sort(const boost::function<bool(const State*, const State*)> &op)
+void ompl::base::StateStorage::sort(const std::function<bool(const State*, const State*)> &op)
 {
     std::sort(states_.begin(), states_.end(), op);
 }
@@ -255,11 +255,14 @@ ompl::base::StateSamplerAllocator ompl::base::StateStorage::getStateSamplerAlloc
         throw Exception("Cannot allocate state sampler from empty state storage");
     std::vector<int> sig;
     space_->computeSignature(sig);
-    return boost::bind(&allocPrecomputedStateSampler, _1, sig, &states_, from, to);
+    return [this, sig, from, to](const ompl::base::StateSpace *space)
+        {
+            return allocPrecomputedStateSampler(space, sig, &states_, from, to);
+        };
 }
 
 void ompl::base::StateStorage::print(std::ostream &out) const
 {
-    for (std::size_t i = 0 ; i < states_.size() ; ++i)
-        space_->printState(states_[i], out);
+    for (auto state : states_)
+        space_->printState(state, out);
 }

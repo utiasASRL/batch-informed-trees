@@ -42,8 +42,7 @@
 #include "ompl/util/ClassForward.h"
 #include <vector>
 #include <string>
-#include <boost/function.hpp>
-#include <boost/noncopyable.hpp>
+#include <functional>
 
 namespace ompl
 {
@@ -60,29 +59,44 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::StateSamplerPtr
-            \brief A boost shared pointer wrapper for ompl::base::StateSampler */
+            \brief A shared pointer wrapper for ompl::base::StateSampler */
 
         /** \brief Abstract definition of a state space sampler. */
-        class StateSampler : private boost::noncopyable
+        class StateSampler
         {
         public:
+            // non-copyable
+            StateSampler(const StateSampler&) = delete;
+            StateSampler& operator=(const StateSampler&) = delete;
 
             /** \brief Constructor */
             StateSampler(const StateSpace *space) : space_(space)
             {
             }
 
-            virtual ~StateSampler()
-            {
-            }
+            virtual ~StateSampler() = default;
 
             /** \brief Sample a state */
             virtual void sampleUniform(State *state) = 0;
 
-            /** \brief Sample a state near another, within specified distance */
+            /** \brief Sample a state near another, within a neighborhood controlled by a distance parameter.
+
+            Typically, StateSampler-derived classes will return in `state` a
+            state that is uniformly distributed within a ball with radius
+            `distance` defined by the distance function from the corresponding
+            state space. However, this is not guaranteed. For example, the
+            default state sampler for the RealVectorStateSpace returns samples
+            uniformly distributed using L_inf distance, while the default
+            distance function is L_2 distance.
+            */
             virtual void sampleUniformNear(State *state, const State *near, const double distance) = 0;
 
-            /** \brief Sample a state using a Gaussian distribution with given \e mean and standard deviation (\e stdDev) */
+            /** \brief Sample a state using a Gaussian distribution with given \e mean and standard deviation (\e stdDev).
+
+            As with sampleUniform, the implementation of sampleGaussian is
+            specific to the derived class and few assumptions can be made
+            about the distance between `state` and `mean`.
+            */
             virtual void sampleGaussian(State *state, const State *mean, const double stdDev) = 0;
 
         protected:
@@ -105,9 +119,7 @@ namespace ompl
             }
 
             /** \brief Destructor. This frees the added samplers as well. */
-            virtual ~CompoundStateSampler()
-            {
-            }
+            ~CompoundStateSampler() override = default;
 
             /** \brief Add a sampler as part of the new compound
                 sampler. This sampler is used to sample part of the
@@ -117,15 +129,15 @@ namespace ompl
                 according to the specified importance. */
             virtual void addSampler(const StateSamplerPtr &sampler, double weightImportance);
 
-            virtual void sampleUniform(State *state);
+            void sampleUniform(State *state) override;
 
             /** \brief Call sampleUniformNear for each of the subspace states
                 with distance scaled by the corresponding subspace weight. */
-            virtual void sampleUniformNear(State *state, const State *near, const double distance);
+            void sampleUniformNear(State *state, const State *near, const double distance) override;
 
             /** \brief Call sampleGaussian for each of the subspace states
                 with stdDev scaled by the corresponding subspace weight. */
-            virtual void sampleGaussian(State *state, const State *mean, const double stdDev);
+            void sampleGaussian(State *state, const State *mean, const double stdDev) override;
 
         protected:
 
@@ -149,13 +161,13 @@ namespace ompl
 
             /** \brief Construct a sampler for \e space but only sample components common to \e subspace. Use \e weight as a multiplicative factor for \e distance and \e stdDev in the sampleUniformNear() and sampleGaussian() functions. */
             SubspaceStateSampler(const StateSpace *space, const StateSpace *subspace, double weight);
-            virtual ~SubspaceStateSampler();
+            ~SubspaceStateSampler() override;
 
-            virtual void sampleUniform(State *state);
+            void sampleUniform(State *state) override;
 
-            virtual void sampleUniformNear(State *state, const State *near, const double distance);
+            void sampleUniformNear(State *state, const State *near, const double distance) override;
 
-            virtual void sampleGaussian(State *state, const State *mean, const double stdDev);
+            void sampleGaussian(State *state, const State *mean, const double stdDev) override;
 
         protected:
 
@@ -181,7 +193,7 @@ namespace ompl
         };
 
         /** \brief Definition of a function that can allocate a state sampler */
-        typedef boost::function<StateSamplerPtr(const StateSpace*)> StateSamplerAllocator;
+        using StateSamplerAllocator = std::function<StateSamplerPtr (const StateSpace *)>;
     }
 }
 

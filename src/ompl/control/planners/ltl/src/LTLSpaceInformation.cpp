@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "ompl/control/planners/ltl/LTLSpaceInformation.h"
 #include "ompl/control/SpaceInformation.h"
 #include "ompl/control/StatePropagator.h"
@@ -30,7 +32,7 @@ oc::LTLSpaceInformation::LTLSpaceInformation(const oc::SpaceInformationPtr& si,
     extendValidityChecker(si);
 }
 
-void oc::LTLSpaceInformation::setup(void)
+void oc::LTLSpaceInformation::setup()
 {
     // Set up the low space, then match our parameters to it.
     if (!lowSpace_->isSetup()) lowSpace_->setup();
@@ -50,7 +52,7 @@ void oc::LTLSpaceInformation::getFullState(const ob::State* low, ob::State* full
     ob::CompoundState& cs = *full->as<ob::CompoundState>();
     stateSpace_->as<ob::CompoundStateSpace>()->getSubspace(LOW_LEVEL)->
         copyState(cs[LOW_LEVEL], low);
-    typedef ob::DiscreteStateSpace::StateType DiscreteState;
+    using DiscreteState = ob::DiscreteStateSpace::StateType;
     cs[REGION]->as<DiscreteState>()->value = high->getDecompRegion();
     cs[COSAFE]->as<DiscreteState>()->value = high->getCosafeState();
     cs[SAFE]->as<DiscreteState>()->value = high->getSafeState();
@@ -69,7 +71,7 @@ const ob::State* oc::LTLSpaceInformation::getLowLevelState(const ob::State* s)
 oc::ProductGraph::State* oc::LTLSpaceInformation::getProdGraphState(const ob::State* s) const
 {
     const ob::CompoundState& cs = *s->as<ob::CompoundState>();
-    typedef ob::DiscreteStateSpace::StateType DiscreteState;
+    using DiscreteState = ob::DiscreteStateSpace::StateType;
     return prod_->getState(cs[REGION]->as<DiscreteState>()->value,
                            cs[COSAFE]->as<DiscreteState>()->value,
                            cs[SAFE]->as<DiscreteState>()->value);
@@ -81,14 +83,14 @@ void oc::LTLSpaceInformation::extendPropagator(const oc::SpaceInformationPtr& ol
     {
     public:
         LTLStatePropagator(oc::LTLSpaceInformation* ltlsi,
-                           const oc::ProductGraphPtr& prod,
-                           const oc::StatePropagatorPtr& lowProp)
+                           oc::ProductGraphPtr  prod,
+                           oc::StatePropagatorPtr  lowProp)
             : oc::StatePropagator(ltlsi),
-              prod_(prod), lowProp_(lowProp), ltlsi_(ltlsi) {}
-        virtual ~LTLStatePropagator() {}
+              prod_(std::move(prod)), lowProp_(std::move(lowProp)), ltlsi_(ltlsi) {}
+        ~LTLStatePropagator() override = default;
 
-        virtual void propagate(const ob::State* state, const oc::Control* control,
-                               const double duration, ob::State* result) const
+        void propagate(const ob::State* state, const oc::Control* control,
+                               const double duration, ob::State* result) const override
         {
             const ob::State* lowLevelPrev = ltlsi_->getLowLevelState(state);
             ob::State* lowLevelResult = ltlsi_->getLowLevelState(result);
@@ -103,7 +105,7 @@ void oc::LTLSpaceInformation::extendPropagator(const oc::SpaceInformationPtr& ol
                 <ob::DiscreteStateSpace::StateType>(SAFE)->value = nextHigh->getSafeState();
         }
 
-        virtual bool canPropagateBackward(void) const
+        bool canPropagateBackward() const override
         {
             return lowProp_->canPropagateBackward();
         }
@@ -125,13 +127,13 @@ void oc::LTLSpaceInformation::extendValidityChecker(const oc::SpaceInformationPt
     {
     public:
         LTLStateValidityChecker(oc::LTLSpaceInformation* ltlsi,
-                                const oc::ProductGraphPtr& prod,
-                                const ob::StateValidityCheckerPtr& lowChecker)
-            : ob::StateValidityChecker(ltlsi), prod_(prod), lowChecker_(lowChecker), ltlsi_(ltlsi)
+                                oc::ProductGraphPtr  prod,
+                                ob::StateValidityCheckerPtr  lowChecker)
+            : ob::StateValidityChecker(ltlsi), prod_(std::move(prod)), lowChecker_(std::move(lowChecker)), ltlsi_(ltlsi)
         {
         }
-        virtual ~LTLStateValidityChecker() { }
-        virtual bool isValid(const ob::State* s) const
+        ~LTLStateValidityChecker() override = default;
+        bool isValid(const ob::State* s) const override
         {
             return ltlsi_->getProdGraphState(s)->isValid()
                 && lowChecker_->isValid(ltlsi_->getLowLevelState(s));
@@ -159,7 +161,7 @@ namespace
         ob::StateSpacePtr cosafeSpace (new ob::DiscreteStateSpace(0, cosafe->numStates()-1));
         ob::StateSpacePtr safeSpace (new ob::DiscreteStateSpace(0, safe->numStates()-1));
 
-        ob::CompoundStateSpace* compound = new ob::CompoundStateSpace();
+        auto* compound = new ob::CompoundStateSpace();
         compound->addSubspace(lowSpace, 1.);
         compound->addSubspace(regionSpace, 0.);
         compound->addSubspace(cosafeSpace, 0.);

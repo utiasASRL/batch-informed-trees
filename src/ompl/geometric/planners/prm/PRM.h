@@ -42,8 +42,7 @@
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/pending/disjoint_sets.hpp>
-#include <boost/function.hpp>
-#include <boost/thread.hpp>
+#include <mutex>
 #include <utility>
 #include <vector>
 #include <map>
@@ -85,15 +84,15 @@ namespace ompl
         public:
 
             struct vertex_state_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_total_connection_attempts_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_successful_connection_attempts_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             /**
@@ -111,7 +110,7 @@ namespace ompl
 
              @par Edges should be undirected and have a weight property.
              */
-            typedef boost::adjacency_list <
+            using Graph = boost::adjacency_list <
                 boost::vecS, boost::vecS, boost::undirectedS,
                 boost::property < vertex_state_t, base::State*,
                 boost::property < vertex_total_connection_attempts_t, unsigned long int,
@@ -119,33 +118,33 @@ namespace ompl
                 boost::property < boost::vertex_predecessor_t, unsigned long int,
                 boost::property < boost::vertex_rank_t, unsigned long int > > > > >,
                 boost::property < boost::edge_weight_t, base::Cost >
-            > Graph;
+            >;
 
             /** @brief The type for a vertex in the roadmap. */
-            typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
+            using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
             /** @brief The type for an edge in the roadmap. */
-            typedef boost::graph_traits<Graph>::edge_descriptor   Edge;
+            using Edge = boost::graph_traits<Graph>::edge_descriptor;
 
             /** @brief A nearest neighbors data structure for roadmap vertices. */
-            typedef boost::shared_ptr< NearestNeighbors<Vertex> > RoadmapNeighbors;
+            using RoadmapNeighbors = std::shared_ptr<NearestNeighbors<Vertex> >;
 
             /** @brief A function returning the milestones that should be
              * attempted to connect to. */
-            typedef boost::function<const std::vector<Vertex>&(const Vertex)> ConnectionStrategy;
+            using ConnectionStrategy = std::function<const std::vector<Vertex> &(const Vertex)>;
 
             /** @brief A function that can reject connections.
 
              This is called after previous connections from the neighbor list
              have been added to the roadmap.
              */
-            typedef boost::function<bool(const Vertex&, const Vertex&)> ConnectionFilter;
+            using ConnectionFilter = std::function<bool (const Vertex &, const Vertex &)>;
 
             /** \brief Constructor */
             PRM(const base::SpaceInformationPtr &si, bool starStrategy = false);
 
-            virtual ~PRM();
+            ~PRM() override;
 
-            virtual void setProblemDefinition(const base::ProblemDefinitionPtr &pdef);
+            void setProblemDefinition(const base::ProblemDefinitionPtr &pdef) override;
 
             /** \brief Set the connection strategy function that specifies the
              milestones that connection attempts will be make to for a
@@ -188,7 +187,7 @@ namespace ompl
                 connectionFilter_ = connectionFilter;
             }
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /** \brief While the termination condition allows, this function will construct the roadmap (using growRoadmap() and expandRoadmap(),
                 maintaining a 2:1 ratio for growing/expansion of roadmap) */
@@ -227,7 +226,7 @@ namespace ompl
                 planner, the input states should be however cleared,
                 without clearing the roadmap itself. This can be done
                 using the clearQuery() function. */
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
             /** \brief Clear the query previously loaded from the ProblemDefinition.
                 Subsequent calls to solve() will reuse the previously computed roadmap,
@@ -235,7 +234,7 @@ namespace ompl
                 This enables multi-query functionality for PRM. */
             void clearQuery();
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
@@ -243,12 +242,12 @@ namespace ompl
             {
                 nn_.reset(new NN<Vertex>());
                 if (!userSetConnectionStrategy_)
-                    connectionStrategy_.clear();
+                    connectionStrategy_ = ConnectionStrategy();
                 if (isSetup())
                     setup();
             }
 
-            virtual void setup();
+            void setup() override;
 
             const Graph& getRoadmap() const
             {
@@ -323,19 +322,19 @@ namespace ompl
             // Planner progress property functions
             std::string getIterationCount() const
             {
-                return boost::lexical_cast<std::string>(iterations_);
+                return std::to_string(iterations_);
             }
             std::string getBestCost() const
             {
-                return boost::lexical_cast<std::string>(bestCost_);
+                return std::to_string(bestCost_.value());
             }
             std::string getMilestoneCountString() const
             {
-                return boost::lexical_cast<std::string>(milestoneCount());
+                return std::to_string(milestoneCount());
             }
             std::string getEdgeCountString() const
             {
-                return boost::lexical_cast<std::string>(edgeCount());
+                return std::to_string(edgeCount());
             }
 
             /** \brief Flag indicating whether the default connection strategy is the Star strategy */
@@ -395,7 +394,7 @@ namespace ompl
             bool                                                   addedNewSolution_;
 
             /** \brief Mutex to guard access to the Graph member (g_) */
-            mutable boost::mutex                                   graphMutex_;
+            mutable std::mutex                                     graphMutex_;
 
             /** \brief Objective cost function for PRM graph edges */
             base::OptimizationObjectivePtr                         opt_;

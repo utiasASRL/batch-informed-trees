@@ -43,8 +43,8 @@
 #include "ompl/tools/config/MagicConstants.h"
 #include <sstream>
 #include <algorithm>
-
-#include <boost/thread/mutex.hpp>
+#include <mutex>
+#include <utility>
 
 /// @cond IGNORE
 namespace ompl
@@ -62,7 +62,7 @@ namespace ompl
 
             void add(const PlannerSolution &s)
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 int index = solutions_.size();
                 solutions_.push_back(s);
                 solutions_.back().index_ = index;
@@ -71,20 +71,20 @@ namespace ompl
 
             void clear()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 solutions_.clear();
             }
 
             std::vector<PlannerSolution> getSolutions()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 std::vector<PlannerSolution> copy = solutions_;
                 return copy;
             }
 
             bool isApproximate()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 bool result = false;
                 if (!solutions_.empty())
                     result = solutions_[0].approximate_;
@@ -93,7 +93,7 @@ namespace ompl
 
             bool isOptimized()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 bool result = false;
                 if (!solutions_.empty())
                     result = solutions_[0].optimized_;
@@ -102,7 +102,7 @@ namespace ompl
 
             double getDifference()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 double diff = -1.0;
                 if (!solutions_.empty())
                     diff = solutions_[0].difference_;
@@ -111,7 +111,7 @@ namespace ompl
 
             PathPtr getTopSolution()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 PathPtr copy;
                 if (!solutions_.empty())
                     copy = solutions_[0].path_;
@@ -120,7 +120,7 @@ namespace ompl
 
             bool getTopSolution(PlannerSolution& solution)
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
 
                 if (!solutions_.empty())
                 {
@@ -135,7 +135,7 @@ namespace ompl
 
             std::size_t getSolutionCount()
             {
-                boost::mutex::scoped_lock slock(lock_);
+                std::lock_guard<std::mutex> slock(lock_);
                 std::size_t result = solutions_.size();
                 return result;
             }
@@ -143,7 +143,7 @@ namespace ompl
         private:
 
             std::vector<PlannerSolution> solutions_;
-            boost::mutex                 lock_;
+            std::mutex                   lock_;
         };
     }
 }
@@ -164,7 +164,7 @@ bool ompl::base::PlannerSolution::operator<(const PlannerSolution &b) const
     return opt_ ? opt_->isCostBetterThan(cost_, b.cost_) : length_ < b.length_;
 }
 
-ompl::base::ProblemDefinition::ProblemDefinition(const SpaceInformationPtr &si) : si_(si), solutions_(new PlannerSolutionSet())
+ompl::base::ProblemDefinition::ProblemDefinition(SpaceInformationPtr si) : si_(std::move(si)), solutions_(new PlannerSolutionSet())
 {
 }
 
@@ -178,13 +178,13 @@ void ompl::base::ProblemDefinition::setStartAndGoalStates(const State *start, co
 void ompl::base::ProblemDefinition::setGoalState(const State *goal, const double threshold)
 {
     clearGoal();
-    GoalState *gs = new GoalState(si_);
+    auto *gs = new GoalState(si_);
     gs->setState(goal);
     gs->setThreshold(threshold);
     setGoal(GoalPtr(gs));
 }
 
-bool ompl::base::ProblemDefinition::hasStartState(const State *state, unsigned int *startIndex)
+bool ompl::base::ProblemDefinition::hasStartState(const State *state, unsigned int *startIndex) const
 {
     for (unsigned int i = 0 ; i < startStates_.size() ; ++i)
         if (si_->equalStates(state, startStates_[i]))
@@ -237,8 +237,8 @@ bool ompl::base::ProblemDefinition::fixInvalidInputStates(double distStart, doub
     bool result = true;
 
     // fix start states
-    for (unsigned int i = 0 ; i < startStates_.size() ; ++i)
-        if (!fixInvalidInputState(startStates_[i], distStart, true, attempts))
+    for (auto & startState : startStates_)
+        if (!fixInvalidInputState(startState, distStart, true, attempts))
             result = false;
 
     // fix goal state
@@ -264,8 +264,8 @@ bool ompl::base::ProblemDefinition::fixInvalidInputStates(double distStart, doub
 void ompl::base::ProblemDefinition::getInputStates(std::vector<const State*> &states) const
 {
     states.clear();
-    for (unsigned int i = 0 ; i < startStates_.size() ; ++i)
-        states.push_back(startStates_[i]);
+    for (auto startState : startStates_)
+        states.push_back(startState);
 
     GoalState *goal = dynamic_cast<GoalState*>(goal_.get());
     if (goal)
@@ -280,10 +280,10 @@ void ompl::base::ProblemDefinition::getInputStates(std::vector<const State*> &st
 ompl::base::PathPtr ompl::base::ProblemDefinition::isStraightLinePathValid() const
 {
     PathPtr path;
-    if (control::SpaceInformationPtr sic = boost::dynamic_pointer_cast<control::SpaceInformation, SpaceInformation>(si_))
+    if (control::SpaceInformationPtr sic = std::dynamic_pointer_cast<control::SpaceInformation, SpaceInformation>(si_))
     {
         unsigned int startIndex;
-        if (isTrivial(&startIndex, NULL))
+        if (isTrivial(&startIndex, nullptr))
         {
             control::PathControl *pc = new control::PathControl(sic);
             pc->append(startStates_[startIndex]);
@@ -344,7 +344,7 @@ ompl::base::PathPtr ompl::base::ProblemDefinition::isStraightLinePathValid() con
             unsigned int startIndex;
             if (isTrivial(&startIndex))
             {
-                geometric::PathGeometric *pg = new geometric::PathGeometric(si_, startStates_[startIndex], startStates_[startIndex]);
+                auto *pg = new geometric::PathGeometric(si_, startStates_[startIndex], startStates_[startIndex]);
                 path.reset(pg);
             }
         }
@@ -358,7 +358,7 @@ ompl::base::PathPtr ompl::base::ProblemDefinition::isStraightLinePathValid() con
                     for (unsigned int j = 0 ; j < states.size() && !path ; ++j)
                         if (si_->checkMotion(start, states[j]))
                         {
-                            geometric::PathGeometric *pg = new geometric::PathGeometric(si_, start, states[j]);
+                            auto *pg = new geometric::PathGeometric(si_, start, states[j]);
                             path.reset(pg);
                             break;
                         }
@@ -466,19 +466,19 @@ void ompl::base::ProblemDefinition::clearSolutionPaths() const
 void ompl::base::ProblemDefinition::print(std::ostream &out) const
 {
     out << "Start states:" << std::endl;
-    for (unsigned int i = 0 ; i < startStates_.size() ; ++i)
-        si_->printState(startStates_[i], out);
+    for (auto startState : startStates_)
+        si_->printState(startState, out);
     if (goal_)
         goal_->print(out);
     else
-        out << "Goal = NULL" << std::endl;
+        out << "Goal = nullptr" << std::endl;
     if (optimizationObjective_)
     {
         optimizationObjective_->print(out);
         out << "Average state cost: " << optimizationObjective_->averageStateCost(magic::TEST_STATE_COUNT) << std::endl;
     }
     else
-        out << "OptimizationObjective = NULL" << std::endl;
+        out << "OptimizationObjective = nullptr" << std::endl;
     out << "There are " << solutions_->getSolutionCount() << " solutions" << std::endl;
 }
 

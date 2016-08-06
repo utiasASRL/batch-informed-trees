@@ -39,11 +39,11 @@
 
 #include "ompl/util/Console.h"
 #include "ompl/util/ClassForward.h"
-#include <boost/function.hpp>
+#include <functional>
 #include <boost/lexical_cast.hpp>
-#include <boost/type_traits.hpp>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 #include <map>
 
@@ -67,13 +67,11 @@ namespace ompl
         public:
 
             /** \brief The constructor of a parameter takes the name of the parameter (\e name) */
-            GenericParam(const std::string &name) : name_(name)
+            GenericParam(std::string name) : name_(std::move(name))
             {
             }
 
-            virtual ~GenericParam()
-            {
-            }
+            virtual ~GenericParam() = default;
 
             /** \brief Get the name of the parameter */
             const std::string& getName() const
@@ -161,25 +159,23 @@ namespace ompl
         public:
 
             /** \brief The type for the 'setter' function for this parameter */
-            typedef boost::function<void(T)> SetterFn;
+            using SetterFn = std::function<void(T)>;
 
             /** \brief The type for the 'getter' function for this parameter */
-            typedef boost::function<T()>     GetterFn;
+            using GetterFn = std::function<T()>;
 
             /** \brief An explicit instantiation of a parameter \e name requires the \e setter function and optionally the \e
                 getter function. */
-            SpecificParam(const std::string &name, const SetterFn &setter, const GetterFn &getter = GetterFn()) :
-                GenericParam(name), setter_(setter), getter_(getter)
+            SpecificParam(const std::string &name, SetterFn setter, GetterFn getter = GetterFn()) :
+                GenericParam(name), setter_(std::move(setter)), getter_(std::move(getter))
             {
                 if (!setter_ && !getter_)
                     OMPL_ERROR("At least one setter or getter function must be specified for parameter");
             }
 
-            virtual ~SpecificParam()
-            {
-            }
+            ~SpecificParam() override = default;
 
-            virtual bool setValue(const std::string &value)
+            bool setValue(const std::string &value) override
             {
                 bool result = true;
                 try
@@ -200,7 +196,7 @@ namespace ompl
                 return result;
             }
 
-            virtual std::string getValue() const
+            std::string getValue() const override
             {
                 if (getter_)
                     try

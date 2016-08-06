@@ -55,6 +55,8 @@
 #include "ompl/geometric/planners/rrt/LazyRRT.h"
 #include "ompl/geometric/planners/pdst/PDST.h"
 #include "ompl/geometric/planners/est/EST.h"
+#include "ompl/geometric/planners/est/BiEST.h"
+#include "ompl/geometric/planners/est/ProjEST.h"
 #include "ompl/geometric/planners/stride/STRIDE.h"
 #include "ompl/geometric/planners/prm/PRM.h"
 #include "ompl/geometric/planners/prm/PRMstar.h"
@@ -76,17 +78,15 @@ static const bool VERBOSE = true;
 class TestPlanner
 {
 public:
-    TestPlanner(void)
+    TestPlanner()
     {
         msg::setLogLevel(msg::LOG_ERROR);
     }
 
-    virtual ~TestPlanner(void)
-    {
-    }
+    virtual ~TestPlanner() = default;
 
     /* test a planner in a planar environment with circular obstacles */
-    double test2DCircles(const Circles2D &circles, bool show = false, double *time = NULL, double *pathLength = NULL)
+    double test2DCircles(const Circles2D &circles, bool show = false, double *time = nullptr, double *pathLength = nullptr)
     {
         /* instantiate space information */
         base::SpaceInformationPtr si = geometric::spaceInformation2DCircles(circles);
@@ -155,7 +155,7 @@ public:
 
 
     /* test a planner in a planar grid environment where some cells are occupied */
-    bool test2DEnv(const Environment2D &env, bool show = false, double *time = NULL, double *pathLength = NULL)
+    bool test2DEnv(const Environment2D &env, bool show = false, double *time = nullptr, double *pathLength = nullptr)
     {
         bool result = true;
 
@@ -246,9 +246,9 @@ class RRTTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::RRT *rrt = new geometric::RRT(si);
+        auto *rrt = new geometric::RRT(si);
         rrt->setRange(10.0);
         return base::PlannerPtr(rrt);
     }
@@ -258,9 +258,9 @@ class RRTConnectTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::RRTConnect *rrt = new geometric::RRTConnect(si);
+        auto *rrt = new geometric::RRTConnect(si);
         rrt->setRange(10.0);
         return base::PlannerPtr(rrt);
     }
@@ -270,9 +270,9 @@ class pRRTTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::pRRT *rrt = new geometric::pRRT(si);
+        auto *rrt = new geometric::pRRT(si);
         rrt->setRange(10.0);
         rrt->setThreadCount(4);
         return base::PlannerPtr(rrt);
@@ -283,9 +283,9 @@ class TRRTTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::TRRT *rrt = new geometric::TRRT(si);
+        auto *rrt = new geometric::TRRT(si);
         rrt->setRange(10.0);
         return base::PlannerPtr(rrt);
     }
@@ -295,9 +295,9 @@ class LazyRRTTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::LazyRRT *rrt = new geometric::LazyRRT(si);
+        auto *rrt = new geometric::LazyRRT(si);
         rrt->setRange(10.0);
         return base::PlannerPtr(rrt);
     }
@@ -308,9 +308,9 @@ class SBLTest : public TestPlanner
 
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::SBL *sbl = new geometric::SBL(si);
+        auto *sbl = new geometric::SBL(si);
         sbl->setRange(10.0);
 
         std::vector<unsigned int> projection;
@@ -333,9 +333,9 @@ class pSBLTest : public TestPlanner
 
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::pSBL *sbl = new geometric::pSBL(si);
+        auto *sbl = new geometric::pSBL(si);
         sbl->setRange(10.0);
         sbl->setThreadCount(4);
 
@@ -358,9 +358,9 @@ class KPIECE1Test : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::KPIECE1 *kpiece = new geometric::KPIECE1(si);
+        auto *kpiece = new geometric::KPIECE1(si);
         kpiece->setRange(10.0);
 
         std::vector<unsigned int> projection;
@@ -381,9 +381,9 @@ class LBKPIECE1Test : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::LBKPIECE1 *kpiece = new geometric::LBKPIECE1(si);
+        auto *kpiece = new geometric::LBKPIECE1(si);
         kpiece->setRange(10.0);
 
         std::vector<unsigned int> projection;
@@ -405,9 +405,9 @@ class BKPIECE1Test : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::BKPIECE1 *kpiece = new geometric::BKPIECE1(si);
+        auto *kpiece = new geometric::BKPIECE1(si);
         kpiece->setRange(10.0);
 
         std::vector<unsigned int> projection;
@@ -429,9 +429,35 @@ class ESTTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::EST *est = new geometric::EST(si);
+        auto *est = new geometric::EST(si);
+        est->setRange(10.0);
+        return base::PlannerPtr(est);
+    }
+
+};
+
+class BiESTTest : public TestPlanner
+{
+protected:
+
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
+    {
+        auto *est = new geometric::BiEST(si);
+        est->setRange(10.0);
+        return base::PlannerPtr(est);
+    }
+
+};
+
+class ProjESTTest : public TestPlanner
+{
+protected:
+
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
+    {
+        auto *est = new geometric::ProjEST(si);
         est->setRange(10.0);
 
         std::vector<double> cdim;
@@ -453,9 +479,9 @@ class STRIDETest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::STRIDE *stride = new geometric::STRIDE(si);
+        auto *stride = new geometric::STRIDE(si);
         stride->setRange(10.0);
         return base::PlannerPtr(stride);
     }
@@ -466,9 +492,9 @@ class PDSTTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::PDST *pdst = new geometric::PDST(si);
+        auto *pdst = new geometric::PDST(si);
 
         std::vector<double> cdim;
         cdim.push_back(1);
@@ -488,9 +514,9 @@ class PRMTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::PRM *prm = new geometric::PRM(si);
+        auto *prm = new geometric::PRM(si);
         return base::PlannerPtr(prm);
     }
 };
@@ -499,9 +525,9 @@ class PRMstarTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::PRMstar *prm = new geometric::PRMstar(si);
+        auto *prm = new geometric::PRMstar(si);
         return base::PlannerPtr(prm);
     }
 };
@@ -510,9 +536,9 @@ class LazyPRMTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::LazyPRM *prm = new geometric::LazyPRM(si);
+        auto *prm = new geometric::LazyPRM(si);
         return base::PlannerPtr(prm);
     }
 
@@ -522,9 +548,9 @@ class LazyPRMstarTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::LazyPRMstar *prm = new geometric::LazyPRMstar(si);
+        auto *prm = new geometric::LazyPRMstar(si);
         return base::PlannerPtr(prm);
     }
 
@@ -534,9 +560,9 @@ class SPARSTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::SPARS *spars = new geometric::SPARS(si);
+        auto *spars = new geometric::SPARS(si);
         return base::PlannerPtr(spars);
     }
 };
@@ -545,9 +571,9 @@ class SPARStwoTest : public TestPlanner
 {
 protected:
 
-    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si)
+    base::PlannerPtr newPlanner(const base::SpaceInformationPtr &si) override
     {
-        geometric::SPARStwo *sparstwo = new geometric::SPARStwo(si);
+        auto *sparstwo = new geometric::SPARStwo(si);
         return base::PlannerPtr(sparstwo);
     }
 };
@@ -585,7 +611,7 @@ public:
             {
             }
 
-            virtual bool isValid(const base::State *state) const
+            bool isValid(const base::State *state) const override
             {
                 return si_->equalStates(state, start_) || si_->equalStates(state, goal_);
             }
@@ -693,7 +719,7 @@ public:
 
 protected:
 
-    PlanTest(void)
+    PlanTest()
     {
         verbose_ = VERBOSE;
         boost::filesystem::path path(TEST_RESOURCES_DIR);
@@ -741,7 +767,7 @@ OMPL_PLANNER_TEST(TRRT, 95.0, 0.01)
 
 OMPL_PLANNER_TEST(PDST, 95.0, 0.03)
 
-OMPL_PLANNER_TEST(pSBL, 95.0, 0.02)
+OMPL_PLANNER_TEST(pSBL, 95.0, 0.04)
 OMPL_PLANNER_TEST(SBL, 95.0, 0.02)
 
 OMPL_PLANNER_TEST(KPIECE1, 95.0, 0.01)

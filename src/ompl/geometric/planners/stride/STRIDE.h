@@ -41,7 +41,7 @@
 #include "ompl/geometric/planners/PlannerIncludes.h"
 #include "ompl/base/ProjectionEvaluator.h"
 #include "ompl/datastructures/PDF.h"
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <boost/scoped_ptr.hpp>
 #include <vector>
 
@@ -85,13 +85,13 @@ namespace ompl
                 STRIDE(const base::SpaceInformationPtr &si, bool useProjectedDistance = false,
                         unsigned int degree = 16, unsigned int minDegree = 12, unsigned int maxDegree = 18,
                         unsigned int maxNumPtsPerLeaf = 6, double estimatedDimension = 0.0);
-                virtual ~STRIDE();
+                ~STRIDE() override;
 
-                virtual void setup();
+                void setup() override;
 
-                virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+                base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-                virtual void clear();
+                void clear() override;
 
                 /** \brief In the process of randomly selecting states in
                   the state space to attempt to go towards, the
@@ -234,7 +234,7 @@ namespace ompl
                     return projectionEvaluator_;
                 }
 
-                virtual void getPlannerData(base::PlannerData &data) const;
+                void getPlannerData(base::PlannerData &data) const override;
 
             protected:
 
@@ -242,18 +242,16 @@ namespace ompl
                 class Motion
                 {
                 public:
-                    Motion() : state(NULL), parent(NULL)
+                    Motion() : state(nullptr), parent(nullptr)
                     {
                     }
 
                     /** \brief Constructor that allocates memory for the state */
-                    Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(NULL)
+                    Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(nullptr)
                     {
                     }
 
-                    ~Motion()
-                    {
-                    }
+                    ~Motion() = default;
 
                     /** \brief The state contained by the motion */
                     base::State       *state;

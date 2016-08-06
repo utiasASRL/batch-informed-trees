@@ -47,10 +47,8 @@
 #include "ompl/util/Time.h"
 #include "ompl/util/ClassForward.h"
 #include "ompl/util/Deprecation.h"
-#include <boost/function.hpp>
+#include <functional>
 #include <boost/concept_check.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/lexical_cast.hpp>
 #include <string>
 #include <map>
 
@@ -66,7 +64,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::PlannerPtr
-            \brief A boost shared pointer wrapper for ompl::base::Planner */
+            \brief A shared pointer wrapper for ompl::base::Planner */
 
 
         /** \brief Helper class to extract valid start & goal
@@ -87,23 +85,23 @@ namespace ompl
             /** \brief Default constructor. No work is performed. */
             PlannerInputStates(const PlannerPtr &planner) : planner_(planner.get())
             {
-                tempState_ = NULL;
+                tempState_ = nullptr;
                 update();
             }
 
             /** \brief Default constructor. No work is performed. */
             PlannerInputStates(const Planner *planner) : planner_(planner)
             {
-                tempState_ = NULL;
+                tempState_ = nullptr;
                 update();
             }
 
             /** \brief Default constructor. No work is performed. A
                 call to use() needs to be made, before making any
                 calls to nextStart() or nextGoal(). */
-            PlannerInputStates() : planner_(NULL)
+            PlannerInputStates() : planner_(nullptr)
             {
-                tempState_ = NULL;
+                tempState_ = nullptr;
                 clear();
             }
 
@@ -146,11 +144,11 @@ namespace ompl
                 state are available and goal was set */
             void checkValidity() const;
 
-            /** \brief Return the next valid start state or NULL if no
+            /** \brief Return the next valid start state or nullptr if no
                 more valid start states are available. */
             const State* nextStart();
 
-            /** \brief Return the next valid goal state or NULL if no
+            /** \brief Return the next valid goal state or nullptr if no
                 more valid goal states are available.  Because
                 sampling of goal states may also produce invalid
                 goals, this function takes an argument that specifies
@@ -229,18 +227,20 @@ namespace ompl
         };
 
         /** \brief Base class for a planner */
-        class Planner : private boost::noncopyable
+        class Planner
         {
 
         public:
+            // non-copyable
+            Planner(const Planner&) = delete;
+            Planner& operator=(const Planner&) = delete;
 
             /** \brief Constructor */
-            Planner(const SpaceInformationPtr &si, const std::string &name);
+            Planner(SpaceInformationPtr si, std::string name);
 
             /** \brief Destructor */
             virtual ~Planner()
-            {
-            }
+            = default;
 
             /** \brief Cast this instance to a desired type. */
             template<class T>
@@ -350,10 +350,10 @@ namespace ompl
             }
 
             /** \brief Definition of a function which returns a property about the planner's progress that can be queried by a benchmarking routine */
-            typedef boost::function<std::string ()> PlannerProgressProperty;
+            using PlannerProgressProperty = std::function<std::string ()>;
 
             /** \brief A dictionary which maps the name of a progress property to the function to be used for querying that property */
-            typedef std::map<std::string, PlannerProgressProperty> PlannerProgressProperties;
+            using PlannerProgressProperties = std::map<std::string, PlannerProgressProperty>;
 
             /** \brief Retrieve a planner's planner progress property map */
             const PlannerProgressProperties& getPlannerProgressProperties() const
@@ -373,7 +373,9 @@ namespace ompl
             template<typename T, typename PlannerType, typename SetterType, typename GetterType>
             void declareParam(const std::string &name, const PlannerType &planner, const SetterType& setter, const GetterType& getter, const std::string &rangeSuggestion = "")
             {
-                params_.declareParam<T>(name, boost::bind(setter, planner, _1), boost::bind(getter, planner));
+                params_.declareParam<T>(name,
+                    [planner, setter](T param) { (*planner.*setter)(param); },
+                    [planner, getter] { return (*planner.*getter)(); });
                 if (!rangeSuggestion.empty())
                     params_[name].setRangeSuggestion(rangeSuggestion);
             }
@@ -382,7 +384,8 @@ namespace ompl
             template<typename T, typename PlannerType, typename SetterType>
             void declareParam(const std::string &name, const PlannerType &planner, const SetterType& setter, const std::string &rangeSuggestion = "")
             {
-                params_.declareParam<T>(name, boost::bind(setter, planner, _1));
+                params_.declareParam<T>(name,
+                    [planner, setter](T param) { (*planner.*setter)(param); });
                 if (!rangeSuggestion.empty())
                     params_[name].setRangeSuggestion(rangeSuggestion);
             }
@@ -419,7 +422,7 @@ namespace ompl
         };
 
         /** \brief Definition of a function that can allocate a planner */
-        typedef boost::function<PlannerPtr(const SpaceInformationPtr&)> PlannerAllocator;
+        using PlannerAllocator = std::function<PlannerPtr (const SpaceInformationPtr &)>;
     }
 }
 

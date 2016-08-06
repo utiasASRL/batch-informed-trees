@@ -34,30 +34,31 @@
 
 /* Author: Neil T. Dantam */
 
-#ifndef OMPL_BASE_TYPED_SPACE_INFORMATION_
-#define OMPL_BASE_TYPED_SPACE_INFORMATION_
+#ifndef OMPL_BASE_TYPED_STATE_VALIDITY_CHECKER_
+#define OMPL_BASE_TYPED_STATE_VALIDITY_CHECKER_
 
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/base/StateValidityChecker.h"
+#include "ompl/base/TypedSpaceInformation.h"
 
 namespace ompl
 {
     namespace base
     {
 
-        template <class SpaceType_>
+        template <typename SpaceType_>
         class TypedStateValidityChecker : public StateValidityChecker
         {
         public:
 
-            typedef SpaceType_ SpaceType;
-            typedef TypedSpaceInformation<SpaceType> SpaceInformationType;
+            using SpaceType = SpaceType_;
+            using SpaceInformationType = TypedSpaceInformation<SpaceType>;
 
             TypedStateValidityChecker(SpaceInformationType *si) : StateValidityChecker(si)
             {
             }
 
-            TypedStateValidityChecker(const typename SpaceInformationType::Ptr si) : StateValidityChecker(si)
+            TypedStateValidityChecker(const typename SpaceInformationType::Ptr &si) : StateValidityChecker(si)
             {
             }
 
@@ -85,3 +86,4 @@ namespace ompl
     }
 
 }
+#endif

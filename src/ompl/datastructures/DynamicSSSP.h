@@ -49,7 +49,7 @@ dynamic graph problems, Theor. Comput. Sci., vol. 158, no. 1&2, pp.
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
-#include <boost/unordered_set.hpp>
+#include <unordered_set>
 
 namespace ompl
 {
@@ -60,7 +60,7 @@ namespace ompl
         {
             graph_ = new Graph(0);
         }
-        ~DynamicSSSP(void)
+        ~DynamicSSSP()
         {
             delete graph_;
         }
@@ -127,7 +127,7 @@ namespace ompl
                         parent_[x] = u;
 
                         // insert to queue
-                        QueueIter qIter = queue.find(x);
+                        auto qIter = queue.find(x);
                         if (qIter != queue.end() )
                             queue.erase(qIter);
 
@@ -175,7 +175,7 @@ namespace ompl
             // Phase 2: Determine new distances from affected vertices to source(G) and update SP(G).
             IsLessThan isLessThan(distance_);
             Queue queue(isLessThan);
-            for (IntSetIter set_iter = affectedVerticesSet.begin(); set_iter!= affectedVerticesSet.end(); ++set_iter)
+            for (auto set_iter = affectedVerticesSet.begin(); set_iter!= affectedVerticesSet.end(); ++set_iter)
             {
                 std::size_t a = *set_iter;
                 distance_[a] = std::numeric_limits<double>::infinity();
@@ -223,7 +223,7 @@ namespace ompl
                         parent_[c] = a;
 
                         // insert to queue
-                        QueueIter qIter = queue.find(c);
+                        auto qIter = queue.find(c);
                         if (qIter != queue.end() )
                             queue.erase(qIter);
 
@@ -245,14 +245,13 @@ namespace ompl
             return parent_[u];
         }
     private:
-        typedef boost::property<boost::edge_weight_t, double> WeightProperty;
-        typedef boost::adjacency_list<boost::vecS, // container type for the edge list
-        boost::vecS,                               // container type for the vertex list
-        boost::bidirectionalS,                     // directedS / undirectedS / bidirectionalS
-        std::size_t,                               // vertex properties
-        WeightProperty                             // edge properties
-            > Graph;
-        typedef boost::property_map<Graph, boost::edge_weight_t>::type WeightMap;
+        using WeightProperty = boost::property<boost::edge_weight_t, double>;
+        using Graph = boost::adjacency_list<boost::vecS, // container type for the edge list
+        boost::vecS,                                     // container type for the vertex list
+        boost::bidirectionalS,                           // directedS / undirectedS / bidirectionalS
+        std::size_t,                                     // vertex properties
+        WeightProperty>;                                 // edge properties
+        using WeightMap = boost::property_map<Graph, boost::edge_weight_t>::type;
 
         static const int NO_ID = -1;
 
@@ -264,7 +263,7 @@ namespace ompl
             {
             }
 
-            bool operator()(std::size_t id1, std::size_t id2)
+            bool operator()(std::size_t id1, std::size_t id2) const
             {
                 return (cost_[id1] < cost_[id2]);
             }
@@ -272,10 +271,10 @@ namespace ompl
             std::vector<double>& cost_;
         }; //IsLessThan
 
-        typedef std::set<std::size_t, IsLessThan>   Queue;
-        typedef Queue::iterator                     QueueIter;
-        typedef boost::unordered_set<std::size_t>   IntSet;
-        typedef IntSet::iterator                    IntSetIter;
+        using Queue = std::set<std::size_t, IsLessThan>;
+        using QueueIter = Queue::iterator;
+        using IntSet = std::unordered_set<std::size_t>;
+        using IntSetIter = IntSet::iterator;
 
         Graph*                                      graph_;
         /// \brief distance from source which is node zero

@@ -62,10 +62,10 @@ namespace ompl
         OMPL_CLASS_FORWARD(ThunderDB);
         /// @endcond
 
-        typedef boost::shared_ptr<ompl::geometric::SPARSdb> SPARSdbPtr;
+        using SPARSdbPtr = std::shared_ptr<ompl::geometric::SPARSdb>;
 
         /** \class ompl::geometric::ThunderDBPtr
-            \brief A boost shared pointer wrapper for ompl::tools::ThunderDB */
+            \brief A shared pointer wrapper for ompl::tools::ThunderDB */
 
         /** \brief Save and load entire paths from file */
         class ThunderDB
@@ -78,7 +78,7 @@ namespace ompl
             ThunderDB(const base::StateSpacePtr &space);
 
             /** \brief Deconstructor */
-            virtual ~ThunderDB(void);
+            virtual ~ThunderDB();
 
             /**
              * \brief Load database from file

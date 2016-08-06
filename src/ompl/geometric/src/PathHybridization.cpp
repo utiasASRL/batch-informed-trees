@@ -36,6 +36,7 @@
 
 #include "ompl/geometric/PathHybridization.h"
 #include <boost/graph/dijkstra_shortest_paths.hpp>
+#include <utility>
 
 namespace ompl
 {
@@ -46,20 +47,18 @@ namespace ompl
     }
 }
 
-ompl::geometric::PathHybridization::PathHybridization(const base::SpaceInformationPtr &si) :
-    si_(si),
+ompl::geometric::PathHybridization::PathHybridization(base::SpaceInformationPtr si) :
+    si_(std::move(si)),
     stateProperty_(boost::get(vertex_state_t(), g_)),
     name_("PathHybridization")
 {
     root_ = boost::add_vertex(g_);
-    stateProperty_[root_] = NULL;
+    stateProperty_[root_] = nullptr;
     goal_ = boost::add_vertex(g_);
-    stateProperty_[goal_] = NULL;
+    stateProperty_[goal_] = nullptr;
 }
 
-ompl::geometric::PathHybridization::~PathHybridization()
-{
-}
+ompl::geometric::PathHybridization::~PathHybridization() = default;
 
 void ompl::geometric::PathHybridization::clear()
 {
@@ -68,16 +67,16 @@ void ompl::geometric::PathHybridization::clear()
 
     g_.clear();
     root_ = boost::add_vertex(g_);
-    stateProperty_[root_] = NULL;
+    stateProperty_[root_] = nullptr;
     goal_ = boost::add_vertex(g_);
-    stateProperty_[goal_] = NULL;
+    stateProperty_[goal_] = nullptr;
 }
 
 void ompl::geometric::PathHybridization::print(std::ostream &out) const
 {
     out << "Path hybridization is aware of " << paths_.size() << " paths" << std::endl;
     int i = 1;
-    for (std::set<PathInfo>::const_iterator it = paths_.begin() ; it != paths_.end() ; ++it, ++i)
+    for (auto it = paths_.begin() ; it != paths_.end() ; ++it, ++i)
         out << "  path " << i << " of length " << it->length_ << std::endl;
     if (hpath_)
         out << "Hybridized path of length " << hpath_->length() << std::endl;
@@ -94,7 +93,7 @@ void ompl::geometric::PathHybridization::computeHybridPath()
     boost::dijkstra_shortest_paths(g_, root_, boost::predecessor_map(prev));
     if (prev[goal_] != goal_)
     {
-        PathGeometric *h = new PathGeometric(si_);
+        auto *h = new PathGeometric(si_);
         for (Vertex pos = prev[goal_]; prev[pos] != pos; pos = prev[pos])
             h->append(stateProperty_[pos]);
         h->reverse();
@@ -162,11 +161,11 @@ unsigned int ompl::geometric::PathHybridization::recordPath(const base::PathPtr 
     pi.length_ = length;
 
     // find matches with previously added paths
-    for (std::set<PathInfo>::const_iterator it = paths_.begin() ; it != paths_.end() ; ++it)
+    for (const auto & path : paths_)
     {
-        const PathGeometric *q = static_cast<const PathGeometric*>(it->path_.get());
+        const PathGeometric *q = static_cast<const PathGeometric*>(path.path_.get());
         std::vector<int> indexP, indexQ;
-        matchPaths(*p, *q, (pi.length_ + it->length_) / (2.0 / magic::GAP_COST_FRACTION), indexP, indexQ);
+        matchPaths(*p, *q, (pi.length_ + path.length_) / (2.0 / magic::GAP_COST_FRACTION), indexP, indexQ);
 
         if (matchAcrossGaps)
         {
@@ -194,7 +193,7 @@ unsigned int ompl::geometric::PathHybridization::recordPath(const base::PathPtr 
                     if (gapP)
                         for (std::size_t j = gapStartP ; j < i ; ++j)
                         {
-                            attemptNewEdge(pi, *it, indexP[i], indexQ[j]);
+                            attemptNewEdge(pi, path, indexP[i], indexQ[j]);
                             ++nattempts;
                         }
                     // remember the last non-negative index in p
@@ -212,7 +211,7 @@ unsigned int ompl::geometric::PathHybridization::recordPath(const base::PathPtr 
                     if (gapQ)
                         for (std::size_t j = gapStartQ ; j < i ; ++j)
                         {
-                            attemptNewEdge(pi, *it, indexP[j], indexQ[i]);
+                            attemptNewEdge(pi, path, indexP[j], indexQ[i]);
                             ++nattempts;
                         }
                     lastQ = i;
@@ -222,7 +221,7 @@ unsigned int ompl::geometric::PathHybridization::recordPath(const base::PathPtr 
                 // try to match corresponding index values and gep beginnings
                 if (lastP >= 0 && lastQ >= 0)
                 {
-                    attemptNewEdge(pi, *it, indexP[lastP], indexQ[lastQ]);
+                    attemptNewEdge(pi, path, indexP[lastP], indexQ[lastQ]);
                     ++nattempts;
                 }
             }
@@ -233,7 +232,7 @@ unsigned int ompl::geometric::PathHybridization::recordPath(const base::PathPtr 
             for (std::size_t i = 0 ; i < indexP.size() ; ++i)
                 if (indexP[i] >= 0 && indexQ[i] >= 0)
                 {
-                    attemptNewEdge(pi, *it, indexP[i], indexQ[i]);
+                    attemptNewEdge(pi, path, indexP[i], indexQ[i]);
                     ++nattempts;
                 }
         }

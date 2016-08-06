@@ -37,6 +37,7 @@
 #include "ompl/geometric/planners/cforest/CForest.h"
 #include "ompl/geometric/planners/rrt/RRTstar.h"
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
+#include <thread>
 
 ompl::geometric::CForest::CForest(const base::SpaceInformationPtr &si) : base::Planner(si, "CForest")
 {
@@ -47,25 +48,20 @@ ompl::geometric::CForest::CForest(const base::SpaceInformationPtr &si) : base::P
     numStatesShared_ = 0;
     focusSearch_ = true;
 
-    numThreads_ = std::max(boost::thread::hardware_concurrency(), 2u);
+    numThreads_ = std::max(std::thread::hardware_concurrency(), 2u);
     Planner::declareParam<bool>("focus_search", this, &CForest::setFocusSearch, &CForest::getFocusSearch, "0,1");
     Planner::declareParam<unsigned int>("num_threads", this, &CForest::setNumThreads, &CForest::getNumThreads, "0:64");
 
-    addPlannerProgressProperty("best cost REAL",
-                               boost::bind(&CForest::getBestCost, this));
-    addPlannerProgressProperty("shared paths INTEGER",
-                               boost::bind(&CForest::getNumPathsShared, this));
-    addPlannerProgressProperty("shared states INTEGER",
-                               boost::bind(&CForest::getNumStatesShared, this));
+    addPlannerProgressProperty("best cost REAL", [this] { return getBestCost(); });
+    addPlannerProgressProperty("shared paths INTEGER", [this] { return getNumPathsShared(); });
+    addPlannerProgressProperty("shared states INTEGER", [this] { return getNumStatesShared(); });
 }
 
-ompl::geometric::CForest::~CForest()
-{
-}
+ompl::geometric::CForest::~CForest() = default;
 
 void ompl::geometric::CForest::setNumThreads(unsigned int numThreads)
 {
-    numThreads_ = numThreads ? numThreads : std::max(boost::thread::hardware_concurrency(), 2u);
+    numThreads_ = numThreads ? numThreads : std::max(std::thread::hardware_concurrency(), 2u);
 }
 
 void ompl::geometric::CForest::addPlannerInstanceInternal(const base::PlannerPtr &planner)
@@ -122,8 +118,8 @@ void ompl::geometric::CForest::getPlannerData(base::PlannerData &data) const
 void ompl::geometric::CForest::clear()
 {
     Planner::clear();
-    for (std::size_t i = 0; i < planners_.size(); ++i)
-        planners_[i]->clear();
+    for (auto & planner : planners_)
+        planner->clear();
 
     bestCost_ = base::Cost(std::numeric_limits<double>::quiet_NaN());
     numPathsShared_ = 0;
@@ -131,9 +127,9 @@ void ompl::geometric::CForest::clear()
 
     std::vector<base::StateSamplerPtr> samplers;
     samplers.reserve(samplers_.size());
-    for (std::size_t i = 0; i < samplers_.size(); ++i)
-        if (samplers_[i].use_count() > 1)
-            samplers.push_back(samplers_[i]);
+    for (auto & sampler : samplers_)
+        if (sampler.use_count() > 1)
+            samplers.push_back(sampler);
     samplers_.swap(samplers);
 }
 
@@ -156,9 +152,9 @@ void ompl::geometric::CForest::setup()
         addPlannerInstances<RRTstar>(numThreads_);
     }
 
-    for (std::size_t i = 0; i < planners_.size() ; ++i)
-        if (!planners_[i]->isSetup())
-            planners_[i]->setup();
+    for (auto & planner : planners_)
+        if (!planner->isSetup())
+            planner->setup();
 
     // This call is needed to make sure the ParamSet is up to date after changes induced by the planner setup calls above, via the state space wrappers for CForest.
     si_->setup();
@@ -169,23 +165,30 @@ ompl::base::PlannerStatus ompl::geometric::CForest::solve(const base::PlannerTer
     checkValidity();
 
     time::point start = time::now();
-    std::vector<boost::thread*> threads(planners_.size());
+    std::vector<std::thread*> threads(planners_.size());
     const base::ReportIntermediateSolutionFn prevSolutionCallback = getProblemDefinition()->getIntermediateSolutionCallback();
 
     if (prevSolutionCallback)
         OMPL_WARN("Cannot use previously set intermediate solution callback with %s", getName().c_str());
 
-    pdef_->setIntermediateSolutionCallback(boost::bind(&CForest::newSolutionFound, this, _1, _2, _3));
+    pdef_->setIntermediateSolutionCallback(
+        [this](const base::Planner *planner, const std::vector<const base::State *> &states, const base::Cost cost)
+        {
+            return newSolutionFound(planner, states, cost);
+        });
     bestCost_ = opt_->infiniteCost();
 
     // run each planner in its own thread, with the same ptc.
     for (std::size_t i = 0 ; i < threads.size() ; ++i)
-        threads[i] = new boost::thread(boost::bind(&CForest::solve, this, planners_[i].get(), ptc));
-
-    for (std::size_t i = 0 ; i < threads.size() ; ++i)
     {
-        threads[i]->join();
-        delete threads[i];
+        base::Planner *planner = planners_[i].get();
+        threads[i] = new std::thread([this, planner, &ptc] { return solve(planner, ptc); });
+    }
+
+    for (auto & thread : threads)
+    {
+        thread->join();
+        delete thread;
     }
 
     // restore callback
@@ -196,17 +199,17 @@ ompl::base::PlannerStatus ompl::geometric::CForest::solve(const base::PlannerTer
 
 std::string ompl::geometric::CForest::getBestCost() const
 {
-    return boost::lexical_cast<std::string>(bestCost_);
+    return std::to_string(bestCost_.value());
 }
 
 std::string ompl::geometric::CForest::getNumPathsShared() const
 {
-    return boost::lexical_cast<std::string>(numPathsShared_);
+    return std::to_string(numPathsShared_);
 }
 
 std::string ompl::geometric::CForest::getNumStatesShared() const
 {
-    return boost::lexical_cast<std::string>(numStatesShared_);
+    return std::to_string(numStatesShared_);
 }
 
 void ompl::geometric::CForest::newSolutionFound(const base::Planner *planner, const std::vector<const base::State *> &states, const base::Cost cost)
@@ -222,12 +225,12 @@ void ompl::geometric::CForest::newSolutionFound(const base::Planner *planner, co
 
         // Filtering the states to add only those not already added.
         statesToShare.reserve(states.size());
-        for (std::vector<const base::State *>::const_iterator st = states.begin(); st != states.end(); ++st)
+        for (auto state : states)
         {
-            if (statesShared_.find(*st) == statesShared_.end())
+            if (statesShared_.find(state) == statesShared_.end())
             {
-                statesShared_.insert(*st);
-                statesToShare.push_back(*st);
+                statesShared_.insert(state);
+                statesToShare.push_back(state);
                 ++numStatesShared_;
             }
         }
@@ -236,9 +239,9 @@ void ompl::geometric::CForest::newSolutionFound(const base::Planner *planner, co
 
     if (!change || statesToShare.empty()) return;
 
-    for (std::size_t i = 0; i < samplers_.size(); ++i)
+    for (auto & i : samplers_)
     {
-        base::CForestStateSampler *sampler = static_cast<base::CForestStateSampler*>(samplers_[i].get());
+        base::CForestStateSampler *sampler = static_cast<base::CForestStateSampler*>(i.get());
         const base::CForestStateSpaceWrapper *space = static_cast<const base::CForestStateSpaceWrapper*>(sampler->getStateSpace());
         const base::Planner *cfplanner = space->getPlanner();
         if (cfplanner != planner)

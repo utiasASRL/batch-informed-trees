@@ -43,8 +43,8 @@
 // For geometric equations like prolateHyperspheroidMeasure
 #include "ompl/util/GeometricEquations.h"
 
-// For boost::make_shared
-#include <boost/make_shared.hpp>
+// For std::make_shared
+#include <memory>
 
 // Eigen core:
 #include <Eigen/Core>
@@ -82,7 +82,7 @@ struct ompl::ProlateHyperspheroid::PhsData
 
 
 ompl::ProlateHyperspheroid::ProlateHyperspheroid(unsigned int n, const double focus1[], const double focus2[])
-  : dataPtr_ (boost::make_shared<PhsData>())
+  : dataPtr_ (std::make_shared<PhsData>())
 {
     //Initialize the data:
     dataPtr_->dim_ = n;
@@ -160,13 +160,13 @@ bool ompl::ProlateHyperspheroid::isOnPhs(const double point[]) const
     return (getPathLength(point) == dataPtr_->transverseDiameter_);
 }
 
-unsigned int ompl::ProlateHyperspheroid::getPhsDimension(void) const
+unsigned int ompl::ProlateHyperspheroid::getPhsDimension() const
 {
     return dataPtr_->dim_;
 }
 
 
-double ompl::ProlateHyperspheroid::getPhsMeasure(void) const
+double ompl::ProlateHyperspheroid::getPhsMeasure() const
 {
     if (dataPtr_->isTransformUpToDate_ == false)
     {
@@ -185,7 +185,7 @@ double ompl::ProlateHyperspheroid::getPhsMeasure(double tranDiam) const
     return prolateHyperspheroidMeasure(dataPtr_->dim_, dataPtr_->minTransverseDiameter_, tranDiam);
 }
 
-double ompl::ProlateHyperspheroid::getMinTransverseDiameter(void) const
+double ompl::ProlateHyperspheroid::getMinTransverseDiameter() const
 {
     return dataPtr_->minTransverseDiameter_;
 }
@@ -200,7 +200,7 @@ unsigned int ompl::ProlateHyperspheroid::getDimension() const
     return dataPtr_->dim_;
 }
 
-void ompl::ProlateHyperspheroid::updateRotation(void)
+void ompl::ProlateHyperspheroid::updateRotation()
 {
     // Mark the transform as out of date
     dataPtr_->isTransformUpToDate_ = false;
@@ -242,7 +242,7 @@ void ompl::ProlateHyperspheroid::updateRotation(void)
     }
 }
 
-void ompl::ProlateHyperspheroid::updateTransformation(void)
+void ompl::ProlateHyperspheroid::updateTransformation()
 {
     // Variables
     // The radii of the ellipse

@@ -40,7 +40,7 @@
 #include <vector>
 #include <iostream>
 #include <cstdlib>
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <algorithm>
 
 namespace ompl
@@ -53,7 +53,7 @@ namespace ompl
     public:
 
         /// Definition of a coordinate within this grid
-        typedef std::vector<int> Coord;
+        using Coord = std::vector<int>;
 
         /// Definition of a cell in this grid
         struct Cell
@@ -64,17 +64,13 @@ namespace ompl
             /// The coordinate of the cell
             Coord               coord;
 
-            Cell()
-            {
-            }
+            Cell() = default;
 
-            virtual ~Cell()
-            {
-            }
+            virtual ~Cell() = default;
         };
 
         /// The datatype for arrays of cells
-        typedef std::vector<Cell*> CellArray;
+        using CellArray = std::vector<Cell *>;
 
 
         /// The constructor takes the dimension of the grid as argument
@@ -115,14 +111,14 @@ namespace ompl
         /// Check if a cell exists at the specified coordinate
         bool has(const Coord &coord) const
         {
-            return getCell(coord) != NULL;
+            return getCell(coord) != nullptr;
         }
 
         /// Get the cell at a specified coordinate
         Cell* getCell(const Coord &coord) const
         {
-            iterator pos = hash_.find(const_cast<Coord*>(&coord));
-            Cell *c = (pos != hash_.end()) ? pos->second : NULL;
+            auto pos = hash_.find(const_cast<Coord*>(&coord));
+            Cell *c = (pos != hash_.end()) ? pos->second : nullptr;
             return c;
         }
 
@@ -149,15 +145,15 @@ namespace ompl
             {
                 coord[i]--;
 
-                iterator pos = hash_.find(&coord);
-                Cell *cell = (pos != hash_.end()) ? pos->second : NULL;
+                auto pos = hash_.find(&coord);
+                Cell *cell = (pos != hash_.end()) ? pos->second : nullptr;
 
                 if (cell)
                     list.push_back(cell);
                 coord[i] += 2;
 
                 pos = hash_.find(&coord);
-                cell = (pos != hash_.end()) ? pos->second : NULL;
+                cell = (pos != hash_.end()) ? pos->second : nullptr;
 
                 if (cell)
                     list.push_back(cell);
@@ -168,17 +164,16 @@ namespace ompl
         /// Get the connected components formed by the cells in this grid (based on neighboring relation)
         std::vector< std::vector<Cell*> > components() const
         {
-            typedef boost::unordered_map<Coord*, int, HashFunCoordPtr, EqualCoordPtr> ComponentHash;
-            typedef typename ComponentHash::iterator CHit;
+            using ComponentHash = std::unordered_map<Coord*, int, HashFunCoordPtr, EqualCoordPtr>;
 
             int components = 0;
             ComponentHash ch;
             std::vector< std::vector<Cell*> > res;
 
-            for (iterator i = hash_.begin() ; i != hash_.end() ; ++i)
+            for (auto i = hash_.begin() ; i != hash_.end() ; ++i)
             {
                 Cell *c0 = i->second;
-                CHit pos = ch.find(&c0->coord);
+                auto pos = ch.find(&c0->coord);
                 int comp = (pos != ch.end()) ? pos->second : -1;
 
                 if (comp < 0)
@@ -223,9 +218,9 @@ namespace ompl
         /// Return the list of future neighbors.
         /// Note: this call only creates the cell, but does not add it to the grid.
         /// It however updates the neighbor count for neighboring cells
-        virtual Cell* createCell(const Coord& coord, CellArray *nbh = NULL)
+        virtual Cell* createCell(const Coord& coord, CellArray *nbh = nullptr)
         {
-            Cell *cell = new Cell();
+            auto *cell = new Cell();
             cell->coord = coord;
             if (nbh)
                 neighbors(cell->coord, *nbh);
@@ -238,7 +233,7 @@ namespace ompl
         {
             if (cell)
             {
-                typename CoordHash::iterator pos = hash_.find(&cell->coord);
+                auto pos = hash_.find(&cell->coord);
                 if (pos != hash_.end())
                 {
                     hash_.erase(pos);
@@ -263,7 +258,7 @@ namespace ompl
         /// Get the data stored in the cells we are aware of
         void getContent(std::vector<_T> &content) const
         {
-            for (iterator i = hash_.begin() ; i != hash_.end() ; ++i)
+            for (auto i = hash_.begin() ; i != hash_.end() ; ++i)
                 content.push_back(i->second->data);
         }
 
@@ -277,7 +272,7 @@ namespace ompl
         /// Get the set of instantiated cells in the grid
         void getCells(CellArray &cells) const
         {
-            for (iterator i = hash_.begin() ; i != hash_.end() ; ++i)
+            for (auto i = hash_.begin() ; i != hash_.end() ; ++i)
                 cells.push_back(i->second);
         }
 
@@ -356,7 +351,7 @@ namespace ompl
         };
 
         /// Define the datatype for the used hash structure
-        typedef boost::unordered_map<Coord*, Cell*, HashFunCoordPtr, EqualCoordPtr> CoordHash;
+        using CoordHash = std::unordered_map<Coord*, Cell*, HashFunCoordPtr, EqualCoordPtr>;
 
         /// Helper to sort components by size
         struct SortComponents
@@ -371,7 +366,7 @@ namespace ompl
     public:
 
         /// We only allow const iterators
-        typedef typename CoordHash::const_iterator iterator;
+        using iterator = typename CoordHash::const_iterator;
 
         /// Return the begin() iterator for the grid
         iterator begin() const

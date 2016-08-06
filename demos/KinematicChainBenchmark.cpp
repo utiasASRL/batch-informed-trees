@@ -57,7 +57,7 @@ struct Segment
 };
 
 // the robot and environment are modeled both as a vector of segments.
-typedef std::vector<Segment> Environment;
+using Environment = std::vector<Segment>;
 
 // simply use a random projection
 class KinematicChainProjector : public ompl::base::ProjectionEvaluator
@@ -69,11 +69,11 @@ public:
         int dimension = std::max(2, (int)ceil(log((double) space->getDimension())));
         projectionMatrix_.computeRandom(space->getDimension(), dimension);
     }
-    virtual unsigned int getDimension(void) const
+    unsigned int getDimension() const override
     {
         return projectionMatrix_.mat.size1();
     }
-    void project(const ompl::base::State *state, ompl::base::EuclideanProjection &projection) const
+    void project(const ompl::base::State *state, ompl::base::EuclideanProjection &projection) const override
     {
         std::vector<double> v(space_->getDimension());
         space_->copyToReals(v, state);
@@ -87,7 +87,7 @@ protected:
 class KinematicChainSpace : public ompl::base::CompoundStateSpace
 {
 public:
-    KinematicChainSpace(unsigned int numLinks, double linkLength, Environment *env = NULL)
+    KinematicChainSpace(unsigned int numLinks, double linkLength, Environment *env = nullptr)
         : ompl::base::CompoundStateSpace(), linkLength_(linkLength), environment_(env)
     {
         for (unsigned int i = 0; i < numLinks; ++i)
@@ -95,13 +95,13 @@ public:
         lock();
     }
 
-    void registerProjections()
+    void registerProjections() override
     {
         registerDefaultProjection(ompl::base::ProjectionEvaluatorPtr(
             new KinematicChainProjector(this)));
     }
 
-    double distance(const ompl::base::State *state1, const ompl::base::State *state2) const
+    double distance(const ompl::base::State *state1, const ompl::base::State *state2) const override
     {
         const StateType *cstate1 = state1->as<StateType>();
         const StateType *cstate2 = state2->as<StateType>();
@@ -140,7 +140,7 @@ public:
     {
     }
 
-    bool isValid(const ompl::base::State *state) const
+    bool isValid(const ompl::base::State *state) const override
     {
         const KinematicChainSpace* space = si_->getStateSpace()->as<KinematicChainSpace>();
         const KinematicChainSpace::StateType *s = state->as<KinematicChainSpace::StateType>();
@@ -155,13 +155,13 @@ public:
             theta += s->as<ompl::base::SO2StateSpace::StateType>(i)->value;
             xN = x + cos(theta) * linkLength;
             yN = y + sin(theta) * linkLength;
-            segments.push_back(Segment(x, y, xN, yN));
+            segments.emplace_back(x, y, xN, yN);
             x = xN;
             y = yN;
         }
         xN = x + cos(theta) * 0.001;
         yN = y + sin(theta) * 0.001;
-        segments.push_back(Segment(x, y, xN, yN));
+        segments.emplace_back(x, y, xN, yN);
         return selfIntersectionTest(segments)
             && environmentIntersectionTest(segments, *space->environment());
     }
@@ -179,9 +179,9 @@ protected:
     // return true iff no segment in env0 intersects any segment in env1
     bool environmentIntersectionTest(const Environment& env0, const Environment& env1) const
     {
-        for (unsigned int i = 0; i < env0.size(); ++i)
-            for (unsigned int j = 0; j < env1.size(); ++j)
-                if (intersectionTest(env0[i], env1[j]))
+        for (const auto & i : env0)
+            for (const auto & j : env1)
+                if (intersectionTest(i, j))
                     return false;
         return true;
     }
@@ -228,7 +228,7 @@ Environment createHornEnvironment(unsigned int d, double eps)
         theta += boost::math::constants::pi<double>() / (double) d;
         xN = x + cos(theta) * scale;
         yN = y + sin(theta) * scale;
-        env.push_back(Segment(x, y, xN, yN));
+        env.emplace_back(x, y, xN, yN);
         x = xN;
         y = yN;
         envFile << x << " " << y << std::endl;
@@ -244,7 +244,7 @@ Environment createHornEnvironment(unsigned int d, double eps)
         theta += boost::math::constants::pi<double>() / d;
         xN = x + cos(theta) * scale;
         yN = y + sin(theta) * scale;
-        env.push_back(Segment(x, y, xN, yN));
+        env.emplace_back(x, y, xN, yN);
         x = xN;
         y = yN;
         envFile << x << " " << y << std::endl;
@@ -308,7 +308,7 @@ int main(int argc, char **argv)
     int run_count = 20;
     ompl::tools::Benchmark::Request request(runtime_limit, memory_limit, run_count, 0.5);
     ompl::tools::Benchmark b(ss, "KinematicChain");
-    b.addExperimentParameter("num_links", "INTEGER", boost::lexical_cast<std::string>(numLinks));
+    b.addExperimentParameter("num_links", "INTEGER", std::to_string(numLinks));
 
     b.addPlanner(ompl::base::PlannerPtr(new ompl::geometric::STRIDE(ss.getSpaceInformation())));
     b.addPlanner(ompl::base::PlannerPtr(new ompl::geometric::EST(ss.getSpaceInformation())));

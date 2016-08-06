@@ -55,7 +55,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::geometric::PathHybridizationPtr
-            \brief A boost shared pointer wrapper for ompl::geometric::PathHybridization */
+            \brief A shared pointer wrapper for ompl::geometric::PathHybridization */
 
         /** \brief Given multiple geometric paths, attempt to combine them in order to obtain a shorter solution.
 
@@ -72,7 +72,7 @@ namespace ompl
         public:
 
             /** \brief The constructor needs to know about the space information of the paths it will operate on */
-            PathHybridization(const base::SpaceInformationPtr &si);
+            PathHybridization(base::SpaceInformationPtr si);
             ~PathHybridization();
 
             /** \brief Get the currently computed hybrid path. computeHybridPath() needs to have been called before. */
@@ -109,19 +109,18 @@ namespace ompl
 
             /// @cond IGNORE
             struct vertex_state_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
-            typedef boost::adjacency_list <
+            using HGraph = boost::adjacency_list <
                 boost::vecS, boost::vecS, boost::undirectedS,
                 boost::property < vertex_state_t, base::State*,
                                   boost::property < boost::vertex_predecessor_t, unsigned long int,
                                                     boost::property < boost::vertex_rank_t, unsigned long int > > >,
-                boost::property < boost::edge_weight_t, double >
-                > HGraph;
+                boost::property < boost::edge_weight_t, double >>;
 
-            typedef boost::graph_traits<HGraph>::vertex_descriptor Vertex;
-            typedef boost::graph_traits<HGraph>::edge_descriptor   Edge;
+            using Vertex = boost::graph_traits<HGraph>::vertex_descriptor;
+            using Edge = boost::graph_traits<HGraph>::edge_descriptor;
 
             struct PathInfo
             {

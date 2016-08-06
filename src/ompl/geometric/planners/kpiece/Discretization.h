@@ -40,7 +40,8 @@
 #include "ompl/base/Planner.h"
 #include "ompl/datastructures/GridB.h"
 #include "ompl/util/Exception.h"
-#include <boost/function.hpp>
+#include <functional>
+#include <utility>
 #include <vector>
 #include <limits>
 #include <cassert>
@@ -67,9 +68,7 @@ namespace ompl
                 {
                 }
 
-                ~CellData()
-                {
-                }
+                ~CellData() = default;
 
                 /** \brief The set of motions contained in this grid cell */
                 std::vector<Motion*> motions;
@@ -108,21 +107,21 @@ namespace ompl
             };
 
             /** \brief The datatype for the maintained grid datastructure */
-            typedef GridB<CellData*, OrderCellsByImportance> Grid;
+            using Grid = GridB<CellData*, OrderCellsByImportance>;
 
             /** \brief The datatype for the maintained grid cells */
-            typedef typename Grid::Cell  Cell;
+            using Cell = typename Grid::Cell;
 
             /** \brief The datatype for the maintained grid coordinates */
-            typedef typename Grid::Coord Coord;
+            using Coord = typename Grid::Coord;
 
             /** \brief The signature of a function that frees the memory for a motion */
-            typedef typename boost::function<void(Motion*)> FreeMotionFn;
+            using FreeMotionFn = typename std::function<void (Motion *)>;
 
-            Discretization(const FreeMotionFn &freeMotion) : grid_(0), size_(0), iteration_(1), recentCell_(NULL),
-                                                             freeMotion_(freeMotion)
+            Discretization(FreeMotionFn freeMotion) : grid_(0), size_(0), iteration_(1), recentCell_(nullptr),
+                                                             freeMotion_(std::move(freeMotion))
             {
-                grid_.onCellUpdate(computeImportance, NULL);
+                grid_.onCellUpdate(computeImportance, nullptr);
                 selectBorderFraction_ = 0.9;
             }
 
@@ -163,7 +162,7 @@ namespace ompl
                 freeMemory();
                 size_ = 0;
                 iteration_ = 1;
-                recentCell_ = NULL;
+                recentCell_ = nullptr;
             }
 
             void countIteration()
@@ -184,7 +183,7 @@ namespace ompl
             /** \brief Free the memory for the motions contained in a grid */
             void freeMemory()
             {
-                for (typename Grid::iterator it = grid_.begin(); it != grid_.end() ; ++it)
+                for (auto it = grid_.begin(); it != grid_.end() ; ++it)
                     freeCellData(it->second->data);
                 grid_.clear();
             }
@@ -240,7 +239,7 @@ namespace ompl
                     std::vector<CellData*> content;
                     content.reserve(grid_.size());
                     grid_.getContent(content);
-                    for (typename std::vector<CellData*>::iterator it = content.begin() ; it != content.end() ; ++it)
+                    for (auto it = content.begin() ; it != content.end() ; ++it)
                         (*it)->score += 1.0 + log((double)((*it)->iteration));
                     grid_.updateAll();
                 }
@@ -297,7 +296,7 @@ namespace ompl
                 for (unsigned int i = 0 ; i < cdata.size() ; ++i)
                     for (unsigned int j = 0 ; j < cdata[i]->motions.size() ; ++j)
                     {
-                        if (cdata[i]->motions[j]->parent == NULL)
+                        if (cdata[i]->motions[j]->parent == nullptr)
                         {
                             if (start)
                                 data.addStartVertex(base::PlannerDataVertex(cdata[i]->motions[j]->state, tag));

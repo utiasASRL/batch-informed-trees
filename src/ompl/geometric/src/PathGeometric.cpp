@@ -81,8 +81,8 @@ void ompl::geometric::PathGeometric::copyFrom(const PathGeometric &other)
 
 void ompl::geometric::PathGeometric::freeMemory()
 {
-    for (unsigned int i = 0 ; i < states_.size() ; ++i)
-        si_->freeState(states_[i]);
+    for (auto & state : states_)
+        si_->freeState(state);
 }
 
 ompl::base::Cost ompl::geometric::PathGeometric::cost(const base::OptimizationObjectivePtr &opt) const
@@ -107,8 +107,8 @@ double ompl::geometric::PathGeometric::length() const
 double ompl::geometric::PathGeometric::clearance() const
 {
     double c = 0.0;
-    for (unsigned int i = 0 ; i < states_.size() ; ++i)
-        c += si_->getStateValidityChecker()->clearance(states_[i]);
+    for (auto state : states_)
+        c += si_->getStateValidityChecker()->clearance(state);
     if (states_.empty())
         c = std::numeric_limits<double>::infinity();
     else
@@ -154,6 +154,10 @@ double ompl::geometric::PathGeometric::smoothness() const
 
 bool ompl::geometric::PathGeometric::check() const
 {
+    // make sure state validity checker is set
+    if (!si_->isSetup())
+        si_->setup();
+
     bool result = true;
     if (states_.size() > 0)
     {
@@ -174,17 +178,17 @@ bool ompl::geometric::PathGeometric::check() const
 void ompl::geometric::PathGeometric::print(std::ostream &out) const
 {
     out << "Geometric path with " << states_.size() << " states" << std::endl;
-    for (unsigned int i = 0 ; i < states_.size() ; ++i)
-        si_->printState(states_[i], out);
+    for (auto state : states_)
+        si_->printState(state, out);
     out << std::endl;
 }
 void ompl::geometric::PathGeometric::printAsMatrix(std::ostream &out) const
 {
     const base::StateSpace* space(si_->getStateSpace().get());
     std::vector<double> reals;
-    for (unsigned int i = 0 ; i < states_.size() ; ++i)
+    for (auto state : states_)
     {
-        space->copyToReals(reals, states_[i]);
+        space->copyToReals(reals, state);
         std::copy(reals.begin(), reals.end(), std::ostream_iterator<double>(out, " "));
         out << std::endl;
     }
@@ -202,16 +206,20 @@ std::pair<bool, bool> ompl::geometric::PathGeometric::checkAndRepair(unsigned in
     }
 
     // a path with invalid endpoints cannot be fixed; planners should not return such paths anyway
-    const int n1 = states_.size();
-    if (!si_->isValid(states_[0]) || !si_->isValid(states_[n1 - 1]))
+    const int n1 = states_.size() - 1;
+    if (!si_->isValid(states_[0]) || !si_->isValid(states_[n1]))
         return std::make_pair(false, false);
 
-    base::State *temp = NULL;
-    base::UniformValidStateSampler *uvss = NULL;
+    base::State *temp = nullptr;
+    base::UniformValidStateSampler *uvss = nullptr;
     bool result = true;
 
     for (int i = 1 ; i < n1 ; ++i)
-        if (!si_->checkMotion(states_[i-1], states_[i]))
+        if (!si_->checkMotion(states_[i-1], states_[i]) ||
+            // the penultimate state in the path needs an additional check:
+            // the motion between that state and the last state needs to be
+            // valid as well since we cannot change the last state.
+            (i == n1 - 1 && !si_->checkMotion(states_[i], states_[i + 1])))
         {
             // we now compute a state around which to sample
             if (!temp)
@@ -232,14 +240,14 @@ std::pair<bool, bool> ompl::geometric::PathGeometric::checkAndRepair(unsigned in
             }
             else
             {
-                unsigned int nextValid = n1;
+                unsigned int nextValid = n1 - 1;
                 for (int j = i + 1 ; j < n1 ; ++j)
                     if (si_->isValid(states_[j]))
                     {
                         nextValid = j;
                         break;
                     }
-                // we know nextValid will be initialised because n1 is certainly valid.
+                // we know nextValid will be initialised because n1 - 1 is certainly valid.
                 si_->getStateSpace()->interpolate(states_[i - 1], states_[nextValid], 0.5, temp);
                 radius = std::max(si_->distance(states_[i-1], temp), si_->distance(states_[i-1], states_[i]));
             }
@@ -249,7 +257,10 @@ std::pair<bool, bool> ompl::geometric::PathGeometric::checkAndRepair(unsigned in
             for (unsigned int a = 0 ; a < attempts ; ++a)
                 if (uvss->sampleNear(states_[i], temp, radius))
                 {
-                    if (si_->checkMotion(states_[i-1], states_[i]))
+                    if (si_->checkMotion(states_[i-1], states_[i]) &&
+                        // the penultimate state needs an additional check
+                        // (see comment at the top of outermost for-loop)
+                        (i < n1 - 1 || si_->checkMotion(states_[i], states_[i + 1])))
                     {
                         success = true;
                         break;
@@ -267,7 +278,7 @@ std::pair<bool, bool> ompl::geometric::PathGeometric::checkAndRepair(unsigned in
     // free potentially allocated memory
     if (temp)
         si_->freeState(temp);
-    bool originalValid = uvss == NULL;
+    bool originalValid = uvss == nullptr;
     if (uvss)
         delete uvss;
 
@@ -387,7 +398,7 @@ bool ompl::geometric::PathGeometric::randomValid(unsigned int attempts)
     states_.resize(2);
     states_[0] = si_->allocState();
     states_[1] = si_->allocState();
-    base::UniformValidStateSampler *uvss = new base::UniformValidStateSampler(si_.get());
+    auto *uvss = new base::UniformValidStateSampler(si_.get());
     uvss->setNrAttempts(attempts);
     bool ok = false;
     for (unsigned int i = 0 ; i < attempts ; ++i)

@@ -44,15 +44,11 @@
 #include "ompl/util/ClassForward.h"
 
 #include <boost/version.hpp>
-#if BOOST_VERSION >= 105300
 #include <boost/numeric/odeint.hpp>
 namespace odeint = boost::numeric::odeint;
-#else
-#include <omplext_odeint/boost/numeric/odeint.hpp>
-namespace odeint = boost::numeric::omplext_odeint;
-#endif
-#include <boost/function.hpp>
+#include <functional>
 #include <cassert>
+#include <utility>
 #include <vector>
 
 namespace ompl
@@ -66,7 +62,7 @@ namespace ompl
         /// @endcond
 
         /// \class ompl::control::ODESolverPtr
-        /// \brief A boost shared pointer wrapper for ompl::control::ODESolver
+        /// \brief A shared pointer wrapper for ompl::control::ODESolver
 
         /// \brief Abstract base class for an object that can solve ordinary differential
         /// equations (ODE) of the type q' = f(q,u) using numerical integration.  Classes
@@ -76,26 +72,24 @@ namespace ompl
         {
         public:
             /// \brief Portable data type for the state values
-            typedef std::vector<double> StateType;
+            using StateType = std::vector<double>;
 
             /// \brief Callback function that defines the ODE.  Accepts
             /// the current state, input control, and output state.
-            typedef boost::function<void(const StateType &, const Control*, StateType &)> ODE;
+            using ODE = std::function<void (const StateType &, const Control *, StateType &)>;
 
             /// \brief Callback function to perform an event at the end of numerical
             /// integration.  This functionality is optional.
-            typedef boost::function<void(const base::State *state, const Control *control, const double duration, base::State *result)> PostPropagationEvent;
+            using PostPropagationEvent = std::function<void (const base::State *, const Control *, const double, base::State *)>;
 
             /// \brief Parameterized constructor.  Takes a reference to SpaceInformation,
             /// an ODE to solve, and the integration step size.
-            ODESolver (const SpaceInformationPtr& si, const ODE& ode, double intStep) : si_(si), ode_(ode), intStep_(intStep)
+            ODESolver (SpaceInformationPtr  si, ODE  ode, double intStep) : si_(std::move(si)), ode_(std::move(ode)), intStep_(intStep)
             {
             }
 
             /// \brief Destructor.
-            virtual ~ODESolver ()
-            {
-            }
+            virtual ~ODESolver () = default;
 
             /// \brief Set the ODE to solve
             void setODE (const ODE &ode)
@@ -127,18 +121,18 @@ namespace ompl
             /// numerical integration is finished for further operations on the resulting
             /// state.
             static StatePropagatorPtr getStatePropagator (ODESolverPtr solver,
-                const PostPropagationEvent &postEvent = NULL)
+                const PostPropagationEvent &postEvent = nullptr)
             {
                 class ODESolverStatePropagator : public StatePropagator
                 {
                     public:
-                        ODESolverStatePropagator (ODESolverPtr solver, const PostPropagationEvent &pe) : StatePropagator (solver->si_), solver_(solver), postEvent_(pe)
+                        ODESolverStatePropagator (ODESolverPtr solver, PostPropagationEvent pe) : StatePropagator (solver->si_), solver_(solver), postEvent_(std::move(pe))
                         {
                             if (!solver.get())
                                 OMPL_ERROR("ODESolverPtr does not reference a valid ODESolver object");
                         }
 
-                        virtual void propagate (const base::State *state, const Control *control, const double duration, base::State *result) const
+                        void propagate (const base::State *state, const Control *control, const double duration, base::State *result) const override
                         {
                             ODESolver::StateType reals;
                             si_->getStateSpace()->copyToReals(reals, state);
@@ -153,7 +147,7 @@ namespace ompl
                         ODESolverPtr solver_;
                         ODESolver::PostPropagationEvent postEvent_;
                 };
-                return StatePropagatorPtr(dynamic_cast<StatePropagator*>(new ODESolverStatePropagator(solver, postEvent)));
+                return StatePropagatorPtr(dynamic_cast<StatePropagator*>(new ODESolverStatePropagator(std::move(solver), postEvent)));
             }
 
         protected:
@@ -174,7 +168,7 @@ namespace ompl
             // Functor used by the boost::numeric::odeint stepper object
             struct ODEFunctor
             {
-                ODEFunctor (const ODE &o, const Control *ctrl) : ode(o), control(ctrl) {}
+                ODEFunctor (ODE o, const Control *ctrl) : ode(std::move(o)), control(ctrl) {}
 
                 // boost::numeric::odeint will callback to this method during integration to evaluate the system
                 void operator () (const StateType &current, StateType &output, double /*time*/)
@@ -208,7 +202,7 @@ namespace ompl
         protected:
 
             /// \brief Solve the ODE using boost::numeric::odeint.
-            virtual void solve (StateType &state, const Control *control, const double duration) const
+            void solve (StateType &state, const Control *control, const double duration) const override
             {
                 Solver solver;
                 ODESolver::ODEFunctor odefunc (ode_, control);
@@ -240,7 +234,7 @@ namespace ompl
 
         protected:
             /// \brief Solve the ODE using boost::numeric::odeint.  Save the resulting error values into error_.
-            virtual void solve (StateType &state, const Control *control, const double duration) const
+            void solve (StateType &state, const Control *control, const double duration) const override
             {
                 ODESolver::ODEFunctor odefunc (ode_, control);
 
@@ -308,7 +302,7 @@ namespace ompl
             /// of the system, a control to apply to the system, and the duration to
             /// apply the control.  The value of \e state will contain the final
             /// values for the system after integration.
-            virtual void solve (StateType &state, const Control *control, const double duration) const
+            void solve (StateType &state, const Control *control, const double duration) const override
             {
                 ODESolver::ODEFunctor odefunc (ode_, control);
 

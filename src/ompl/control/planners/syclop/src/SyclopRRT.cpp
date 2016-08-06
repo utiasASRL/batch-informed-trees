@@ -43,14 +43,14 @@ void ompl::control::SyclopRRT::setup()
     Syclop::setup();
     sampler_ = si_->allocStateSampler();
     controlSampler_ = siC_->allocDirectedControlSampler();
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
 
     // Create a default GNAT nearest neighbors structure if the user doesn't want
     // the default regionalNN check from the discretization
     if (!nn_ && !regionalNN_)
     {
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
-        nn_->setDistanceFunction(boost::bind(&SyclopRRT::distanceFunction, this, _1, _2));
+        nn_->setDistanceFunction([this](Motion *a, const Motion *b) { return distanceFunction(a, b); });
     }
 }
 
@@ -60,7 +60,7 @@ void ompl::control::SyclopRRT::clear()
     freeMemory();
     if (nn_)
         nn_->clear();
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
 }
 
 void ompl::control::SyclopRRT::getPlannerData(base::PlannerData &data) const
@@ -74,26 +74,26 @@ void ompl::control::SyclopRRT::getPlannerData(base::PlannerData &data) const
     if (lastGoalMotion_)
         data.addGoalVertex (base::PlannerDataVertex(lastGoalMotion_->state));
 
-    for (size_t i = 0; i < motions.size(); ++i)
+    for (auto & motion : motions)
     {
-        if (motions[i]->parent)
+        if (motion->parent)
         {
             if (data.hasControls())
-                data.addEdge (base::PlannerDataVertex(motions[i]->parent->state),
-                              base::PlannerDataVertex(motions[i]->state),
-                              control::PlannerDataEdgeControl (motions[i]->control, motions[i]->steps * delta));
+                data.addEdge (base::PlannerDataVertex(motion->parent->state),
+                              base::PlannerDataVertex(motion->state),
+                              control::PlannerDataEdgeControl (motion->control, motion->steps * delta));
             else
-                data.addEdge (base::PlannerDataVertex(motions[i]->parent->state),
-                              base::PlannerDataVertex(motions[i]->state));
+                data.addEdge (base::PlannerDataVertex(motion->parent->state),
+                              base::PlannerDataVertex(motion->state));
         }
         else
-            data.addStartVertex (base::PlannerDataVertex(motions[i]->state));
+            data.addStartVertex (base::PlannerDataVertex(motion->state));
     }
 }
 
 ompl::control::Syclop::Motion* ompl::control::SyclopRRT::addRoot(const base::State *s)
 {
-    Motion *motion = new Motion(siC_);
+    auto *motion = new Motion(siC_);
     si_->copyState(motion->state, s);
     siC_->nullControl(motion->control);
 
@@ -104,7 +104,7 @@ ompl::control::Syclop::Motion* ompl::control::SyclopRRT::addRoot(const base::Sta
 
 void ompl::control::SyclopRRT::selectAndExtend(Region &region, std::vector<Motion*>& newMotions)
 {
-    Motion *rmotion = new Motion(siC_);
+    auto *rmotion = new Motion(siC_);
     base::StateSamplerPtr sampler(si_->allocStateSampler());
     std::vector<double> coord(decomp_->getDimension());
     decomp_->sampleFromRegion(region.index, rng_, coord);
@@ -120,9 +120,9 @@ void ompl::control::SyclopRRT::selectAndExtend(Region &region, std::vector<Motio
         searchRegions.push_back(region.index);
 
         std::vector<Motion*> motions;
-        for (std::vector<int>::const_iterator i = searchRegions.begin(); i != searchRegions.end(); ++i)
+        for (const auto & i : searchRegions)
         {
-            const std::vector<Motion*>& regionMotions = getRegionFromIndex(*i).motions;
+            const std::vector<Motion*>& regionMotions = getRegionFromIndex(i).motions;
             motions.insert(motions.end(), regionMotions.begin(), regionMotions.end());
         }
 
@@ -172,9 +172,8 @@ void ompl::control::SyclopRRT::freeMemory()
     {
         std::vector<Motion*> motions;
         nn_->list(motions);
-        for (std::vector<Motion*>::iterator i = motions.begin(); i != motions.end(); ++i)
+        for (auto m : motions)
         {
-            Motion *m = *i;
             if (m->state)
                 si_->freeState(m->state);
             if (m->control)

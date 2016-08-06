@@ -82,7 +82,7 @@ namespace ompl
             /** \brief Constructor */
             LBKPIECE1(const base::SpaceInformationPtr &si);
 
-            virtual ~LBKPIECE1();
+            ~LBKPIECE1() override;
 
             /** \brief Set the projection evaluator. This class is
                 able to compute the projection of a given state. */
@@ -155,12 +155,12 @@ namespace ompl
                 return minValidPathFraction_;
             }
 
-            virtual void setup();
+            void setup() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
-            virtual void clear();
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
+            void clear() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
         protected:
 
@@ -169,18 +169,16 @@ namespace ompl
             {
             public:
 
-                Motion() : root(NULL), state(NULL), parent(NULL), valid(false)
+                Motion() : root(nullptr), state(nullptr), parent(nullptr), valid(false)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state */
-                Motion(const base::SpaceInformationPtr &si) : root(NULL), state(si->allocState()), parent(NULL), valid(false)
+                Motion(const base::SpaceInformationPtr &si) : root(nullptr), state(si->allocState()), parent(nullptr), valid(false)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The root state (start state) that leads to this motion */
                 const base::State   *root;

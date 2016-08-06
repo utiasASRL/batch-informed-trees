@@ -38,8 +38,7 @@
 #define OMPL_DATASTRUCTURES_NEAREST_NEIGHBORS_
 
 #include <vector>
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
+#include <functional>
 #include <ompl/base/StateSpace.h>
 
 namespace ompl
@@ -52,15 +51,11 @@ namespace ompl
     public:
 
         /** \brief The definition of a distance function */
-        typedef boost::function<double(const _T&, const _T&)> DistanceFunction;
+        using DistanceFunction = std::function<double(const _T&, const _T&)>;
 
-        NearestNeighbors()
-        {
-        }
+        NearestNeighbors() = default;
 
-        virtual ~NearestNeighbors()
-        {
-        }
+        virtual ~NearestNeighbors() = default;
 
         /** \brief Set the distance function to use */
         virtual void setDistanceFunction(const DistanceFunction &distFun)
@@ -87,7 +82,7 @@ namespace ompl
         /** \brief Add a vector of points */
         virtual void add(const std::vector<_T> &data)
         {
-            for (typename std::vector<_T>::const_iterator elt = data.begin() ; elt != data.end() ; ++elt)
+            for (auto elt = data.begin() ; elt != data.end() ; ++elt)
                 add(*elt);
         }
 

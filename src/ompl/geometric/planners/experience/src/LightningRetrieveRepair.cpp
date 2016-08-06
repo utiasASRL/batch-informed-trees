@@ -42,14 +42,15 @@
 #include "ompl/tools/config/MagicConstants.h"
 #include "ompl/tools/lightning/LightningDB.h"
 
-#include <boost/thread.hpp>
+#include <thread>
 
 #include <limits>
+#include <utility>
 
 ompl::geometric::LightningRetrieveRepair::LightningRetrieveRepair(const base::SpaceInformationPtr &si,
-                                                                  const ompl::tools::LightningDBPtr &experienceDB)
+                                                                  ompl::tools::LightningDBPtr experienceDB)
     : base::Planner(si, "LightningRetrieveRepair"),
-      experienceDB_(experienceDB),
+      experienceDB_(std::move(experienceDB)),
       nearestK_(ompl::magic::NEAREST_K_RECALL_SOLUTIONS) // default value
 {
     specs_.approximateSolutions = true;
@@ -61,9 +62,7 @@ ompl::geometric::LightningRetrieveRepair::LightningRetrieveRepair(const base::Sp
     psk_.reset(new ompl::geometric::PathSimplifier(si_));
 }
 
-ompl::geometric::LightningRetrieveRepair::~LightningRetrieveRepair()
-{
-}
+ompl::geometric::LightningRetrieveRepair::~LightningRetrieveRepair() = default;
 
 void ompl::geometric::LightningRetrieveRepair::clear()
 {
@@ -157,7 +156,7 @@ ompl::base::PlannerStatus ompl::geometric::LightningRetrieveRepair::solve(const 
     assert(chosenPath->numVertices() >= 2);
 
     // Convert chosen PlannerData experience to an actual path
-    ompl::geometric::PathGeometric *primaryPath = new PathGeometric(si_);
+    auto *primaryPath = new PathGeometric(si_);
     // Add start
     primaryPath->append(startState);
     // Add old states
@@ -339,7 +338,7 @@ bool ompl::geometric::LightningRetrieveRepair::findBestPath(const base::State *s
     return true;
 }
 
-bool ompl::geometric::LightningRetrieveRepair::repairPath(const base::PlannerTerminationCondition &ptc, 
+bool ompl::geometric::LightningRetrieveRepair::repairPath(const base::PlannerTerminationCondition &ptc,
                                                           ompl::geometric::PathGeometric &primaryPath)
 {
     // \todo: we should reuse our collision checking from the previous step to make this faster
@@ -527,9 +526,8 @@ void ompl::geometric::LightningRetrieveRepair::getPlannerData(base::PlannerData 
     OMPL_INFORM("LightningRetrieveRepair: including %d similar paths", nearestPaths_.size());
 
     // Visualize the n candidate paths that we recalled from the database
-    for (std::size_t i = 0 ; i < nearestPaths_.size() ; ++i)
+    for (const auto& pd : nearestPaths_)
     {
-        ompl::base::PlannerDataPtr pd = nearestPaths_[i];
         for (std::size_t j = 1; j < pd->numVertices(); ++j)
         {
             data.addEdge(

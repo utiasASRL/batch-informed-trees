@@ -75,24 +75,24 @@ namespace ompl
             /** \brief Construct a path instance from two states (thus making a segment) */
             PathGeometric(const base::SpaceInformationPtr &si, const base::State *state1, const base::State *state2);
 
-            virtual ~PathGeometric()
+            ~PathGeometric() override
             {
                 freeMemory();
             }
 
             /** \brief Assignment operator */
             PathGeometric& operator=(const PathGeometric &other);
-            
+
             /** \brief The sum of the costs for the sequence of segments that make up the path, computed using
-                OptimizationObjective::motionCost(). OptimizationObjective::initialCost() and OptimizationObjective::terminalCost() 
+                OptimizationObjective::motionCost(). OptimizationObjective::initialCost() and OptimizationObjective::terminalCost()
                 are also used in the computation for the first and last states, respectively. Empty paths have identity cost. */
-            virtual base::Cost cost(const base::OptimizationObjectivePtr &obj) const;
+            base::Cost cost(const base::OptimizationObjectivePtr &obj) const override;
 
             /** \brief Compute the length of a geometric path (sum of lengths of segments that make up the path) */
-            virtual double length() const;
+            double length() const override;
 
             /** \brief Check if the path is valid */
-            virtual bool check() const;
+            bool check() const override;
 
             /** \brief Compute a notion of smoothness for this
                 path. The closer the value is to 0, the smoother the
@@ -123,7 +123,7 @@ namespace ompl
             double clearance() const;
 
             /** \brief Print the path to a stream */
-            virtual void print(std::ostream &out) const;
+            void print(std::ostream &out) const override;
             /** \brief Print the path as a real-valued matrix where the
                 i-th row represents the i-th state along the path. Each
                 row contains the state components as returned by
@@ -155,7 +155,7 @@ namespace ompl
             /** \brief Check if the path is valid. If it is not,
                 attempts are made to fix the path by sampling around
                 invalid states. Not more than \e attempts samples are
-                drawn. 
+                drawn.
                 \return A pair of boolean values is returned. The first
                 value represents the validity of the path before any
                 change was made. The second value represents the

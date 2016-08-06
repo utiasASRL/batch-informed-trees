@@ -39,11 +39,12 @@
 #include "ompl/base/goals/GoalRegion.h"
 #include "ompl/base/samplers/informed/RejectionInfSampler.h"
 #include <limits>
-// For boost::make_shared
-#include <boost/make_shared.hpp>
+// For std::make_shared
+#include <memory>
+#include <utility>
 
-ompl::base::OptimizationObjective::OptimizationObjective(const SpaceInformationPtr &si) :
-    si_(si),
+ompl::base::OptimizationObjective::OptimizationObjective(SpaceInformationPtr si) :
+    si_(std::move(si)),
     threshold_(0.0)
 {
 }
@@ -164,10 +165,10 @@ const ompl::base::SpaceInformationPtr& ompl::base::OptimizationObjective::getSpa
     return si_;
 }
 
-ompl::base::InformedSamplerPtr ompl::base::OptimizationObjective::allocInformedStateSampler(const ProblemDefinitionPtr probDefn, unsigned int maxNumberCalls) const
+ompl::base::InformedSamplerPtr ompl::base::OptimizationObjective::allocInformedStateSampler(const ProblemDefinitionPtr &probDefn, unsigned int maxNumberCalls) const
 {
     OMPL_INFORM("%s: No direct informed sampling scheme is defined, defaulting to rejection sampling.", description_.c_str());
-    return boost::make_shared<RejectionInfSampler>(probDefn, maxNumberCalls);
+    return std::make_shared<RejectionInfSampler>(probDefn, maxNumberCalls);
 }
 
 void ompl::base::OptimizationObjective::print(std::ostream &out) const
@@ -193,8 +194,8 @@ ompl::base::MultiOptimizationObjective::MultiOptimizationObjective(const SpaceIn
 }
 
 ompl::base::MultiOptimizationObjective::Component::
-Component(const OptimizationObjectivePtr& obj, double weight) :
-    objective(obj), weight(weight)
+Component(OptimizationObjectivePtr  obj, double weight) :
+    objective(std::move(obj)), weight(weight)
 {
 }
 
@@ -252,11 +253,9 @@ bool ompl::base::MultiOptimizationObjective::isLocked() const
 ompl::base::Cost ompl::base::MultiOptimizationObjective::stateCost(const State *s) const
 {
     Cost c = identityCost();
-    for (std::vector<Component>::const_iterator comp = components_.begin();
-         comp != components_.end();
-         ++comp)
+    for (const auto & component : components_)
     {
-        c = Cost(c.value() + comp->weight * (comp->objective->stateCost(s).value()));
+        c = Cost(c.value() + component.weight * (component.objective->stateCost(s).value()));
     }
 
     return c;
@@ -266,11 +265,9 @@ ompl::base::Cost ompl::base::MultiOptimizationObjective::motionCost(const State 
                                                                     const State *s2) const
 {
     Cost c = identityCost();
-     for (std::vector<Component>::const_iterator comp = components_.begin();
-         comp != components_.end();
-         ++comp)
+     for (const auto & component : components_)
      {
-         c = Cost(c.value() + comp->weight * (comp->objective->motionCost(s1, s2).value()));
+         c = Cost(c.value() + component.weight * (component.objective->motionCost(s1, s2).value()));
      }
 
      return c;
@@ -310,7 +307,7 @@ ompl::base::OptimizationObjectivePtr ompl::base::operator+(const OptimizationObj
             components.push_back(MultiOptimizationObjective::Component(b, 1.0));
     }
 
-    MultiOptimizationObjective *multObj = new MultiOptimizationObjective(a->getSpaceInformation());
+    auto *multObj = new MultiOptimizationObjective(a->getSpaceInformation());
 
     for (std::vector<MultiOptimizationObjective::Component>::const_iterator comp = components.begin();
          comp != components.end();
@@ -342,7 +339,7 @@ ompl::base::OptimizationObjectivePtr ompl::base::operator*(double weight,
             components.push_back(MultiOptimizationObjective::Component(a, weight));
     }
 
-    MultiOptimizationObjective *multObj = new MultiOptimizationObjective(a->getSpaceInformation());
+    auto *multObj = new MultiOptimizationObjective(a->getSpaceInformation());
 
     for (std::vector<MultiOptimizationObjective::Component>::const_iterator comp = components.begin();
          comp != components.end();

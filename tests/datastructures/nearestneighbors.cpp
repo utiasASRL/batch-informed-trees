@@ -38,7 +38,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <algorithm>
-#include <boost/unordered_set.hpp>
+#include <unordered_set>
 
 #include "ompl/config.h"
 #include "ompl/datastructures/NearestNeighborsSqrtApprox.h"
@@ -78,9 +78,7 @@ struct NearestNeighborConfig
         b.setHigh(1);
         space1.setBounds(b);
     }
-    ~NearestNeighborConfig()
-    {
-    }
+    ~NearestNeighborConfig() = default;
 
     base::DiscreteStateSpace space0;
     base::SE3StateSpace     space1;
@@ -111,8 +109,8 @@ NearestNeighborConfig nnConfig;
 // helper function to determine if a state is stored in a vector of states
 bool find(base::State* s, std::vector<base::State*> states)
 {
-    for (unsigned int k=0; k<states.size(); ++k)
-        if (s == states[k])
+    for (auto & state : states)
+        if (s == state)
             return true;
     return false;
 }
@@ -125,8 +123,14 @@ void stateSpaceTest(base::StateSpace& space, NearestNeighbors<base::State*>& pro
     NearestNeighborsLinear<base::State*> proximityLinear;
     base::State* s;
 
-    proximity.setDistanceFunction(boost::bind(&base::StateSpace::distance, &space, _1, _2));
-    proximityLinear.setDistanceFunction(boost::bind(&base::StateSpace::distance, &space, _1, _2));
+    proximity.setDistanceFunction([&space](const base::State *a, const base::State *b)
+        {
+            return space.distance(a, b);
+        });
+    proximityLinear.setDistanceFunction([&space](const base::State *a, const base::State *b)
+        {
+            return space.distance(a, b);
+        });
 
     for(i=0; i<n; ++i)
     {
@@ -210,13 +214,19 @@ void randomAccessPatternTest(base::StateSpace& space, NearestNeighbors<base::Sta
     base::StateSamplerPtr sampler(space.allocStateSampler());
     std::vector<base::State*> nghbr, nghbrGroundTruth;
     NearestNeighborsLinear<base::State*> proximityLinear;
-    boost::unordered_set<base::State*> states;
-    boost::unordered_set<base::State*>::iterator it;
+    std::unordered_set<base::State*> states;
+    std::unordered_set<base::State*>::iterator it;
     base::State* s;
     double r;
 
-    proximity.setDistanceFunction(boost::bind(&base::StateSpace::distance, &space, _1, _2));
-    proximityLinear.setDistanceFunction(boost::bind(&base::StateSpace::distance, &space, _1, _2));
+    proximity.setDistanceFunction([&space](const base::State *a, const base::State *b)
+        {
+            return space.distance(a, b);
+        });
+    proximityLinear.setDistanceFunction([&space](const base::State *a, const base::State *b)
+        {
+            return space.distance(a, b);
+        });
 
     for (i=0; i<m; ++i)
     {

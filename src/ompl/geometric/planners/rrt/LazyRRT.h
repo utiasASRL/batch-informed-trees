@@ -82,13 +82,13 @@ namespace ompl
             /** \brief Constructor */
             LazyRRT(const base::SpaceInformationPtr &si);
 
-            virtual ~LazyRRT();
+            ~LazyRRT() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Set the goal biasing.
 
@@ -133,7 +133,7 @@ namespace ompl
                 nn_.reset(new NN<Motion*>());
             }
 
-            virtual void setup();
+            void setup() override;
 
         protected:
 
@@ -142,18 +142,16 @@ namespace ompl
             {
             public:
 
-                Motion() : state(NULL), parent(NULL), valid(false)
+                Motion() : state(nullptr), parent(nullptr), valid(false)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state */
-                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(NULL), valid(false)
+                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(nullptr), valid(false)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The state contained by the motion */
                 base::State          *state;
@@ -184,7 +182,7 @@ namespace ompl
             base::StateSamplerPtr                          sampler_;
 
             /** \brief A nearest-neighbors datastructure containing the tree of motions */
-            boost::shared_ptr< NearestNeighbors<Motion*> > nn_;
+            std::shared_ptr< NearestNeighbors<Motion*> > nn_;
 
             /** \brief The fraction of time the goal is picked as the state to expand towards (if such a state is available) */
             double                                         goalBias_;

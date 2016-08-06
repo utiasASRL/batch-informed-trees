@@ -89,7 +89,7 @@ namespace ompl
             /** \brief The constructor needs the instance of the space information */
             SBL(const base::SpaceInformationPtr &si);
 
-            virtual ~SBL();
+            ~SBL() override;
 
             /** \brief Set the projection evaluator. This class is
                 able to compute the projection of a given state. */
@@ -127,23 +127,23 @@ namespace ompl
                 return maxDistance_;
             }
 
-            virtual void setup();
+            void setup() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
         protected:
 
             struct MotionInfo;
 
             /** \brief A grid cell */
-            typedef Grid<MotionInfo>::Cell GridCell;
+            using GridCell = Grid<MotionInfo>::Cell;
 
             /** \brief A PDF of grid cells */
-            typedef PDF<GridCell*>         CellPDF;
+            using CellPDF = PDF<GridCell *>;
 
             /** \brief Representation of a motion */
             class Motion
@@ -151,12 +151,12 @@ namespace ompl
             public:
 
                 /** \brief Default constructor. Allocates no memory */
-                Motion() : root(NULL), state(NULL), parent(NULL), valid(false)
+                Motion() : root(nullptr), state(nullptr), parent(nullptr), valid(false)
                 {
                 }
 
                 /** \brief Constructor that allocates storage for a state */
-                Motion(const base::SpaceInformationPtr &si) : root(NULL), state(si->allocState()), parent(NULL), valid(false)
+                Motion(const base::SpaceInformationPtr &si) : root(nullptr), state(si->allocState()), parent(nullptr), valid(false)
                 {
                 }
 

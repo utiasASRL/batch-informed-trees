@@ -38,8 +38,9 @@
 #define OMPL_BASE_GOALS_GOAL_LAZY_SAMPLES_
 
 #include "ompl/base/goals/GoalStates.h"
-#include <boost/thread/thread.hpp>
-#include <boost/function.hpp>
+#include <thread>
+#include <mutex>
+#include <functional>
 #include <limits>
 
 namespace ompl
@@ -53,7 +54,7 @@ namespace ompl
         /** \brief Goal sampling function. Returns false when no further calls should be made to it.
             Fills its second argument (the state) with the sampled goal state. This function need not
             be thread safe. */
-        typedef boost::function<bool(const GoalLazySamples*, State*)> GoalSamplingFn;
+        using GoalSamplingFn = std::function<bool (const GoalLazySamples *, State *)>;
 
         /** \brief Definition of a goal region that can be sampled,
          but the sampling process can be slow.  This class allows
@@ -76,7 +77,7 @@ namespace ompl
             /** \brief When new samples are generated and added to the
                 list of possible samples, a callback can be
                 called. This type specifies the signature of that callback */
-            typedef boost::function<void(const base::State*)> NewStateCallbackFn;
+            using NewStateCallbackFn = std::function<void (const base::State *)>;
 
             /** \brief Create a goal region that can be sampled in a
                 lazy fashion. A function (\e samplerFunc) that
@@ -101,16 +102,16 @@ namespace ompl
                 different" from previously added states. A state is
                 considered "sufficiently different" if it is at least
                 \e minDist away from previously added states.  */
-            GoalLazySamples(const SpaceInformationPtr &si, const GoalSamplingFn &samplerFunc,
+            GoalLazySamples(const SpaceInformationPtr &si, GoalSamplingFn samplerFunc,
                             bool autoStart = true, double minDist = std::numeric_limits<double>::epsilon());
 
-            virtual ~GoalLazySamples();
+            ~GoalLazySamples() override;
 
-            virtual void sampleGoal(State *st) const;
+            void sampleGoal(State *st) const override;
 
-            virtual double distanceGoal(const State *st) const;
+            double distanceGoal(const State *st) const override;
 
-            virtual void addState(const State *st);
+            void addState(const State *st) override;
 
             /** \brief Start the goal sampling thread */
             void startSampling();
@@ -149,13 +150,13 @@ namespace ompl
             bool addStateIfDifferent(const State *st, double minDistance);
 
             /** \brief Return true if GoalStates::couldSample() is true or if the sampling thread is active, as in this case it is possible a sample can be produced at some point. */
-            virtual bool couldSample() const;
+            bool couldSample() const override;
 
-            virtual bool hasStates() const;
-            virtual const State* getState(unsigned int index) const;
-            virtual std::size_t getStateCount() const;
+            bool hasStates() const override;
+            const State* getState(unsigned int index) const override;
+            std::size_t getStateCount() const override;
 
-            virtual void clear();
+            void clear() override;
 
         protected:
 
@@ -163,7 +164,7 @@ namespace ompl
             void goalSamplingThread();
 
             /** \brief Lock for updating the set of states */
-            mutable boost::mutex           lock_;
+            mutable std::mutex             lock_;
 
             /** \brief Function that produces samples */
             GoalSamplingFn                 samplerFunc_;
@@ -172,7 +173,7 @@ namespace ompl
             bool                           terminateSamplingThread_;
 
             /** \brief Additional thread for sampling goal states */
-            boost::thread                 *samplingThread_;
+            std::thread                   *samplingThread_;
 
             /** \brief The number of times the sampling function was called and it returned true */
             unsigned int                   samplingAttempts_;

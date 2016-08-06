@@ -81,11 +81,11 @@ namespace ompl
             /** \brief Constructor */
             KPIECE1(const SpaceInformationPtr &si);
 
-            virtual ~KPIECE1();
+            ~KPIECE1() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
             /** In the process of randomly selecting states in the state
                 space to attempt to go towards, the algorithm may in fact
@@ -194,26 +194,24 @@ namespace ompl
                 return projectionEvaluator_;
             }
 
-            virtual void setup();
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void setup() override;
+            void getPlannerData(base::PlannerData &data) const override;
 
         protected:
 
             /** \brief Representation of a motion for this algorithm */
             struct Motion
             {
-                Motion() : state(NULL), control(NULL), steps(0), parent(NULL)
+                Motion() : state(nullptr), control(nullptr), steps(0), parent(nullptr)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state and the control */
-                Motion(const SpaceInformation *si) : state(si->allocState()), control(si->allocControl()), steps(0), parent(NULL)
+                Motion(const SpaceInformation *si) : state(si->allocState()), control(si->allocControl()), steps(0), parent(nullptr)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The state contained by this motion */
                 base::State       *state;
@@ -235,9 +233,7 @@ namespace ompl
                 {
                 }
 
-                ~CellData()
-                {
-                }
+                ~CellData() = default;
 
                 /** \brief The set of motions contained in this grid cell */
                 std::vector<Motion*> motions;
@@ -274,7 +270,7 @@ namespace ompl
             };
 
             /** \brief The datatype for the maintained grid datastructure */
-            typedef GridB<CellData*, OrderCellsByImportance> Grid;
+            using Grid = GridB<CellData*, OrderCellsByImportance>;
 
             /** \brief Information about a known good sample (closer to the goal than others) */
             struct CloseSample

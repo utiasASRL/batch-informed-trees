@@ -37,6 +37,8 @@
 #ifndef OMPL_CONTROL_SPACE_INFORMATION_
 #define OMPL_CONTROL_SPACE_INFORMATION_
 
+#include <utility>
+
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/control/ControlSpace.h"
 #include "ompl/control/ControlSampler.h"
@@ -59,11 +61,11 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::SpaceInformationPtr
-            \brief A boost shared pointer wrapper for ompl::control::SpaceInformation */
+            \brief A shared pointer wrapper for ompl::control::SpaceInformation */
 
 
         /** \brief A function that achieves state propagation.*/
-        typedef boost::function<void(const base::State*, const Control*, const double, base::State*)> StatePropagatorFn;
+        using StatePropagatorFn = std::function<void (const base::State *, const Control *, const double, base::State *)>;
 
         /** \brief Space information containing necessary information for planning with controls. setup() needs to be called before use. */
         class SpaceInformation : public base::SpaceInformation
@@ -71,15 +73,13 @@ namespace ompl
         public:
 
             /** \brief Constructor. Sets the instance of the state and control spaces to plan with. */
-            SpaceInformation(const base::StateSpacePtr &stateSpace, const ControlSpacePtr &controlSpace) :
-                base::SpaceInformation(stateSpace), controlSpace_(controlSpace),
+            SpaceInformation(const base::StateSpacePtr &stateSpace, ControlSpacePtr controlSpace) :
+                base::SpaceInformation(stateSpace), controlSpace_(std::move(controlSpace)),
                 minSteps_(0), maxSteps_(0), stepSize_(0.0)
             {
             }
 
-            virtual ~SpaceInformation()
-            {
-            }
+            ~SpaceInformation() override = default;
 
             /** \brief Get the control space */
             const ControlSpacePtr& getControlSpace() const
@@ -262,10 +262,10 @@ namespace ompl
             /** @} */
 
             /** \brief Print information about the current instance of the state space */
-            virtual void printSettings(std::ostream &out = std::cout) const;
+            void printSettings(std::ostream &out = std::cout) const override;
 
             /** \brief Perform additional setup tasks (run once, before use) */
-            virtual void setup();
+            void setup() override;
 
         protected:
 

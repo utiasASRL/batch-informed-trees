@@ -51,17 +51,17 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::LTLSpaceInformationPtr
-            \brief A boost shared pointer wrapper for ompl::control::LTLSpaceInformation */
+            \brief A shared pointer wrapper for ompl::control::LTLSpaceInformation */
         class LTLSpaceInformation : public SpaceInformation
         {
         public:
             LTLSpaceInformation(const SpaceInformationPtr& si, const ProductGraphPtr& prod);
 
-            virtual ~LTLSpaceInformation(void) {}
+            ~LTLSpaceInformation() override = default;
 
-            virtual void setup(void);
+            void setup() override;
 
-            const ProductGraphPtr& getProductGraph(void) const { return prod_; }
+            const ProductGraphPtr& getProductGraph() const { return prod_; }
 
             const SpaceInformationPtr& getLowSpace() { return lowSpace_; }
 

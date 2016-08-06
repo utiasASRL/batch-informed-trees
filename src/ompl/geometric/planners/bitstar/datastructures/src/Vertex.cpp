@@ -35,6 +35,8 @@
 /* Authors: Jonathan Gammell */
 
 //My definition:
+#include <utility>
+
 #include "ompl/geometric/planners/bitstar/datastructures/Vertex.h"
 //The ID generator class, this is actually included via Vertex.h->BITstar.h, but to be clear.
 #include "ompl/geometric/planners/bitstar/datastructures/IdGenerator.h"
@@ -45,10 +47,10 @@ namespace ompl
     {
         /////////////////////////////////////////////////////////////////////////////////////////////
         //Public functions:
-        BITstar::Vertex::Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root /*= false*/)
+        BITstar::Vertex::Vertex(ompl::base::SpaceInformationPtr  si, ompl::base::OptimizationObjectivePtr  opt, bool root /*= false*/)
           : vId_(getIdGenerator().getNewId()),
-            si_(si),
-            opt_(opt),
+            si_(std::move(si)),
+            opt_(std::move(opt)),
             state_( si_->allocState() ),
             isRoot_(root),
             isNew_(true),
@@ -259,16 +261,16 @@ namespace ompl
 
             children->clear();
 
-            for (std::vector<VertexWeakPtr>::const_iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end(); ++cIter)
+            for (const auto & childWPtr : childWPtrs_)
             {
                 //Check that the weak pointer hasn't expired
-                if (cIter->expired() == true)
+                if (childWPtr.expired() == true)
                 {
                     throw ompl::Exception("A (weak) pointer to a child was found to have expired while calculating the children of a vertex.");
                 }
                 else
                 {
-                    children->push_back(cIter->lock());
+                    children->push_back(childWPtr.lock());
                 }
             }
         }
@@ -313,7 +315,7 @@ namespace ompl
 
 
 
-        void BITstar::Vertex::removeChild(VertexPtr oldChild, bool updateChildCosts /*= true*/)
+        void BITstar::Vertex::removeChild(const VertexPtr& oldChild, bool updateChildCosts /*= true*/)
         {
             this->assertNotPruned();
 
@@ -323,7 +325,7 @@ namespace ompl
 
             //Iterate over the list of children pointers until the child is found. Iterators make erase easier
             foundChild = false;
-            for (std::vector<VertexWeakPtr>::iterator cIter = childWPtrs_.begin(); cIter != childWPtrs_.end() && foundChild == false; ++cIter)
+            for (auto cIter = childWPtrs_.begin(); cIter != childWPtrs_.end() && foundChild == false; ++cIter)
             {
                 //Check that the weak pointer hasn't expired
                 if (cIter->expired() == true)
@@ -528,17 +530,17 @@ namespace ompl
             if (cascadeUpdates == true)
             {
                 //Now, iterate over my list of children and tell each one to update its own damn cost:
-                for (unsigned int i = 0u; i < childWPtrs_.size(); ++i)
+                for (auto & childWPtr : childWPtrs_)
                 {
                     //Check that it hasn't expired
-                    if (childWPtrs_.at(i).expired() == true)
+                    if (childWPtr.expired() == true)
                     {
                         throw ompl::Exception("A (weak) pointer to a child has was found to have expired while updating the costs and depths of descendant vertices.");
                     }
                     //No else, weak pointer is valid
 
                     //Get a lock and tell the child to update:
-                    childWPtrs_.at(i).lock()->updateCostAndDepth(true);
+                    childWPtr.lock()->updateCostAndDepth(true);
                 }
             }
             //No else, do not update the children. I hope the caller knows what they're doing.

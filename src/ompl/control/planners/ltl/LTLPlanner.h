@@ -41,7 +41,7 @@
 #include "ompl/control/planners/ltl/ProductGraph.h"
 #include "ompl/control/planners/ltl/LTLSpaceInformation.h"
 #include "ompl/datastructures/PDF.h"
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <map>
 #include <vector>
 
@@ -61,24 +61,24 @@ namespace ompl
             /** \brief Create an LTLPlanner with a given space and product graph.
                 Accepts an optional third parameter to control how much time is spent
                 promoting low-level tree exploration along a given high-level lead. */
-            LTLPlanner(const LTLSpaceInformationPtr& si, const ProductGraphPtr& a, double exploreTime = 0.5);
+            LTLPlanner(const LTLSpaceInformationPtr& si, ProductGraphPtr  a, double exploreTime = 0.5);
 
             /** \brief Clears all memory belonging to this LTLPlanner .*/
-            virtual ~LTLPlanner(void);
+            ~LTLPlanner() override;
 
             /// @name ompl::base::Planner Interface
             /// @{
 
             /** \brief Initializes LTLPlanner data structures. */
-            virtual void setup(void);
+            void setup() override;
 
             /** \brief Clears all datastructures belonging to this LTLPlanner. */
-            virtual void clear(void);
+            void clear() override;
 
             /** \brief Continues solving until a solution is found
                 or a given planner termination condition is met.
                 Returns true if a solution was found. */
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc) override;
             /// @}
 
             /** \brief Helper debug method to access this planner's
@@ -88,7 +88,7 @@ namespace ompl
             /** \brief Helper debug method to return the sequence of high-level product
                 graph states corresponding to a sequence of low-level continous system states,
                 beginning from an optional initial high-level state. */
-            std::vector<ProductGraph::State*> getHighLevelPath(const std::vector<base::State*>& path, ProductGraph::State* start = NULL) const;
+            std::vector<ProductGraph::State*> getHighLevelPath(const std::vector<base::State*>& path, ProductGraph::State* start = nullptr) const;
 
         protected:
             /** \brief Representation of a motion
@@ -99,7 +99,7 @@ namespace ompl
             {
             public:
                 /** \brief Default constructor for Motion. */
-                Motion(void);
+                Motion();
 
                 /** \brief Constructor that allocates memory for the state and the control,
                     given a space. */
@@ -107,7 +107,7 @@ namespace ompl
 
                 /** \brief Motion destructor does not clear memory.
                     Deletions should be performed by the LTLPlanner. */
-                virtual ~Motion(void);
+                virtual ~Motion();
 
                 /** \brief The state contained by the motion */
                 base::State* state;
@@ -131,7 +131,7 @@ namespace ompl
             struct ProductGraphStateInfo
             {
                 /** \brief Creates an info object with no measurements and no tree motions. */
-                ProductGraphStateInfo(void);
+                ProductGraphStateInfo();
 
                 /** \brief Adds a tree motion to an info object.
                     This method is called whenever a new tree motion is created
@@ -140,7 +140,7 @@ namespace ompl
 
                 double weight;
                 PDF<Motion*> motions;
-                boost::unordered_map< Motion*, PDF<Motion*>::Element* > motionElems;
+                std::unordered_map< Motion*, PDF<Motion*>::Element* > motionElems;
                 double volume;
                 double autWeight;
                 unsigned int numSel;
@@ -197,11 +197,11 @@ namespace ompl
             double exploreTime_;
 
             /** \brief Map of abstraction states to their details. */
-            boost::unordered_map< ProductGraph::State*, ProductGraphStateInfo > abstractInfo_;
+            std::unordered_map< ProductGraph::State*, ProductGraphStateInfo > abstractInfo_;
 
         private:
             /** \brief Clears this planner's underlying tree of system states. */
-            void clearMotions(void);
+            void clearMotions();
         };
     }
 }

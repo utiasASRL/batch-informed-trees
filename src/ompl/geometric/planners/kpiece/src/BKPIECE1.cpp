@@ -40,15 +40,15 @@
 #include <cassert>
 
 ompl::geometric::BKPIECE1::BKPIECE1(const base::SpaceInformationPtr &si) : base::Planner(si, "BKPIECE1"),
-                                                                           dStart_(boost::bind(&BKPIECE1::freeMotion, this, _1)),
-                                                                           dGoal_(boost::bind(&BKPIECE1::freeMotion, this, _1))
+                                                                           dStart_([this](Motion *m) { freeMotion(m); }),
+                                                                           dGoal_([this](Motion *m) { freeMotion(m); })
 {
     specs_.recognizedGoal = base::GOAL_SAMPLEABLE_REGION;
 
     minValidPathFraction_ = 0.5;
     failedExpansionScoreFactor_ = 0.5;
     maxDistance_ = 0.0;
-    connectionPoint_ = std::make_pair<base::State*, base::State*>(NULL, NULL);
+    connectionPoint_ = std::make_pair<base::State*, base::State*>(nullptr, nullptr);
 
     Planner::declareParam<double>("range", this, &BKPIECE1::setRange, &BKPIECE1::getRange, "0.:1.:10000.");
     Planner::declareParam<double>("border_fraction", this, &BKPIECE1::setBorderFraction, &BKPIECE1::getBorderFraction, "0.:.05:1.");
@@ -56,9 +56,7 @@ ompl::geometric::BKPIECE1::BKPIECE1(const base::SpaceInformationPtr &si) : base:
     Planner::declareParam<double>("min_valid_path_fraction", this, &BKPIECE1::setMinValidPathFraction, &BKPIECE1::getMinValidPathFraction);
 }
 
-ompl::geometric::BKPIECE1::~BKPIECE1()
-{
-}
+ompl::geometric::BKPIECE1::~BKPIECE1() = default;
 
 void ompl::geometric::BKPIECE1::setup()
 {
@@ -91,7 +89,7 @@ ompl::base::PlannerStatus ompl::geometric::BKPIECE1::solve(const base::PlannerTe
 
     while (const base::State *st = pis_.nextStart())
     {
-        Motion *motion = new Motion(si_);
+        auto *motion = new Motion(si_);
         si_->copyState(motion->state, st);
         motion->root = motion->state;
         projectionEvaluator_->computeCoordinates(motion->state, xcoord);
@@ -133,7 +131,7 @@ ompl::base::PlannerStatus ompl::geometric::BKPIECE1::solve(const base::PlannerTe
             const base::State *st = dGoal_.getMotionCount() == 0 ? pis_.nextGoal(ptc) : pis_.nextGoal();
             if (st)
             {
-                Motion *motion = new Motion(si_);
+                auto *motion = new Motion(si_);
                 si_->copyState(motion->state, st);
                 motion->root = motion->state;
                 projectionEvaluator_->computeCoordinates(motion->state, xcoord);
@@ -146,8 +144,8 @@ ompl::base::PlannerStatus ompl::geometric::BKPIECE1::solve(const base::PlannerTe
             }
         }
 
-        Discretization<Motion>::Cell *ecell    = NULL;
-        Motion                       *existing = NULL;
+        Discretization<Motion>::Cell *ecell    = nullptr;
+        Motion                       *existing = nullptr;
         disc.selectMotion(existing, ecell);
         assert(existing);
         if (sampler_->sampleNear(xstate, existing->state, maxDistance_))
@@ -160,7 +158,7 @@ ompl::base::PlannerStatus ompl::geometric::BKPIECE1::solve(const base::PlannerTe
             if (keep)
             {
                 /* create a motion */
-                Motion *motion = new Motion(si_);
+                auto *motion = new Motion(si_);
                 si_->copyState(motion->state, xstate);
                 motion->root = existing->root;
                 motion->parent = existing;
@@ -185,14 +183,14 @@ ompl::base::PlannerStatus ompl::geometric::BKPIECE1::solve(const base::PlannerTe
                         /* extract the motions and put them in solution vector */
 
                         std::vector<Motion*> mpath1;
-                        while (motion != NULL)
+                        while (motion != nullptr)
                         {
                             mpath1.push_back(motion);
                             motion = motion->parent;
                         }
 
                         std::vector<Motion*> mpath2;
-                        while (connectOther != NULL)
+                        while (connectOther != nullptr)
                         {
                             mpath2.push_back(connectOther);
                             connectOther = connectOther->parent;
@@ -201,12 +199,12 @@ ompl::base::PlannerStatus ompl::geometric::BKPIECE1::solve(const base::PlannerTe
                         if (startTree)
                             mpath1.swap(mpath2);
 
-                        PathGeometric *path = new PathGeometric(si_);
+                        auto *path = new PathGeometric(si_);
                         path->getStates().reserve(mpath1.size() + mpath2.size());
                         for (int i = mpath1.size() - 1 ; i >= 0 ; --i)
                             path->append(mpath1[i]->state);
-                        for (unsigned int i = 0 ; i < mpath2.size() ; ++i)
-                            path->append(mpath2[i]->state);
+                        for (auto & i : mpath2)
+                            path->append(i->state);
 
                         pdef_->addSolutionPath(base::PathPtr(path), false, 0.0, getName());
                         solved = true;
@@ -247,14 +245,14 @@ void ompl::geometric::BKPIECE1::clear()
     sampler_.reset();
     dStart_.clear();
     dGoal_.clear();
-    connectionPoint_ = std::make_pair<base::State*, base::State*>(NULL, NULL);
+    connectionPoint_ = std::make_pair<base::State*, base::State*>(nullptr, nullptr);
 }
 
 void ompl::geometric::BKPIECE1::getPlannerData(base::PlannerData &data) const
 {
     Planner::getPlannerData(data);
-    dStart_.getPlannerData(data, 1, true, NULL);
-    dGoal_.getPlannerData(data, 2, false, NULL);
+    dStart_.getPlannerData(data, 1, true, nullptr);
+    dGoal_.getPlannerData(data, 2, false, nullptr);
 
     // Insert the edge connecting the two trees
     data.addEdge (data.vertexIndex(connectionPoint_.first), data.vertexIndex(connectionPoint_.second));

@@ -42,8 +42,8 @@
 #include "ompl/base/StateSpace.h"
 #include "ompl/base/spaces/RealVectorStateSpace.h"
 
-// For boost::make_shared
-#include <boost/make_shared.hpp>
+// For std::make_shared
+#include <memory>
 // For std::vector
 #include <vector>
 
@@ -55,7 +55,7 @@ namespace ompl
         //Public functions:
 
         // The direct ellipsoid sampling class for path-length:
-        PathLengthDirectInfSampler::PathLengthDirectInfSampler(const ProblemDefinitionPtr probDefn, unsigned int maxNumberCalls)
+        PathLengthDirectInfSampler::PathLengthDirectInfSampler(const ProblemDefinitionPtr& probDefn, unsigned int maxNumberCalls)
           : InformedSampler(probDefn, maxNumberCalls),
             informedIdx_(0u),
             uninformedIdx_(0u)
@@ -207,7 +207,7 @@ namespace ompl
                     std::vector<double> goalFocusVector = getInformedSubstate(goalStates.at(j));
 
                     // Create the definition of the PHS
-                    listPhsPtrs_.push_back(boost::make_shared<ProlateHyperspheroid>(informedSubSpace_->getDimension(), &startFocusVector[0], &goalFocusVector[0]));
+                    listPhsPtrs_.push_back(std::make_shared<ProlateHyperspheroid>(informedSubSpace_->getDimension(), &startFocusVector[0], &goalFocusVector[0]));
                 }
             }
 
@@ -226,9 +226,7 @@ namespace ompl
 
 
 
-        PathLengthDirectInfSampler::~PathLengthDirectInfSampler()
-        {
-        }
+        PathLengthDirectInfSampler::~PathLengthDirectInfSampler() = default;
 
 
 
@@ -294,12 +292,12 @@ namespace ompl
             double informedMeasure = 0.0;
 
             // The informed measure is then the sum of the measure of the individual PHSs for the given cost:
-            for (std::list<ompl::ProlateHyperspheroidPtr>::const_iterator phsIter = listPhsPtrs_.begin(); phsIter != listPhsPtrs_.end(); ++phsIter)
+            for (const auto & phsPtr : listPhsPtrs_)
             {
                 //It is nonsensical for a PHS to have a transverse diameter less than the distance between its foci, so skip those that do
-                if (currentCost.value() > (*phsIter)->getMinTransverseDiameter())
+                if (currentCost.value() > phsPtr->getMinTransverseDiameter())
                 {
-                    informedMeasure = informedMeasure + (*phsIter)->getPhsMeasure(currentCost.value());
+                    informedMeasure = informedMeasure + phsPtr->getPhsMeasure(currentCost.value());
                 }
                 //No else, this value is better than this ellipse. It will get removed later.
             }
@@ -325,10 +323,10 @@ namespace ompl
             Cost minCost = InformedSampler::opt_->infiniteCost();
 
             // Iterate over the separate subsets and return the minimum
-            for (std::list<ompl::ProlateHyperspheroidPtr>::const_iterator phsIter = listPhsPtrs_.begin(); phsIter != listPhsPtrs_.end(); ++phsIter)
+            for (const auto & phsPtr : listPhsPtrs_)
             {
                 /** \todo Use a heuristic function for the full solution cost defined in OptimizationObjective or some new Heuristic class once said function is defined. */
-                minCost = InformedSampler::opt_->betterCost(minCost, Cost((*phsIter)->getPathLength(&rawData[0])));
+                minCost = InformedSampler::opt_->betterCost(minCost, Cost(phsPtr->getPathLength(&rawData[0])));
             }
 
             return minCost;
@@ -510,7 +508,7 @@ namespace ompl
         {
             // Variable
             // The iterator for the list:
-            std::list<ompl::ProlateHyperspheroidPtr>::iterator phsIter = listPhsPtrs_.begin();
+            auto phsIter = listPhsPtrs_.begin();
 
             // Iterate over the list of PHSs, updating the summed measure
             // Reset the sum
@@ -637,7 +635,7 @@ namespace ompl
             bool inPhs = false;
 
             // Iterate over the list, stopping as soon as we get our first true
-            for (std::list<ompl::ProlateHyperspheroidPtr>::const_iterator phsIter = listPhsPtrs_.begin(); phsIter != listPhsPtrs_.end() && inPhs == false; ++ phsIter)
+            for (auto phsIter = listPhsPtrs_.begin(); phsIter != listPhsPtrs_.end() && inPhs == false; ++ phsIter)
             {
                 inPhs = isInPhs(*phsIter, informedVector);
             }
@@ -661,10 +659,10 @@ namespace ompl
             unsigned int numInclusions = 0u;
 
             // Iterate over the list counting
-            for (std::list<ompl::ProlateHyperspheroidPtr>::const_iterator phsIter = listPhsPtrs_.begin(); phsIter != listPhsPtrs_.end(); ++ phsIter)
+            for (const auto & phsPtr : listPhsPtrs_)
             {
                 // Conditionally increment
-                if ((*phsIter)->isInPhs(&informedVector[0]) == true)
+                if (phsPtr->isInPhs(&informedVector[0]) == true)
                 {
                     ++numInclusions;
                 }

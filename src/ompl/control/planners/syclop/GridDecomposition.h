@@ -38,8 +38,8 @@
 #define OMPL_CONTROL_PLANNERS_SYCLOP_GRIDDECOMPOSITION_
 
 #include <cstdlib>
-#include <boost/shared_ptr.hpp>
-#include <boost/unordered_map.hpp>
+#include <memory>
+#include <unordered_map>
 #include "ompl/base/spaces/RealVectorBounds.h"
 #include "ompl/base/State.h"
 #include "ompl/control/planners/syclop/Decomposition.h"
@@ -58,22 +58,20 @@ namespace ompl
                 \f$(r_1,\ldots,r_k)\f$, where \f$ 0 \leq r_i < \texttt{len}\f$. */
             GridDecomposition(int len, int dim, const base::RealVectorBounds &b);
 
-            virtual ~GridDecomposition()
-            {
-            }
+            ~GridDecomposition() override = default;
 
-            virtual int getNumRegions(void) const { return numGridCells_; }
+            int getNumRegions() const override { return numGridCells_; }
 
-            virtual double getRegionVolume(int /*rid*/)
+            double getRegionVolume(int /*rid*/) override
             {
                 return cellVolume_;
             }
 
-            virtual void getNeighbors(int rid, std::vector<int>& neighbors) const;
+            void getNeighbors(int rid, std::vector<int>& neighbors) const override;
 
-            virtual int locateRegion(const base::State *s) const;
+            int locateRegion(const base::State *s) const override;
 
-            virtual void sampleFromRegion(int rid, RNG &rng, std::vector<double>& coord) const;
+            void sampleFromRegion(int rid, RNG &rng, std::vector<double>& coord) const override;
 
         protected:
             /** \brief Helper method to return the bounds of a given region. */
@@ -100,7 +98,7 @@ namespace ompl
 
             int length_;
             double cellVolume_;
-            mutable boost::unordered_map<int, boost::shared_ptr<base::RealVectorBounds> > regToBounds_;
+            mutable std::unordered_map<int, std::shared_ptr<base::RealVectorBounds> > regToBounds_;
 
         private:
             const int numGridCells_;

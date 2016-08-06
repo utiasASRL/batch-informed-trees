@@ -49,7 +49,7 @@ ompl::geometric::TRRT::TRRT(const base::SpaceInformationPtr &si) : base::Planner
 
     goalBias_ = 0.05;
     maxDistance_ = 0.0; // set in setup()
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
 
     Planner::declareParam<double>("range", this, &TRRT::setRange, &TRRT::getRange, "0.:1.:10000.");
     Planner::declareParam<double>("goal_bias", this, &TRRT::setGoalBias, &TRRT::getGoalBias, "0.:.05:1.");
@@ -80,7 +80,7 @@ void ompl::geometric::TRRT::clear()
     freeMemory();
     if (nearestNeighbors_)
         nearestNeighbors_->clear();
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
 
     // Clear TRRT specific variables ---------------------------------------------------------
     temp_ = initTemperature_;
@@ -122,7 +122,7 @@ void ompl::geometric::TRRT::setup()
         nearestNeighbors_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
 
     // Set the distance function
-    nearestNeighbors_->setDistanceFunction(boost::bind(&TRRT::distanceFunction, this, _1, _2));
+    nearestNeighbors_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
     // Setup TRRT specific variables ---------------------------------------------------------
     temp_ = initTemperature_;
@@ -138,11 +138,11 @@ void ompl::geometric::TRRT::freeMemory()
     {
         std::vector<Motion*> motions;
         nearestNeighbors_->list(motions);
-        for (unsigned int i = 0 ; i < motions.size() ; ++i)
+        for (auto & motion : motions)
         {
-            if (motions[i]->state)
-                si_->freeState(motions[i]->state);
-            delete motions[i];
+            if (motion->state)
+                si_->freeState(motion->state);
+            delete motion;
         }
     }
 }
@@ -163,7 +163,7 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
     while (const base::State *state = pis_.nextStart())
     {
         // Allocate memory for a new start state motion based on the "space-information"-size
-        Motion *motion = new Motion(si_);
+        auto *motion = new Motion(si_);
 
         // Copy destination <= source
         si_->copyState(motion->state, state);
@@ -196,9 +196,9 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
     // Solver variables ------------------------------------------------------------------------------------
 
     // the final solution
-    Motion *solution  = NULL;
+    Motion *solution  = nullptr;
     // the approximate solution, returned if no final solution found
-    Motion *approxSolution = NULL;
+    Motion *approxSolution = nullptr;
     // track the distance from goal to closest solution yet found
     double  approxDifference = std::numeric_limits<double>::infinity();
 
@@ -206,7 +206,7 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
     double randMotionDistance;
 
     // Create random motion and a pointer (for optimization) to its state
-    Motion *randMotion   = new Motion(si_);
+    auto *randMotion   = new Motion(si_);
     Motion *nearMotion;
 
     // STATES
@@ -282,7 +282,7 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
         // V.
 
         // Create a motion
-        Motion *motion = new Motion(si_);
+        auto *motion = new Motion(si_);
         si_->copyState(motion->state, newState);
         motion->parent = nearMotion; // link q_new to q_near as an edge
         motion->cost = childCost;
@@ -323,27 +323,27 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
     bool approximate = false;
 
     // Substitute an empty solution with the best approximation
-    if (solution == NULL)
+    if (solution == nullptr)
     {
         solution = approxSolution;
         approximate = true;
     }
 
     // Generate solution path for real/approx solution
-    if (solution != NULL)
+    if (solution != nullptr)
     {
         lastGoalMotion_ = solution;
 
         // construct the solution path
         std::vector<Motion*> mpath;
-        while (solution != NULL)
+        while (solution != nullptr)
         {
             mpath.push_back(solution);
             solution = solution->parent;
         }
 
         // set the solution path
-        PathGeometric *path = new PathGeometric(si_);
+        auto *path = new PathGeometric(si_);
         for (int i = mpath.size() - 1 ; i >= 0 ; --i)
             path->append(mpath[i]->state);
 
@@ -374,13 +374,13 @@ void ompl::geometric::TRRT::getPlannerData(base::PlannerData &data) const
     if (lastGoalMotion_)
         data.addGoalVertex(base::PlannerDataVertex(lastGoalMotion_->state));
 
-    for (unsigned int i = 0 ; i < motions.size() ; ++i)
+    for (auto & motion : motions)
     {
-        if (motions[i]->parent == NULL)
-            data.addStartVertex(base::PlannerDataVertex(motions[i]->state));
+        if (motion->parent == nullptr)
+            data.addStartVertex(base::PlannerDataVertex(motion->state));
         else
-            data.addEdge(base::PlannerDataVertex(motions[i]->parent->state),
-                         base::PlannerDataVertex(motions[i]->state));
+            data.addEdge(base::PlannerDataVertex(motion->parent->state),
+                         base::PlannerDataVertex(motion->state));
     }
 }
 

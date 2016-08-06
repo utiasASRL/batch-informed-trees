@@ -39,8 +39,8 @@
 
 #include <iostream>
 #include <boost/scoped_ptr.hpp>
-#include <boost/thread.hpp>
-#include <boost/noncopyable.hpp>
+#include <thread>
+#include <utility>
 
 #include "ompl/base/Planner.h"
 
@@ -50,16 +50,19 @@ namespace ompl
     {
         /** \brief Monitor the properties a planner exposes, as the planner is running.
             Dump the planner properties to a stream, periodically. */
-        class PlannerMonitor : private boost::noncopyable
+        class PlannerMonitor
         {
         public:
+            // non-copyright
+            PlannerMonitor(const PlannerMonitor&) = delete;
+            PlannerMonitor& operator=(const PlannerMonitor&) = delete;
 
             /** \brief Monitor a planner instance, and dump its properties to a specified stream, periodically.
 
                 Every time the properties are dumped, the stream offset is set to 0. It is often useful to have the
                 stream be a file, and then issue commands such as 'watch cat filename'. */
-            PlannerMonitor(const base::PlannerPtr &planner, std::ostream &out, double period = 0.5, bool autoStart = true) :
-                planner_(planner), out_(out), period_(period), shouldMonitor_(false)
+            PlannerMonitor(base::PlannerPtr planner, std::ostream &out, double period = 0.5, bool autoStart = true) :
+                planner_(std::move(planner)), out_(out), period_(period), shouldMonitor_(false)
             {
                 if (autoStart)
                     startMonitor();
@@ -84,7 +87,7 @@ namespace ompl
             std::ostream                     &out_;
             double                            period_;
             bool                              shouldMonitor_;
-            boost::scoped_ptr<boost::thread>  monitorThread_;
+            boost::scoped_ptr<std::thread>    monitorThread_;
         };
     }
 }

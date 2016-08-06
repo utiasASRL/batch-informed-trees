@@ -44,7 +44,6 @@
 #include "ompl/util/Console.h"
 #include "ompl/util/ClassForward.h"
 #include <boost/concept_check.hpp>
-#include <boost/noncopyable.hpp>
 #include <iostream>
 #include <vector>
 
@@ -60,15 +59,18 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::ControlSpacePtr
-            \brief A boost shared pointer wrapper for ompl::control::ControlSpace */
+            \brief A shared pointer wrapper for ompl::control::ControlSpace */
 
         /** \brief A control space representing the space of applicable controls */
-        class ControlSpace : private boost::noncopyable
+        class ControlSpace
         {
         public:
+            // non-copyable
+            ControlSpace(const ControlSpace&) = delete;
+            ControlSpace& operator=(const ControlSpace&) = delete;
 
             /** \brief Construct a control space, given the state space */
-            ControlSpace(const base::StateSpacePtr &stateSpace);
+            ControlSpace(base::StateSpacePtr stateSpace);
 
             virtual ~ControlSpace();
 
@@ -147,7 +149,7 @@ namespace ompl
             /** \brief Many controls contain a number of double values. This function provides a means to get the
                 memory address of a double value from a control \e control located at position \e index. The first double value
                 is returned for \e index = 0. If \e index is too large (does not point to any double values in the control),
-                the return value is NULL. */
+                the return value is nullptr. */
             virtual double* getValueAddressAtIndex(Control *control, const unsigned int index) const;
 
             /** \brief Print a control to a stream */
@@ -198,16 +200,14 @@ namespace ompl
         public:
 
             /** \brief Define the type of control allocated by this control space */
-            typedef CompoundControl ControlType;
+            using ControlType = ompl::control::CompoundControl;
 
             /** \brief Constructor. The corresponding state space needs to be specified. */
             CompoundControlSpace(const base::StateSpacePtr &stateSpace) : ControlSpace(stateSpace), componentCount_(0), locked_(false)
             {
             }
 
-            virtual ~CompoundControlSpace()
-            {
-            }
+            ~CompoundControlSpace() override = default;
 
             /** \brief Cast a component of this instance to a desired type. */
             template<class T>
@@ -231,38 +231,38 @@ namespace ompl
             /** \brief Get a specific subspace from the compound control space */
             const ControlSpacePtr& getSubspace(const std::string &name) const;
 
-            virtual unsigned int getDimension() const;
+            unsigned int getDimension() const override;
 
-            virtual Control* allocControl() const;
+            Control* allocControl() const override;
 
-            virtual void freeControl(Control *control) const;
+            void freeControl(Control *control) const override;
 
-            virtual void copyControl(Control *destination, const Control *source) const;
+            void copyControl(Control *destination, const Control *source) const override;
 
-            virtual bool equalControls(const Control *control1, const Control *control2) const;
+            bool equalControls(const Control *control1, const Control *control2) const override;
 
-            virtual void nullControl(Control *control) const;
+            void nullControl(Control *control) const override;
 
-            virtual ControlSamplerPtr allocDefaultControlSampler() const;
+            ControlSamplerPtr allocDefaultControlSampler() const override;
 
-            virtual double* getValueAddressAtIndex(Control *control, const unsigned int index) const;
+            double* getValueAddressAtIndex(Control *control, const unsigned int index) const override;
 
-            virtual void printControl(const Control *control, std::ostream &out = std::cout) const;
+            void printControl(const Control *control, std::ostream &out = std::cout) const override;
 
-            virtual void printSettings(std::ostream &out) const;
+            void printSettings(std::ostream &out) const override;
 
-            virtual void setup();
+            void setup() override;
 
             /** \brief Returns the serialization size for a single control in this space */
-            virtual unsigned int getSerializationLength() const;
+            unsigned int getSerializationLength() const override;
 
             /** \brief Serializes the given control into the serialization buffer. */
-            virtual void serialize(void *serialization, const Control *ctrl) const;
+            void serialize(void *serialization, const Control *ctrl) const override;
 
             /** \brief Deserializes a control from the serialization buffer. */
-            virtual void deserialize(Control *ctrl, const void *serialization) const;
+            void deserialize(Control *ctrl, const void *serialization) const override;
 
-            virtual bool isCompound() const;
+            bool isCompound() const override;
 
             /** \brief Lock this control space. This means no further
              control spaces can be added as components.  This function can

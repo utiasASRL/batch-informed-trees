@@ -62,8 +62,8 @@ namespace ompl
         {
             friend class BinaryHeap;
         private:
-            Element() { }
-            ~Element() { }
+            Element() = default;
+            ~Element() = default;
             /** \brief The location of the data in the heap's storage */
             unsigned int position;
         public:
@@ -72,15 +72,15 @@ namespace ompl
         };
 
         /** \brief Event that gets called after an insertion */
-        typedef void (*EventAfterInsert) (Element*, void*);
+        using EventAfterInsert = void (*)(Element*, void*);
 
         /** \brief Event that gets called just before a removal */
-        typedef void (*EventBeforeRemove)(Element*, void*);
+        using EventBeforeRemove = void (*)(Element*, void*);
 
         BinaryHeap()
         {
-            eventAfterInsert_  = NULL;
-            eventBeforeRemove_ = NULL;
+            eventAfterInsert_  = nullptr;
+            eventBeforeRemove_ = nullptr;
         }
 
         ~BinaryHeap()
@@ -105,16 +105,16 @@ namespace ompl
         /** \brief Clear the heap */
         void clear()
         {
-            for (typename std::vector<Element*>::iterator i = vector_.begin() ;
+            for (auto i = vector_.begin() ;
                  i != vector_.end() ; ++i)
                 delete *i;
             vector_.clear();
         }
 
-        /** \brief Return the top element. NULL for an empty heap. */
+        /** \brief Return the top element. nullptr for an empty heap. */
         Element* top() const
         {
-            return vector_.empty() ? NULL : vector_.at(0);
+            return vector_.empty() ? nullptr : vector_.at(0);
         }
 
         /** \brief Remove the top element */
@@ -134,7 +134,7 @@ namespace ompl
         /** \brief Add a new element */
         Element* insert(const _T& data)
         {
-            Element *element = new Element();
+            auto *element = new Element();
             element->data = data;
             const unsigned int pos = vector_.size();
             element->position = pos;
@@ -201,7 +201,7 @@ namespace ompl
         /** \brief Get the data stored in this heap */
         void getContent(std::vector<_T> &content) const
         {
-            for (typename std::vector<Element*>::const_iterator i = vector_.begin();
+            for (auto i = vector_.begin();
                  i != vector_.end() ; ++i)
                 content.push_back((*i)->data);
         }
@@ -260,7 +260,7 @@ namespace ompl
 
         Element* newElement(_T& data, unsigned int pos) const
         {
-            Element *element = new Element();
+            auto *element = new Element();
             element->data = data;
             element->position = pos;
             return element;

@@ -144,7 +144,7 @@ void ompl::tools::Lightning::setup()
     }
 }
 
-void ompl::tools::Lightning::clear(void)
+void ompl::tools::Lightning::clear()
 {
     if (planner_)
         planner_->clear();
@@ -432,7 +432,7 @@ void ompl::tools::Lightning::getAllPlannerDatas(std::vector<ob::PlannerDataPtr> 
     experienceDB_->getAllPlannerDatas(plannerDatas);
 }
 
-void ompl::tools::Lightning::convertPlannerData(const ob::PlannerDataPtr plannerData, og::PathGeometric &path)
+void ompl::tools::Lightning::convertPlannerData(const ob::PlannerDataPtr& plannerData, og::PathGeometric &path)
 {
     // Convert the planner data verticies into a vector of states
     for (std::size_t i = 0; i < plannerData->numVertices(); ++i)

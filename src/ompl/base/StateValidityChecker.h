@@ -56,7 +56,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::StateValidityCheckerPtr
-            \brief A boost shared pointer wrapper for ompl::base::StateValidityChecker */
+            \brief A shared pointer wrapper for ompl::base::StateValidityChecker */
 
         /** \brief Properties that a state validity checker may have */
         struct StateValidityCheckerSpecs
@@ -104,9 +104,7 @@ namespace ompl
             {
             }
 
-            virtual ~StateValidityChecker()
-            {
-            }
+            virtual ~StateValidityChecker() = default;
 
             /** \brief Return true if the state \e state is valid. Usually, this means at least collision checking. If it is
                 possible that ompl::base::StateSpace::interpolate() or ompl::control::ControlSpace::propagate() return states that
@@ -178,7 +176,7 @@ namespace ompl
             }
 
             /** \brief Always return true (all states are considered valid) */
-            virtual bool isValid(const State * /* state */ ) const
+            bool isValid(const State * /* state */ ) const override
             {
                 return true;
             }

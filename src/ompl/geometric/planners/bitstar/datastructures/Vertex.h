@@ -40,12 +40,10 @@
 //vector
 #include <vector>
 
-//Boost
 //shared and weak pointers
-#include <boost/shared_ptr.hpp>
-#include <boost/weak_ptr.hpp>
+#include <memory>
 //For unordered sets of failed children:
-#include <boost/unordered_set.hpp>
+#include <unordered_set>
 
 //OMPL:
 //The space information
@@ -83,7 +81,7 @@ namespace ompl
         {
         public:
             /** \brief Constructor */
-            Vertex(const ompl::base::SpaceInformationPtr& si, const ompl::base::OptimizationObjectivePtr& opt, bool root = false);
+            Vertex(ompl::base::SpaceInformationPtr  si, ompl::base::OptimizationObjectivePtr  opt, bool root = false);
 
             /** \brief Destructor */
             ~Vertex();
@@ -137,7 +135,7 @@ namespace ompl
             void addChild(const VertexPtr& newChild, bool updateChildCosts = true);
 
             /** \brief Remove a child vertex. Does not change this vertex's cost, and can update the child and its descendent costs. Will throw an exception if the given vertex pointer is not in the list of children. The VertexPtr to be removed is \e not passed by const ref to assure that the function cannot delete it out from under itself. */
-            void removeChild(VertexPtr oldChild, bool updateChildCosts = true);
+            void removeChild(const VertexPtr& oldChild, bool updateChildCosts = true);
 
             /** \brief Get the cost-to-come of a vertex. Return infinity if the edge is disconnected */
             ompl::base::Cost getCost() const;
@@ -232,7 +230,7 @@ namespace ompl
             ompl::base::Cost                                         cost_;
 
             /** \brief The child states as weak pointers, such that the ownership loop is broken and a state can be deleted once it's children are.*/
-            std::vector<VertexWeakPtr>                           childWPtrs_;
+            std::vector<VertexWeakPtr>                               childWPtrs_;
 
 
             /** \brief A helper function to check that the vertex is not pruned and throw if so */

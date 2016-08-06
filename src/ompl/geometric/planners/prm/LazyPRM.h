@@ -41,7 +41,6 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
-#include <boost/function.hpp>
 #include <utility>
 #include <vector>
 #include <map>
@@ -76,24 +75,24 @@ namespace ompl
         {
         public:
             struct vertex_state_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_flags_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_component_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct edge_flags_t {
-                typedef boost::edge_property_tag kind;
+                using kind = boost::edge_property_tag;
             };
 
             /** @brief The type for a vertex in the roadmap. */
-            typedef boost::adjacency_list_traits<boost::vecS, boost::listS,
-                                                 boost::undirectedS>::vertex_descriptor Vertex;
+            using Vertex = boost::adjacency_list_traits<boost::vecS, boost::listS,
+                                                 boost::undirectedS>::vertex_descriptor;
 
             /**
              @brief The underlying roadmap graph.
@@ -111,7 +110,7 @@ namespace ompl
 
              @par Edges should be undirected and have a weight property.
              */
-            typedef boost::adjacency_list <
+            using Graph = boost::adjacency_list <
                 boost::vecS, boost::listS, boost::undirectedS,
                 boost::property < vertex_state_t, base::State*,
                 boost::property < boost::vertex_index_t, unsigned long int,
@@ -121,29 +120,29 @@ namespace ompl
                 boost::property < boost::vertex_rank_t, unsigned long int > > > > > >,
                 boost::property < boost::edge_weight_t, base::Cost,
                 boost::property < edge_flags_t, unsigned int > >
-            > Graph;
+            >;
 
             /** @brief The type for an edge in the roadmap. */
-            typedef boost::graph_traits<Graph>::edge_descriptor   Edge;
+            using Edge = boost::graph_traits<Graph>::edge_descriptor;
 
             /** @brief A nearest neighbors data structure for roadmap vertices. */
-            typedef boost::shared_ptr< NearestNeighbors<Vertex> > RoadmapNeighbors;
+            using RoadmapNeighbors = std::shared_ptr<NearestNeighbors<Vertex> >;
 
             /** @brief A function returning the milestones that should be
              * attempted to connect to. */
-            typedef boost::function<const std::vector<Vertex>&(const Vertex)> ConnectionStrategy;
+            using ConnectionStrategy = std::function<const std::vector<Vertex> &(const Vertex)>;
 
             /** @brief A function that can reject connections.
 
              This is called after previous connections from the neighbor list
              have been added to the roadmap.
              */
-            typedef boost::function<bool(const Vertex&, const Vertex&)> ConnectionFilter;
+            using ConnectionFilter = std::function<bool (const Vertex &, const Vertex &)>;
 
             /** \brief Constructor */
             LazyPRM(const base::SpaceInformationPtr &si, bool starStrategy = false);
 
-            virtual ~LazyPRM();
+            ~LazyPRM() override;
 
             /** \brief Set the maximum length of a motion to be added to the roadmap. */
             void setRange(double distance);
@@ -160,12 +159,12 @@ namespace ompl
             {
                 nn_.reset(new NN<Vertex>());
                 if (!userSetConnectionStrategy_)
-                    connectionStrategy_.clear();
+                    connectionStrategy_ = ConnectionStrategy();
                 if (isSetup())
                     setup();
             }
 
-            virtual void setProblemDefinition(const base::ProblemDefinitionPtr &pdef);
+            void setProblemDefinition(const base::ProblemDefinitionPtr &pdef) override;
 
             /** \brief Set the connection strategy function that specifies the
              milestones that connection attempts will be make to for a
@@ -221,11 +220,11 @@ namespace ompl
                 return boost::num_edges(g_);
             }
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
-            virtual void setup();
+            void setup() override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Clear the query previously loaded from the ProblemDefinition.
                 Subsequent calls to solve() will reuse the previously computed roadmap,
@@ -233,7 +232,7 @@ namespace ompl
                 This enables multi-query functionality for LazyPRM. */
             void clearQuery();
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
         protected:
 

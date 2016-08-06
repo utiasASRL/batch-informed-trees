@@ -118,35 +118,42 @@ namespace ompl
             class IdGenerator;
             /** \brief The queue of edges to process as an integrated dual-stage queue (tracks both the expansion of vertices and the resulting edges) */
             class IntegratedQueue;
-            //Helpful typedefs:
+            //Helpful alias declarations:
             /** \brief A vertex shared pointer. */
-            typedef boost::shared_ptr<Vertex> VertexPtr;
+            using VertexPtr = std::shared_ptr<Vertex>;
             /** \brief A \e constant vertex shared pointer. */
-            typedef boost::shared_ptr<const Vertex> VertexConstPtr;
+            using VertexConstPtr = std::shared_ptr<const Vertex>;
             /** \brief A vertex weak pointer. */
-            typedef boost::weak_ptr<Vertex> VertexWeakPtr;
+            using VertexWeakPtr = std::weak_ptr<Vertex>;
             /** \brief An integrated queue shared pointer. */
-            typedef boost::shared_ptr<IntegratedQueue> IntegratedQueuePtr;
+            using IntegratedQueuePtr = std::shared_ptr<IntegratedQueue>;
             /** \brief The vertex id type */
-            typedef unsigned int VertexId;
+            using VertexId = unsigned int;
+            /** \brief A pair of vertices, i.e., an edge. */
+            using VertexPtrPair = std::pair<VertexPtr, VertexPtr>;
+            /** \brief A pair of const vertices, i.e., an edge. */
+            using VertexConstPtrPair = std::pair<VertexConstPtr, VertexConstPtr>;
+            /** \brief The OMPL::NearestNeighbors structure. */
+            using VertexPtrNNPtr = std::shared_ptr<NearestNeighbors<VertexPtr> >;
+
 
             /** \brief Construct! */
             BITstar(const base::SpaceInformationPtr& si, const std::string& name = "BITstar");
 
             /** \brief Destruct! */
-            virtual ~BITstar();
+            ~BITstar() override;
 
             /** \brief Setup */
-            virtual void setup();
+            void setup() override;
 
             /** \brief Clear */
-            virtual void clear();
+            void clear() override;
 
             /** \brief Solve */
-            base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc) override;
 
             /** \brief Get results */
-            virtual void getPlannerData(base::PlannerData& data) const;
+            void getPlannerData(base::PlannerData& data) const override;
 
             ///////////////////////////////////////
             // Planner info for debugging, etc:
@@ -261,16 +268,6 @@ namespace ompl
         protected:
             //Everything is only protected so we can create modifications without duplicating code by deriving from the class:
 
-            //Typedefs:
-            /** \brief A pair of vertices, i.e., an edge. */
-            typedef std::pair<VertexPtr, VertexPtr> VertexPtrPair;
-
-            /** \brief A pair of const vertices, i.e., an edge. */
-            typedef std::pair<VertexConstPtr, VertexConstPtr> VertexConstPtrPair;
-
-            /** \brief The OMPL::NearestNeighbors structure. */
-            typedef boost::shared_ptr< NearestNeighbors<VertexPtr> > VertexPtrNNPtr;
-
             //Functions:
             /** \brief A debug function: Estimate the measure of the free/obstace space via sampling. */
             void estimateMeasures();
@@ -314,7 +311,7 @@ namespace ompl
             bool checkEdge(const VertexConstPtrPair& edge);
 
             /** \brief Actually remove a sample from its NN struct.*/
-            void dropSample(VertexPtr oldSample);
+            void dropSample(const VertexPtr& oldSample);
 
             /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new to the tree or otherwise replace the parent. Updates solution information if the solution improves. */
             void addEdge(const VertexPtrPair& newEdge, const ompl::base::Cost& edgeCost, const bool& removeFromFree, const bool& updateDescendants);

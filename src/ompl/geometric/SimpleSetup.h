@@ -58,7 +58,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::geometric::SimpleSetupPtr
-            \brief A boost shared pointer wrapper for ompl::geometric::SimpleSetup */
+            \brief A shared pointer wrapper for ompl::geometric::SimpleSetup */
 
         /** \brief Create the set of classes typically needed to solve a
             geometric problem */
@@ -74,9 +74,7 @@ namespace ompl
             explicit
             SimpleSetup(const base::StateSpacePtr &space);
 
-            virtual ~SimpleSetup()
-            {
-            }
+            virtual ~SimpleSetup() = default;
 
             /** \brief Get the current instance of the space information */
             const base::SpaceInformationPtr& getSpaceInformation() const
@@ -148,7 +146,7 @@ namespace ompl
             }
 
             /** \brief Get the best solution's planer name. Throw an exception if no solution is available */
-            const std::string getSolutionPlannerName(void) const;
+            const std::string getSolutionPlannerName() const;
 
             /** \brief Get the solution path. Throw an exception if no solution is available */
             PathGeometric& getSolutionPath() const;

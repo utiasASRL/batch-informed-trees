@@ -45,7 +45,7 @@ namespace ompl
     namespace base
     {
 
-        template<class SpaceType_>
+        template<typename SpaceType_>
         class TypedSpaceInformation : public SpaceInformation
         {
         public:
@@ -53,19 +53,19 @@ namespace ompl
             /*--- Type Definitions ---*/
 
             /** The actual type of the state space */
-            typedef SpaceType_ SpaceType;
+            using SpaceType_ = SpaceType_;
 
             /** The actual type of states in the space. */
-            typedef typename SpaceType::StateType StateType;
+            using StateType = typename SpaceType::StateType;
 
             /** The actual type for a Scoped State. */
-            typedef ScopedState<SpaceType> ScopedStateType;
+            using ScopedState = ScopedState<SpaceType>;
 
             /** Shared Pointer to the actual type of the space. */
-            typedef boost::shared_ptr<SpaceType> SpacePtr;
+            using SpacePtr = std::shared_ptr<SpaceType>;
 
             /** Shared pointer to the typed space. */
-            typedef boost::shared_ptr< TypedSpaceInformation<SpaceType> > Ptr;
+            using Ptr = std::shared_ptr<TypedSpaceInformation<SpaceType>>;
 
 
             /*--- Constructor ---*/
@@ -80,13 +80,13 @@ namespace ompl
             /** Get space pointer of the proper type, const. */
             const SpaceType* getTypedStateSpace() const
             {
-                return getStateSpace()->as<SpaceType>();
+                return getStateSpace()->template as<SpaceType>();
             }
 
             /** Get space pointer of the proper type. */
             SpaceType* getTypedStateSpace()
             {
-                return getStateSpace()->as<SpaceType>();
+                return getStateSpace()->template as<SpaceType>();
             }
 
             /*--- State Memory Management ---*/
@@ -94,7 +94,7 @@ namespace ompl
             /** Allocate a state of the proper type. */
             StateType* allocTypedState() const
             {
-                return this->allocState()->as<StateType>();
+                return this->allocState()->template as<StateType>();
             }
 
             /** Allocate memory for typed states in array */
@@ -123,17 +123,17 @@ namespace ompl
 
             /** Clone a state of the proper type. */
             StateType* cloneTypedState(const StateType *source) const {
-                return this->cloneState()->as<StateType>();
+                return this->cloneState()->template as<StateType>();
             }
 
             static StateType* state_as(ompl::base::State *s)
             {
-                return s->as<StateType>();
+                return s->template as<StateType>();
             }
 
             static const StateType* state_as(const ompl::base::State *s)
             {
-                return s->as<StateType>();
+                return s->template as<StateType>();
             }
 
         };
@@ -141,3 +141,5 @@ namespace ompl
     }
 
 }
+
+#endif

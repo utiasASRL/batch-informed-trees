@@ -41,12 +41,13 @@
 #include <cstdlib>
 #include <cmath>
 #include <map>
+#include <utility>
 
-ompl::geometric::PathSimplifier::PathSimplifier(const base::SpaceInformationPtr &si, const base::GoalPtr& goal) : si_(si), freeStates_(true)
+ompl::geometric::PathSimplifier::PathSimplifier(base::SpaceInformationPtr si, const base::GoalPtr& goal) : si_(std::move(si)), freeStates_(true)
 {
     if (goal)
     {
-        gsr_ = boost::dynamic_pointer_cast<base::GoalSampleableRegion>(goal);
+        gsr_ = std::dynamic_pointer_cast<base::GoalSampleableRegion>(goal);
         if (!gsr_)
             OMPL_WARN("%s: Goal could not be cast to GoalSampleableRegion.  Goal simplification will not be performed.", __FUNCTION__);
     }
@@ -203,11 +204,11 @@ bool ompl::geometric::PathSimplifier::shortcutPath(PathGeometric &path, unsigned
     for (unsigned int i = 0 ; i < maxSteps && nochange < maxEmptySteps ; ++i, ++nochange)
     {
         // Sample a random point anywhere along the path
-        base::State *s0 = NULL;
+        base::State *s0 = nullptr;
         int index0 = -1;
         double t0 = 0.0;
         double p0 = rng_.uniformReal(0.0, dists.back());                                        // sample a random point (p0) along the path
-        std::vector<double>::iterator pit = std::lower_bound(dists.begin(), dists.end(), p0);   // find the NEXT waypoint after the random point
+        auto pit = std::lower_bound(dists.begin(), dists.end(), p0);   // find the NEXT waypoint after the random point
         int pos0 = pit == dists.end() ? dists.size() - 1 : pit - dists.begin();                 // get the index of the NEXT waypoint after the point
 
         if (pos0 == 0 || dists[pos0] - p0 < threshold) // snap to the NEXT waypoint
@@ -221,7 +222,7 @@ bool ompl::geometric::PathSimplifier::shortcutPath(PathGeometric &path, unsigned
         }
 
         // Sample a random point within rd distance of the previously sampled point
-        base::State *s1 = NULL;
+        base::State *s1 = nullptr;
         int index1 = -1;
         double t1 = 0.0;
         double p1 = rng_.uniformReal(std::max(0.0, p0 - rd), std::min(p0 + rd, dists.back()));  // sample a random point (p1) near p0
@@ -507,8 +508,8 @@ bool ompl::geometric::PathSimplifier::findBetterGoal(PathGeometric &path, const 
             // sample a state within rangeRatio
             double t = rng_.uniformReal(std::max(dists.back() - rd, 0.0), dists.back());    // Sample a random point within rd of the end of the path
 
-            std::vector<double>::iterator end = std::lower_bound(dists.begin(), dists.end(), t);
-            std::vector<double>::iterator start = end;
+            auto end = std::lower_bound(dists.begin(), dists.end(), t);
+            auto start = end;
             while(start != dists.begin() && *start >= t)
                 start -= 1;
 

@@ -61,7 +61,7 @@ bool isStateValidHard(const ob::SpaceInformation *si, const ob::State *state)
     return si->satisfiesBounds(state);
 }
 
-void plan(ob::StateSpacePtr space, bool easy)
+void plan(const ob::StateSpacePtr& space, bool easy)
 {
     ob::ScopedState<> start(space), goal(space);
     ob::RealVectorBounds bounds(2);
@@ -79,9 +79,12 @@ void plan(ob::StateSpacePtr space, bool easy)
     og::SimpleSetup ss(space);
 
     // set state validity checking for this space
-    ob::SpaceInformationPtr si(ss.getSpaceInformation());
-    ss.setStateValidityChecker(boost::bind(
-        easy ? &isStateValidEasy : &isStateValidHard, si.get(), _1));
+    const ob::SpaceInformation *si = ss.getSpaceInformation().get();
+    auto isStateValid = easy ? isStateValidEasy : isStateValidHard;
+    ss.setStateValidityChecker([isStateValid, si](const ob::State *state)
+        {
+            return isStateValid(si, state);
+        });
 
     // set the start and goal states
     if (easy)
@@ -118,7 +121,7 @@ void plan(ob::StateSpacePtr space, bool easy)
         std::cout << "No solution found" << std::endl;
 }
 
-void printTrajectory(ob::StateSpacePtr space, const std::vector<double>& pt)
+void printTrajectory(const ob::StateSpacePtr& space, const std::vector<double>& pt)
 {
     if (pt.size()!=3) throw ompl::Exception("3 arguments required for trajectory option");
     const unsigned int num_pts = 50;
@@ -140,7 +143,7 @@ void printTrajectory(ob::StateSpacePtr space, const std::vector<double>& pt)
     }
 }
 
-void printDistanceGrid(ob::StateSpacePtr space)
+void printDistanceGrid(const ob::StateSpacePtr& space)
 {
     // print the distance for (x,y,theta) for all points in a 3D grid in SE(2)
     // over [-5,5) x [-5, 5) x [-pi,pi).

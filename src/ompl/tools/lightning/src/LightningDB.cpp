@@ -53,7 +53,7 @@ ompl::tools::LightningDB::LightningDB(const base::StateSpacePtr &space)
     nn_.reset(new ompl::NearestNeighborsSqrtApprox<ompl::base::PlannerDataPtr>());
 
     // Use our custom distance function for nearest neighbor tree
-    nn_->setDistanceFunction(boost::bind(&ompl::tools::LightningDB::distanceFunction, this, _1, _2));
+    nn_->setDistanceFunction([this] (const ompl::base::PlannerDataPtr &a, const ompl::base::PlannerDataPtr &b) { return distanceFunction(a, b); });
 
     // Load the PlannerData instance to be used for searching
     nnSearchKey_.reset(new ompl::base::PlannerData(si_));
@@ -135,9 +135,9 @@ void ompl::tools::LightningDB::addPathHelper(ompl::geometric::PathGeometric &sol
     ompl::base::PlannerDataPtr plannerData(new ompl::base::PlannerData(si_));
 
     // Add the states to one nodes files
-    for (std::size_t i = 0; i < solutionPath.getStates().size(); ++i)
+    for (auto & i : solutionPath.getStates())
     {
-        ompl::base::PlannerDataVertex vert( solutionPath.getStates()[i] ); // TODO tag?
+        ompl::base::PlannerDataVertex vert( i ); // TODO tag?
 
         plannerData->addVertex(vert);
     }
@@ -238,7 +238,7 @@ std::vector<ompl::base::PlannerDataPtr> ompl::tools::LightningDB::findNearestSta
     return nearest;
 }
 
-double ompl::tools::LightningDB::distanceFunction(const ompl::base::PlannerDataPtr a, const ompl::base::PlannerDataPtr b) const
+double ompl::tools::LightningDB::distanceFunction(const ompl::base::PlannerDataPtr& a, const ompl::base::PlannerDataPtr& b) const
 {
     // Bi-directional implementation - check path b from [start, goal] and [goal, start]
     return std::min(
@@ -265,9 +265,9 @@ std::size_t ompl::tools::LightningDB::getStatesCount() const
     nn_->list(plannerDatas);
 
     // Start saving each planner data object
-    for (std::size_t i = 0; i < plannerDatas.size(); ++i)
+    for (auto & plannerData : plannerDatas)
     {
-        statesCount += plannerDatas[i]->numVertices();
+        statesCount += plannerData->numVertices();
     }
 
     return statesCount;

@@ -37,8 +37,8 @@
 #ifndef OMPL_BASE_PLANNER_TERMINATION_CONDITION_
 #define OMPL_BASE_PLANNER_TERMINATION_CONDITION_
 
-#include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
+#include <functional>
+#include <memory>
 #include <ompl/base/ProblemDefinition.h>
 #include <ompl/util/Time.h>
 
@@ -55,7 +55,7 @@ namespace ompl
             signaled to terminate its computation. Otherwise,
             computation continues while this function returns false,
             until a solution is found. */
-        typedef boost::function<bool()> PlannerTerminationConditionFn;
+        using PlannerTerminationConditionFn = std::function<bool ()>;
 
         /** \brief Encapsulate a termination condition for a motion
             planner. Planners will call operator() to decide whether
@@ -76,9 +76,7 @@ namespace ompl
                 last value computed by the call to \e fn(). */
             PlannerTerminationCondition(const PlannerTerminationConditionFn &fn, double period);
 
-            ~PlannerTerminationCondition()
-            {
-            }
+            ~PlannerTerminationCondition() = default;
 
             /** \brief Return true if the planner should stop its computation */
             bool operator()() const
@@ -102,7 +100,7 @@ namespace ompl
         private:
 
             class PlannerTerminationConditionImpl;
-            boost::shared_ptr<PlannerTerminationConditionImpl> impl_;
+            std::shared_ptr<PlannerTerminationConditionImpl> impl_;
         };
 
         /** \brief Simple termination condition that always returns false. The termination condition will never be met */

@@ -42,9 +42,8 @@
 #include "ompl/util/ClassForward.h"
 #include "ompl/base/ProblemDefinition.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
-#include <boost/noncopyable.hpp>
-#include <boost/concept_check.hpp>
 
+#include <functional>
 #include <iostream>
 
 namespace ompl
@@ -54,7 +53,7 @@ namespace ompl
         class Goal;
 
         /** \brief The definition of a function which returns an admissible estimate of the optimal path cost from a given state to a goal. */
-        typedef boost::function<Cost (const State*, const Goal*)> CostToGoHeuristic;
+        using CostToGoHeuristic = std::function<Cost (const State *, const Goal *)>;
 
         /// @cond IGNORE
         /** \brief Forward declaration of ompl::base::OptimizationObjective */
@@ -62,20 +61,22 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::OptimizationObjectivePtr
-            \brief A boost shared pointer wrapper for ompl::base::OptimizationObjective */
+            \brief A shared pointer wrapper for ompl::base::OptimizationObjective */
 
         /** \brief Abstract definition of optimization objectives.
 
             \note This implementation has greatly benefited from discussions with Kris Hauser */
-        class OptimizationObjective : private boost::noncopyable
+        class OptimizationObjective
         {
         public:
-            /** \brief Constructor. The objective must always know the space information it is part of. The cost threshold for objective satisfaction defaults to 0.0. */
-            OptimizationObjective(const SpaceInformationPtr &si);
+            // non-copyable
+            OptimizationObjective(const OptimizationObjective&) = delete;
+            OptimizationObjective& operator=(const OptimizationObjective&) = delete;
 
-            virtual ~OptimizationObjective()
-            {
-            }
+            /** \brief Constructor. The objective must always know the space information it is part of. The cost threshold for objective satisfaction defaults to 0.0. */
+            OptimizationObjective(SpaceInformationPtr si);
+
+            virtual ~OptimizationObjective() = default;
 
             /** \brief Get the description of this optimization objective */
             const std::string& getDescription() const;
@@ -144,7 +145,7 @@ namespace ompl
             const SpaceInformationPtr& getSpaceInformation() const;
 
             /** \brief Allocate a heuristic-sampling state generator for this cost function, defaults to a basic rejection sampling scheme when the derived class does not provide a better method.*/
-            virtual InformedSamplerPtr allocInformedStateSampler(const ProblemDefinitionPtr probDefn, unsigned int maxNumberCalls) const;
+            virtual InformedSamplerPtr allocInformedStateSampler(const ProblemDefinitionPtr &probDefn, unsigned int maxNumberCalls) const;
 
             /** \brief Print information about this optimization objective */
             virtual void print(std::ostream &out) const;
@@ -205,20 +206,20 @@ namespace ompl
               addition to add up all the individual objectives' state cost
               values, where each individual value is scaled by its
               weight */
-            virtual Cost stateCost(const State *s) const;
+            Cost stateCost(const State *s) const override;
 
             /** The default implementation of this method is to use
               addition to add up all the individual objectives' motion
               cost values, where each individual value is scaled by
               its weight */
-            virtual Cost motionCost(const State *s1, const State *s2) const;
+            Cost motionCost(const State *s1, const State *s2) const override;
 
         protected:
 
             /** \brief Defines a pairing of an objective and its weight */
             struct Component
             {
-                Component(const OptimizationObjectivePtr& obj, double weight);
+                Component(OptimizationObjectivePtr  obj, double weight);
                 OptimizationObjectivePtr objective;
                 double weight;
             };

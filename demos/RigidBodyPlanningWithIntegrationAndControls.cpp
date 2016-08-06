@@ -117,7 +117,7 @@ public:
         }
     }
 
-    double getTimeStep(void) const
+    double getTimeStep() const
     {
         return timeStep_;
     }
@@ -173,7 +173,7 @@ public:
     {
     }
 
-    virtual void propagate(const ob::State *state, const oc::Control* control, const double duration, ob::State *result) const
+    void propagate(const ob::State *state, const oc::Control* control, const double duration, ob::State *result) const override
     {
         integrator_.propagate(state, control, duration, result);
     }
@@ -183,7 +183,7 @@ public:
         integrator_.setTimeStep(timeStep);
     }
 
-    double getIntegrationTimeStep(void) const
+    double getIntegrationTimeStep() const
     {
         return integrator_.getTimeStep();
     }
@@ -193,7 +193,7 @@ public:
 
 /// @endcond
 
-void planWithSimpleSetup(void)
+void planWithSimpleSetup()
 {
     /// construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE2StateSpace());
@@ -219,7 +219,9 @@ void planWithSimpleSetup(void)
     oc::SimpleSetup ss(cspace);
 
     /// set state validity checking for this space
-    ss.setStateValidityChecker(boost::bind(&isStateValid, ss.getSpaceInformation().get(), _1));
+    const oc::SpaceInformation *si = ss.getSpaceInformation().get();
+    ss.setStateValidityChecker(
+        [si](const ob::State *state) { return isStateValid(si, state); });
 
     /// set the propagation routine for this space
     ss.setStatePropagator(oc::StatePropagatorPtr(new DemoStatePropagator(ss.getSpaceInformation())));

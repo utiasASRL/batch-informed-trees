@@ -63,11 +63,6 @@ using namespace ompl;
 
 const double PI = boost::math::constants::pi<double>();
 
-bool isValid(const base::State *)
-{
-    return true;
-}
-
 BOOST_AUTO_TEST_CASE(Dubins_Simple)
 {
     base::StateSpacePtr d(new base::DubinsStateSpace()), dsym(new base::DubinsStateSpace(1., true));
@@ -225,7 +220,7 @@ BOOST_AUTO_TEST_CASE(SO3_Simple)
     s2.random();
 
     base::SpaceInformation si(m);
-    si.setStateValidityChecker(boost::bind(&isValid, _1));
+    si.setStateValidityChecker([](const base::State *) { return true; });
     si.setup();
 
     std::vector<base::State*> states;
@@ -234,12 +229,12 @@ BOOST_AUTO_TEST_CASE(SO3_Simple)
     BOOST_CHECK(states.size() == count);
     BOOST_CHECK(ns + 2 == count);
 
-    for (unsigned int i = 0 ; i < states.size() ; ++i)
+    for (auto & state : states)
     {
-        double nrm = m->as<base::SO3StateSpace>()->norm(states[i]->as<base::SO3StateSpace::StateType>());
+        double nrm = m->as<base::SO3StateSpace>()->norm(state->as<base::SO3StateSpace::StateType>());
         BOOST_OMPL_EXPECT_NEAR(nrm, 1.0, 1e-15);
-        BOOST_CHECK(m->satisfiesBounds(states[i]));
-        si.freeState(states[i]);
+        BOOST_CHECK(m->satisfiesBounds(state));
+        si.freeState(state);
     }
 
     base::ProjectionEvaluatorPtr proj = m->getDefaultProjection();
@@ -413,7 +408,7 @@ BOOST_AUTO_TEST_CASE(Compound_Simple)
     BOOST_CHECK_EQUAL((m1 - m1)->getDimension(), 0u);
     t->setName(t->getName());
     base::ScopedState<> st(t);
-    BOOST_CHECK(t->getValueAddressAtIndex(st.get(), 10000) == NULL);
+    BOOST_CHECK(t->getValueAddressAtIndex(st.get(), 10000) == nullptr);
     BOOST_CHECK(t->includes(m1));
     BOOST_CHECK_EQUAL(t->includes(m2), false);
     BOOST_CHECK_EQUAL(m1->includes(t), false);

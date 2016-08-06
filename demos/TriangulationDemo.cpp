@@ -24,14 +24,14 @@ public:
     {
         setup();
     }
-    virtual void project(const ob::State* s, std::vector<double>& coord) const
+    void project(const ob::State* s, std::vector<double>& coord) const override
     {
         coord.resize(2);
         coord[0] = s->as<ob::SE2StateSpace::StateType>()->getX();
         coord[1] = s->as<ob::SE2StateSpace::StateType>()->getY();
     }
 
-    virtual void sampleFullState(const ob::StateSamplerPtr& sampler, const std::vector<double>& coord, ob::State* s) const
+    void sampleFullState(const ob::StateSamplerPtr& sampler, const std::vector<double>& coord, ob::State* s) const override
     {
         sampler->sampleUniform(s);
         s->as<ob::SE2StateSpace::StateType>()->setXY(coord[0], coord[1]);
@@ -108,7 +108,7 @@ void propagate(const ob::State *start, const oc::Control *control, const double 
 }
 
 
-void planWithSimpleSetup(void)
+void planWithSimpleSetup()
 {
     // construct the state space we are planning in
     ob::StateSpacePtr space(new ob::SE2StateSpace());
@@ -134,10 +134,12 @@ void planWithSimpleSetup(void)
     oc::SimpleSetup ss(cspace);
 
     // set the state propagation routine
-    ss.setStatePropagator(boost::bind(&propagate, _1, _2, _3, _4));
+    ss.setStatePropagator(propagate);
 
     // set state validity checking for this space
-    ss.setStateValidityChecker(boost::bind(&isStateValid, ss.getSpaceInformation().get(), _1));
+    oc::SpaceInformation *si = ss.getSpaceInformation().get();
+    ss.setStateValidityChecker(
+        [si](const ob::State *state) { return isStateValid(si, state); });
 
     // create a start state
     ob::ScopedState<ob::SE2StateSpace> start(space);

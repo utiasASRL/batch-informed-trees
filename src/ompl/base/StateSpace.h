@@ -45,7 +45,6 @@
 #include "ompl/util/Console.h"
 #include "ompl/util/ClassForward.h"
 #include <boost/concept_check.hpp>
-#include <boost/noncopyable.hpp>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -62,7 +61,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::StateSpacePtr
-            \brief A boost shared pointer wrapper for ompl::base::StateSpace */
+            \brief A shared pointer wrapper for ompl::base::StateSpace */
 
 
         /** \brief Representation of a space in which planning can be
@@ -70,12 +69,15 @@ namespace ompl
             are defined.
 
             See \ref implementingStateSpaces. */
-        class StateSpace : private boost::noncopyable
+        class StateSpace
         {
         public:
+            // non-copyable
+            StateSpace(const StateSpace&) = delete;
+            StateSpace& operator=(const StateSpace&) = delete;
 
             /** \brief Define the type of state allocated by this space */
-            typedef State StateType;
+            using StateType = ompl::base::State;
 
             /** \brief Constructor. Assigns a @b unique name to the space */
             StateSpace();
@@ -296,6 +298,9 @@ namespace ompl
             /** \brief Copy a state to another. The memory of source and destination should NOT overlap.
                 \note For more advanced state copying methods (partial copy, for example), see \ref advancedStateCopy. */
             virtual void copyState(State *destination, const State *source) const = 0;
+            
+            /** \brief Clone a state*/
+            State* cloneState(const State* source) const;
 
             /** \brief Computes distance between two states. This function satisfies the properties of a
                 metric if isMetricSpace() is true, and its return value will always be between 0 and getMaximumExtent() */
@@ -346,7 +351,7 @@ namespace ompl
             /** \brief Many states contain a number of double values. This function provides a means to get the
                 memory address of a double value from state \e state located at position \e index. The first double value
                 is returned for \e index = 0. If \e index is too large (does not point to any double values in the state),
-                the return value is NULL.
+                the return value is nullptr.
 
                 \note This function does @b not map a state to an
                 array of doubles. There may be components of a state
@@ -546,7 +551,7 @@ namespace ompl
         public:
 
             /** \brief Define the type of state allocated by this state space */
-            typedef CompoundState StateType;
+            using StateType = ompl::base::CompoundState;
 
             /** \brief Construct an empty compound state space */
             CompoundStateSpace();
@@ -554,9 +559,7 @@ namespace ompl
             /** \brief Construct a compound state space from a list of subspaces (\e components) and their corresponding weights (\e weights) */
             CompoundStateSpace(const std::vector<StateSpacePtr> &components, const std::vector<double> &weights);
 
-            virtual ~CompoundStateSpace()
-            {
-            }
+            ~CompoundStateSpace() override = default;
 
             /** \brief Cast a component of this instance to a desired type. */
             template<class T>
@@ -578,9 +581,9 @@ namespace ompl
                 return static_cast<T*>(getSubspace(name).get());
             }
 
-            virtual bool isCompound() const;
+            bool isCompound() const override;
 
-            virtual bool isHybrid() const;
+            bool isHybrid() const override;
 
             /** @name Management of contained subspaces
                 @{ */
@@ -638,65 +641,65 @@ namespace ompl
             /** @name Operations with substates
                 @{ */
 
-            virtual StateSamplerPtr allocSubspaceStateSampler(const StateSpace *subspace) const;
+            StateSamplerPtr allocSubspaceStateSampler(const StateSpace *subspace) const override;
 
             /** @} */
 
             /** @name Functionality specific to the state space
                 @{ */
 
-            virtual unsigned int getDimension() const;
+            unsigned int getDimension() const override;
 
-            virtual double getMaximumExtent() const;
+            double getMaximumExtent() const override;
 
-            virtual double getMeasure() const;
+            double getMeasure() const override;
 
-            virtual void enforceBounds(State *state) const;
+            void enforceBounds(State *state) const override;
 
-            virtual bool satisfiesBounds(const State *state) const;
+            bool satisfiesBounds(const State *state) const override;
 
-            virtual void copyState(State *destination, const State *source) const;
+            void copyState(State *destination, const State *source) const override;
 
-            virtual unsigned int getSerializationLength() const;
+            unsigned int getSerializationLength() const override;
 
-            virtual void serialize(void *serialization, const State *state) const;
+            void serialize(void *serialization, const State *state) const override;
 
-            virtual void deserialize(State *state, const void *serialization) const;
+            void deserialize(State *state, const void *serialization) const override;
 
-            virtual double distance(const State *state1, const State *state2) const;
+            double distance(const State *state1, const State *state2) const override;
 
             /** \brief When performing discrete validation of motions,
                 the length of the longest segment that does not
                 require state validation needs to be specified. This
                 function sets this length as a fraction of the space's
                 maximum extent. The call is passed to all contained subspaces */
-            virtual void setLongestValidSegmentFraction(double segmentFraction);
+            void setLongestValidSegmentFraction(double segmentFraction) override;
 
             /** \brief Count how many segments of the "longest valid length" fit on the motion from \e state1 to \e state2.
                 This is the max() of the counts returned by contained subspaces. */
-            virtual unsigned int validSegmentCount(const State *state1, const State *state2) const;
+            unsigned int validSegmentCount(const State *state1, const State *state2) const override;
 
-            virtual bool equalStates(const State *state1, const State *state2) const;
+            bool equalStates(const State *state1, const State *state2) const override;
 
-            virtual void interpolate(const State *from, const State *to, const double t, State *state) const;
+            void interpolate(const State *from, const State *to, const double t, State *state) const override;
 
-            virtual StateSamplerPtr allocDefaultStateSampler() const;
+            StateSamplerPtr allocDefaultStateSampler() const override;
 
-            virtual State* allocState() const;
+            State* allocState() const override;
 
-            virtual void freeState(State *state) const;
+            void freeState(State *state) const override;
 
-            virtual double* getValueAddressAtIndex(State *state, const unsigned int index) const;
+            double* getValueAddressAtIndex(State *state, const unsigned int index) const override;
 
             /** @} */
 
-            virtual void printState(const State *state, std::ostream &out) const;
+            void printState(const State *state, std::ostream &out) const override;
 
-            virtual void printSettings(std::ostream &out) const;
+            void printSettings(std::ostream &out) const override;
 
-            virtual void computeLocations();
+            void computeLocations() override;
 
-            virtual void setup();
+            void setup() override;
 
         protected:
 

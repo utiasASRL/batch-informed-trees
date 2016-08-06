@@ -54,17 +54,15 @@ namespace ompl
             /** \brief Create a goal region */
             GoalRegion(const SpaceInformationPtr &si);
 
-            virtual ~GoalRegion()
-            {
-            }
+            ~GoalRegion() override = default;
 
-            /** \brief Equivalent to calling isSatisfied(const State *, double *) with a NULL second argument. */
-            virtual bool isSatisfied(const State *st) const;
+            /** \brief Equivalent to calling isSatisfied(const State *, double *) with a nullptr second argument. */
+            bool isSatisfied(const State *st) const override;
 
             /** \brief Decide whether a given state is part of the
                 goal region. Returns true if the distance to goal is
                 less than the threshold (using distanceGoal()) */
-            virtual bool isSatisfied(const State *st, double *distance) const;
+            bool isSatisfied(const State *st, double *distance) const override;
 
             /** \brief Compute the distance to the goal
                 (heuristic). This function is the one used in
@@ -74,7 +72,7 @@ namespace ompl
 
             /** \brief Print information about the goal data structure
                 to a stream */
-            virtual void print(std::ostream &out = std::cout) const;
+            void print(std::ostream &out = std::cout) const override;
 
             /** \brief Set the distance to the goal that is allowed
                 for a state to be considered in the goal region */

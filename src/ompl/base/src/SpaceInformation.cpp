@@ -44,9 +44,10 @@
 #include "ompl/tools/config/MagicConstants.h"
 #include <queue>
 #include <cassert>
+#include <utility>
 
-ompl::base::SpaceInformation::SpaceInformation(const StateSpacePtr &space) :
-    stateSpace_(space), setup_(false)
+ompl::base::SpaceInformation::SpaceInformation(StateSpacePtr space) :
+    stateSpace_(std::move(space)), setup_(false)
 {
     if (!stateSpace_)
         throw Exception("Invalid space definition");
@@ -87,11 +88,11 @@ void ompl::base::SpaceInformation::setStateValidityChecker(const StateValidityCh
     public:
 
         BoostFnStateValidityChecker(SpaceInformation *si,
-                                    const StateValidityCheckerFn &fn) : StateValidityChecker(si), fn_(fn)
+                                    StateValidityCheckerFn fn) : StateValidityChecker(si), fn_(std::move(fn))
         {
         }
 
-        virtual bool isValid(const State *state) const
+        bool isValid(const State *state) const override
         {
             return fn_(state);
         }
@@ -189,7 +190,7 @@ bool ompl::base::SpaceInformation::searchValidNearby(State *state, const State *
     else
     {
         // try to find a valid state nearby
-        UniformValidStateSampler *uvss = new UniformValidStateSampler(this);
+        auto *uvss = new UniformValidStateSampler(this);
         uvss->setNrAttempts(attempts);
         return searchValidNearby(ValidStateSamplerPtr(uvss), state, near, distance);
     }
@@ -361,14 +362,14 @@ double ompl::base::SpaceInformation::averageValidMotionLength(unsigned int attem
     attempts = std::max((unsigned int)floor(sqrt((double)attempts) + 0.5), 2u);
 
     StateSamplerPtr ss = allocStateSampler();
-    UniformValidStateSampler *uvss = new UniformValidStateSampler(this);
+    auto *uvss = new UniformValidStateSampler(this);
     uvss->setNrAttempts(attempts);
 
     State *s1 = allocState();
     State *s2 = allocState();
 
     std::pair<State*, double> lastValid;
-    lastValid.first = NULL;
+    lastValid.first = nullptr;
 
     double d = 0.0;
     unsigned int count = 0;
@@ -440,8 +441,8 @@ void ompl::base::SpaceInformation::printProperties(std::ostream &out) const
     out << "  - signature: ";
     std::vector<int> sig;
     stateSpace_->computeSignature(sig);
-    for (std::size_t i = 0 ; i < sig.size() ; ++i)
-        out << sig[i] << " ";
+    for (int i : sig)
+        out << i << " ";
     out << std::endl;
     out << "  - dimension: " << stateSpace_->getDimension() << std::endl;
     out << "  - extent: " << stateSpace_->getMaximumExtent() << std::endl;

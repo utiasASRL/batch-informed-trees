@@ -77,15 +77,15 @@ namespace ompl
 
             /** \brief The data collected from a run of a planner is
                 stored as key-value pairs. */
-            typedef std::map<std::string, std::string> RunProperties;
+            using RunProperties = std::map<std::string, std::string>;
 
-            typedef std::vector<std::map<std::string, std::string> > RunProgressData;
+            using RunProgressData = std::vector<std::map<std::string, std::string>>;
 
             /** \brief Signature of function that can be called before a planner execution is started */
-            typedef boost::function<void(const base::PlannerPtr&)> PreSetupEvent;
+            using PreSetupEvent = std::function<void (const base::PlannerPtr &)>;
 
             /** \brief Signature of function that can be called after a planner execution is completed */
-            typedef boost::function<void(const base::PlannerPtr&, RunProperties&)> PostSetupEvent;
+            using PostSetupEvent = std::function<void (const base::PlannerPtr &, RunProperties &)>;
 
             /** \brief The data collected after running a planner multiple times */
             struct PlannerExperiment
@@ -197,20 +197,18 @@ namespace ompl
             };
 
             /** \brief Constructor needs the SimpleSetup instance needed for planning. Optionally, the experiment name (\e name) can be specified */
-            Benchmark(geometric::SimpleSetup &setup, const std::string &name = std::string()) : gsetup_(&setup), csetup_(NULL)
+            Benchmark(geometric::SimpleSetup &setup, const std::string &name = std::string()) : gsetup_(&setup), csetup_(nullptr)
             {
                 exp_.name = name;
             }
 
             /** \brief Constructor needs the SimpleSetup instance needed for planning. Optionally, the experiment name (\e name) can be specified */
-            Benchmark(control::SimpleSetup &setup, const std::string &name = std::string()) : gsetup_(NULL), csetup_(&setup)
+            Benchmark(control::SimpleSetup &setup, const std::string &name = std::string()) : gsetup_(nullptr), csetup_(&setup)
             {
                 exp_.name = name;
             }
 
-            virtual ~Benchmark()
-            {
-            }
+            virtual ~Benchmark() = default;
 
             /** \brief Add an optional parameter's information to the benchmark output.  Useful for aggregating results
                  over different benchmark instances, e.g., parameter sweep.  \e type is typically "BOOLEAN", "INTEGER",

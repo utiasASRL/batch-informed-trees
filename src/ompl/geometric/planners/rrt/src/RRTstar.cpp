@@ -46,7 +46,6 @@
 #include <algorithm>
 #include <limits>
 #include <boost/math/constants/constants.hpp>
-#include <boost/make_shared.hpp>
 #include <vector>
 
 ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
@@ -58,7 +57,7 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     k_rrg_(0u),
     r_rrg_(0.0),
     delayCC_(true),
-    lastGoalMotion_(NULL),
+    lastGoalMotion_(nullptr),
     useTreePruning_(false),
     pruneThreshold_(0.05),
     usePrunedMeasure_(false),
@@ -91,10 +90,8 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si) :
     Planner::declareParam<bool>("focus_search", this, &RRTstar::setFocusSearch, &RRTstar::getFocusSearch, "0,1");
     Planner::declareParam<bool>("number_sampling_attempts", this, &RRTstar::setNumSamplingAttempts, &RRTstar::getNumSamplingAttempts, "10:10:100000");
 
-    addPlannerProgressProperty("iterations INTEGER",
-                               boost::bind(&RRTstar::numIterationsProperty, this));
-    addPlannerProgressProperty("best cost REAL",
-                               boost::bind(&RRTstar::bestCostProperty, this));
+    addPlannerProgressProperty("iterations INTEGER", [this] { return numIterationsProperty(); });
+    addPlannerProgressProperty("best cost REAL", [this] { return bestCostProperty(); });
 }
 
 ompl::geometric::RRTstar::~RRTstar()
@@ -114,7 +111,7 @@ void ompl::geometric::RRTstar::setup()
 
     if (!nn_)
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion*>(this));
-    nn_->setDistanceFunction(boost::bind(&RRTstar::distanceFunction, this, _1, _2));
+    nn_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
     // Setup optimization objective
     //
@@ -161,7 +158,7 @@ void ompl::geometric::RRTstar::clear()
     if (nn_)
         nn_->clear();
 
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
     goalMotions_.clear();
     startMotions_.clear();
 
@@ -185,7 +182,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         // There are, add them
         while (const base::State *st = pis_.nextStart())
         {
-            Motion *motion = new Motion(si_);
+            auto *motion = new Motion(si_);
             si_->copyState(motion->state, st);
             motion->cost = opt_->identityCost();
             nn_->add(motion);
@@ -220,11 +217,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
     Motion *solution       = lastGoalMotion_;
 
-    Motion *approximation  = NULL;
+    Motion *approximation  = nullptr;
     double approximatedist = std::numeric_limits<double>::infinity();
     bool sufficientlyShort = false;
 
-    Motion *rmotion        = new Motion(si_);
+    auto *rmotion        = new Motion(si_);
     base::State *rstate    = rmotion->state;
     base::State *xstate    = si_->allocState();
 
@@ -284,7 +281,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
         if (si_->checkMotion(nmotion->state, dstate))
         {
             // create a motion
-            Motion *motion = new Motion(si_);
+            auto *motion = new Motion(si_);
             si_->copyState(motion->state, dstate);
             motion->parent = nmotion;
             motion->incCost = opt_->motionCost(nmotion->state, motion->state);
@@ -465,28 +462,28 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
             if (checkForSolution)
             {
                 bool updatedSolution = false;
-                for (size_t i = 0; i < goalMotions_.size(); ++i)
+                for (auto & goalMotion : goalMotions_)
                 {
-                    if (opt_->isCostBetterThan(goalMotions_[i]->cost, bestCost_))
+                    if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
                     {
                         if (opt_->isFinite(bestCost_) == false)
                         {
-                            OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u vertices in the graph)", getName().c_str(), goalMotions_[i]->cost.value(), iterations_, nn_->size());
+                            OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u vertices in the graph)", getName().c_str(), goalMotion->cost.value(), iterations_, nn_->size());
                         }
-                        bestCost_ = goalMotions_[i]->cost;
+                        bestCost_ = goalMotion->cost;
                         updatedSolution = true;
                     }
 
-                    sufficientlyShort = opt_->isSatisfied(goalMotions_[i]->cost);
+                    sufficientlyShort = opt_->isSatisfied(goalMotion->cost);
                     if (sufficientlyShort)
                     {
-                        solution = goalMotions_[i];
+                        solution = goalMotion;
                         break;
                     }
                     else if (!solution ||
-                         opt_->isCostBetterThan(goalMotions_[i]->cost,solution->cost))
+                         opt_->isCostBetterThan(goalMotion->cost,solution->cost))
                     {
-                        solution = goalMotions_[i];
+                        solution = goalMotion;
                         updatedSolution = true;
                     }
                 }
@@ -504,7 +501,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         Motion *intermediate_solution = solution->parent; // Do not include goal state to simplify code.
 
                         //Push back until we find the start, but not the start itself
-                        while (intermediate_solution->parent != NULL)
+                        while (intermediate_solution->parent != nullptr)
                         {
                             spath.push_back(intermediate_solution->state);
                             intermediate_solution = intermediate_solution->parent;
@@ -528,26 +525,26 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
             break;
     }
 
-    bool approximate = (solution == NULL);
+    bool approximate = (solution == nullptr);
     bool addedSolution = false;
     if (approximate)
         solution = approximation;
     else
         lastGoalMotion_ = solution;
 
-    if (solution != NULL)
+    if (solution != nullptr)
     {
         ptc.terminate();
         // construct the solution path
         std::vector<Motion*> mpath;
-        while (solution != NULL)
+        while (solution != nullptr)
         {
             mpath.push_back(solution);
             solution = solution->parent;
         }
 
         // set the solution path
-        PathGeometric *geoPath = new PathGeometric(si_);
+        auto *geoPath = new PathGeometric(si_);
         for (int i = mpath.size() - 1 ; i >= 0 ; --i)
             geoPath->append(mpath[i]->state);
 
@@ -592,7 +589,7 @@ void ompl::geometric::RRTstar::getNeighbors(Motion *motion, std::vector<Motion*>
 
 void ompl::geometric::RRTstar::removeFromParent(Motion *m)
 {
-    for (std::vector<Motion*>::iterator it = m->parent->children.begin ();
+    for (auto it = m->parent->children.begin ();
         it != m->parent->children.end (); ++it)
     {
         if (*it == m)
@@ -618,11 +615,11 @@ void ompl::geometric::RRTstar::freeMemory()
     {
         std::vector<Motion*> motions;
         nn_->list(motions);
-        for (std::size_t i = 0 ; i < motions.size() ; ++i)
+        for (auto & motion : motions)
         {
-            if (motions[i]->state)
-                si_->freeState(motions[i]->state);
-            delete motions[i];
+            if (motion->state)
+                si_->freeState(motion->state);
+            delete motion;
         }
     }
 }
@@ -638,13 +635,13 @@ void ompl::geometric::RRTstar::getPlannerData(base::PlannerData &data) const
     if (lastGoalMotion_)
         data.addGoalVertex(base::PlannerDataVertex(lastGoalMotion_->state));
 
-    for (std::size_t i = 0 ; i < motions.size() ; ++i)
+    for (auto & motion : motions)
     {
-        if (motions[i]->parent == NULL)
-            data.addStartVertex(base::PlannerDataVertex(motions[i]->state));
+        if (motion->parent == nullptr)
+            data.addStartVertex(base::PlannerDataVertex(motion->state));
         else
-            data.addEdge(base::PlannerDataVertex(motions[i]->parent->state),
-                         base::PlannerDataVertex(motions[i]->state));
+            data.addEdge(base::PlannerDataVertex(motion->parent->state),
+                         base::PlannerDataVertex(motion->state));
     }
 }
 
@@ -688,13 +685,13 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
 
         // Put all the starts into the NN structure and their children into the queue:
         // We do this so that start states are never pruned.
-        for (unsigned int i = 0u; i < startMotions_.size(); ++i)
+        for (auto & startMotion : startMotions_)
         {
             // Add to the NN
-            nn_->add(startMotions_.at(i));
+            nn_->add(startMotion);
 
             // Add their children to the queue:
-            addChildrenToList(&motionQueue, startMotions_.at(i));
+            addChildrenToList(&motionQueue, startMotion);
         }
 
         while (motionQueue.empty() == false)
@@ -783,7 +780,7 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
             }
 
             // Now, we need to go through the list of chain vertices and see if any are now leaves
-            std::list<Motion*>::iterator mIter = chainsToRecheck.begin();
+            auto mIter = chainsToRecheck.begin();
             while (mIter != chainsToRecheck.end())
             {
                 // Is the Motion a leaf?
@@ -833,9 +830,9 @@ int ompl::geometric::RRTstar::pruneTree(const base::Cost& pruneTreeCost)
 
 void ompl::geometric::RRTstar::addChildrenToList(std::queue<Motion*, std::deque<Motion*> > *motionList, Motion* motion)
 {
-    for (unsigned int j = 0u; j < motion->children.size(); ++j)
+    for (auto & j : motion->children)
     {
-        motionList->push(motion->children.at(j));
+        motionList->push(j);
     }
 }
 
@@ -855,9 +852,9 @@ ompl::base::Cost ompl::geometric::RRTstar::solutionHeuristic(const Motion *motio
         costToCome = opt_->infiniteCost();
 
         //Find the min from each start
-        for (unsigned int i = 0u; i < startMotions_.size(); ++i)
+        for (auto startMotion : startMotions_)
         {
-            costToCome = opt_->betterCost(costToCome, opt_->motionCost(startMotions_.at(i)->state, motion->state)); // lower-bounding cost from the start to the state
+            costToCome = opt_->betterCost(costToCome, opt_->motionCost(startMotion->state, motion->state)); // lower-bounding cost from the start to the state
         }
     }
     else
@@ -1027,7 +1024,7 @@ void ompl::geometric::RRTstar::allocSampler()
     {
         // We are explicitly using rejection sampling.
         OMPL_INFORM("%s: Using rejection sampling.", getName().c_str());
-        infSampler_ = boost::make_shared<base::RejectionInfSampler>(pdef_, numSampleAttempts_);
+        infSampler_ = std::make_shared<base::RejectionInfSampler>(pdef_, numSampleAttempts_);
     }
     else
     {

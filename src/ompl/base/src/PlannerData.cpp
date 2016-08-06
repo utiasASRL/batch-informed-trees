@@ -44,22 +44,18 @@
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/graphml.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
-#include <boost/version.hpp>
-#if BOOST_VERSION < 105100
-#warning Boost version >=1.51 is needed for ompl::base::PlannerData::printGraphML
-#else
 #include <boost/property_map/function_property_map.hpp>
-#endif
+#include <utility>
 
 // This is a convenient macro to cast the void* graph pointer as the
 // Boost.Graph structure from PlannerDataGraph.h
 #define graph_ reinterpret_cast<ompl::base::PlannerData::Graph*>(graphRaw_)
 
 const ompl::base::PlannerDataEdge   ompl::base::PlannerData::NO_EDGE = ompl::base::PlannerDataEdge();
-const ompl::base::PlannerDataVertex ompl::base::PlannerData::NO_VERTEX = ompl::base::PlannerDataVertex(0);
+const ompl::base::PlannerDataVertex ompl::base::PlannerData::NO_VERTEX = ompl::base::PlannerDataVertex(nullptr);
 const unsigned int ompl::base::PlannerData::INVALID_INDEX = std::numeric_limits<unsigned int>::max();
 
-ompl::base::PlannerData::PlannerData (const SpaceInformationPtr &si) : si_(si)
+ompl::base::PlannerData::PlannerData (SpaceInformationPtr si) : si_(std::move(si))
 {
     graphRaw_ = new Graph();
 }
@@ -71,7 +67,7 @@ ompl::base::PlannerData::~PlannerData ()
     if (graph_)
     {
         delete graph_;
-        graphRaw_ = NULL;
+        graphRaw_ = nullptr;
     }
 }
 
@@ -265,14 +261,6 @@ void ompl::base::PlannerData::printGraphviz (std::ostream& out) const
 
 namespace
 {
-    // Property map for extracting the edge weight of a graph edge as
-    // a double for printGraphML.
-    double edgeWeightAsDouble(ompl::base::PlannerData::Graph::Type &g,
-                              ompl::base::PlannerData::Graph::Edge e)
-    {
-        return get(boost::edge_weight_t(), g)[e].value();
-    }
-
     // Property map for extracting states as arrays of doubles
     std::string vertexCoords (ompl::base::PlannerData::Graph::Type &g,
                               ompl::base::ScopedState<>& s,
@@ -293,9 +281,6 @@ namespace
 
 void ompl::base::PlannerData::printGraphML (std::ostream& out) const
 {
-#if BOOST_VERSION < 105100
-    OMPL_WARN("Boost version >=1.51 is needed for ompl::base::PlannerData::printGraphML");
-#else
     // For some reason, make_function_property_map can't infer its
     // template arguments corresponding to edgeWeightAsDouble's type
     // signature. So, we have to use this horribly verbose
@@ -303,18 +288,13 @@ void ompl::base::PlannerData::printGraphML (std::ostream& out) const
     //
     // \todo Can we use make_function_property_map() here and have it
     // infer the property template arguments?
-    boost::function_property_map<
-        boost::function<double (ompl::base::PlannerData::Graph::Edge)>,
-        ompl::base::PlannerData::Graph::Edge,
-        double>
-        weightmap(boost::bind(&edgeWeightAsDouble, *graph_, _1));
+    using Edge = ompl::base::PlannerData::Graph::Edge;
+    boost::function_property_map<std::function<double(Edge)>, Edge>
+        weightmap([this](Edge e) { return get(boost::edge_weight_t(), *graph_)[e].value(); });
     ompl::base::ScopedState<> s(si_);
-    boost::function_property_map<
-        boost::function<std::string (ompl::base::PlannerData::Graph::Vertex)>,
-        ompl::base::PlannerData::Graph::Vertex,
-        std::string >
-        coordsmap(boost::bind(&vertexCoords, *graph_, s, _1));
-
+    using Vertex = ompl::base::PlannerData::Graph::Vertex;
+    boost::function_property_map<std::function<std::string(Vertex)>, Vertex>
+        coordsmap([this, &s](Vertex v) { return vertexCoords(*graph_, s, v); });
 
     // Not writing vertex or edge structures.
     boost::dynamic_properties dp;
@@ -322,12 +302,11 @@ void ompl::base::PlannerData::printGraphML (std::ostream& out) const
     dp.property("coords", coordsmap);
 
     boost::write_graphml(out, *graph_, dp);
-#endif
 }
 
 unsigned int ompl::base::PlannerData::vertexIndex (const PlannerDataVertex &v) const
 {
-    std::map<const State*, unsigned int>::const_iterator it = stateIndexMap_.find(v.getState());
+    auto it = stateIndexMap_.find(v.getState());
     if (it != stateIndexMap_.end())
         return it->second;
     return INVALID_INDEX;
@@ -404,7 +383,7 @@ ompl::base::PlannerDataVertex& ompl::base::PlannerData::getGoalVertex (unsigned 
 unsigned int ompl::base::PlannerData::addVertex (const PlannerDataVertex &st)
 {
     // Do not add vertices with null states
-    if (st.getState() == NULL)
+    if (st.getState() == nullptr)
         return INVALID_INDEX;
 
     unsigned int index = vertexIndex(st);
@@ -514,19 +493,19 @@ bool ompl::base::PlannerData::removeVertex (unsigned int vIndex)
          stateIndexMap_[vertices[boost::vertex(i, *graph_)]->getState()]--;
 
     // Remove this vertex from the start and/or goal index list, if it exists.  Update the lists.
-    std::vector<unsigned int>::iterator it = std::find(startVertexIndices_.begin(), startVertexIndices_.end(), vIndex);
+    auto it = std::find(startVertexIndices_.begin(), startVertexIndices_.end(), vIndex);
     if (it != startVertexIndices_.end())
         startVertexIndices_.erase(it);
-    for (size_t i = 0; i < startVertexIndices_.size(); ++i)
-        if (startVertexIndices_[i] > vIndex)
-            startVertexIndices_[i]--;
+    for (unsigned int & startVertexIndex : startVertexIndices_)
+        if (startVertexIndex > vIndex)
+            startVertexIndex--;
 
     it = std::find(goalVertexIndices_.begin(), goalVertexIndices_.end(), vIndex);
     if (it != goalVertexIndices_.end())
         goalVertexIndices_.erase(it);
-    for (size_t i = 0; i < goalVertexIndices_.size(); ++i)
-        if (goalVertexIndices_[i] > vIndex)
-            goalVertexIndices_[i]--;
+    for (unsigned int & goalVertexIndex : goalVertexIndices_)
+        if (goalVertexIndex > vIndex)
+            goalVertexIndex--;
 
     // If the state attached to this vertex was decoupled, free it here
     State *vtxState = const_cast<State*>(getVertex(vIndex).getState());
@@ -534,7 +513,7 @@ bool ompl::base::PlannerData::removeVertex (unsigned int vIndex)
     {
         decoupledStates_.erase(vtxState);
         si_->freeState(vtxState);
-        vtxState = NULL;
+        vtxState = nullptr;
     }
 
     // Slay the vertex
@@ -645,15 +624,6 @@ void ompl::base::PlannerData::computeEdgeWeights ()
     computeEdgeWeights(opt);
 }
 
-namespace
-{
-    // Used in minimum spanning tree
-    ompl::base::Cost project2nd (ompl::base::Cost /*unused*/, ompl::base::Cost second)
-    {
-        return second;
-    }
-}
-
 void ompl::base::PlannerData::extractMinimumSpanningTree (unsigned int v,
                                                           const base::OptimizationObjective &opt,
                                                           base::PlannerData &mst) const
@@ -670,9 +640,8 @@ void ompl::base::PlannerData::extractMinimumSpanningTree (unsigned int v,
     boost::dijkstra_shortest_paths
         (*graph_, v,
          boost::predecessor_map(&pred[0]).
-         distance_compare(boost::bind(&base::OptimizationObjective::
-                                      isCostBetterThan, &opt, _1, _2)).
-         distance_combine(&project2nd).
+         distance_compare([&opt](Cost c1, Cost c2) { return opt.isCostBetterThan(c1, c2); }).
+         distance_combine([] (Cost, Cost c) { return c; }).
          distance_inf(opt.infiniteCost()).
          distance_zero(opt.identityCost()));
 
@@ -721,34 +690,34 @@ void ompl::base::PlannerData::extractReachable(unsigned int v, base::PlannerData
 
     // Depth-first traversal of reachable graph
     std::map<unsigned int, const PlannerDataEdge*>::iterator it;
-    for (it = neighbors.begin(); it != neighbors.end(); ++it)
+    for (auto & it : neighbors)
     {
-        extractReachable(it->first, data);
+        extractReachable(it.first, data);
         Cost weight;
-        getEdgeWeight(v, it->first, &weight);
-        data.addEdge(idx, data.vertexIndex(getVertex(it->first)), *(it->second), weight);
+        getEdgeWeight(v, it.first, &weight);
+        data.addEdge(idx, data.vertexIndex(getVertex(it.first)), *it.second, weight);
     }
 }
 
 ompl::base::StateStoragePtr ompl::base::PlannerData::extractStateStorage() const
 {
-    GraphStateStorage *store = new GraphStateStorage(si_->getStateSpace());
+    auto *store = new GraphStateStorage(si_->getStateSpace());
     if (graph_)
     {
         // copy the states
         std::map<unsigned int, unsigned int> indexMap;
-        for (std::map<const State*, unsigned int>::const_iterator it = stateIndexMap_.begin() ; it != stateIndexMap_.end() ; ++it)
+        for (const auto & it : stateIndexMap_)
         {
-            indexMap[it->second] = store->size();
-            store->addState(it->first);
+            indexMap[it.second] = store->size();
+            store->addState(it.first);
         }
 
         // add the edges
-        for (std::map<unsigned int, unsigned int>::const_iterator it = indexMap.begin() ; it != indexMap.end() ; ++it)
+        for (const auto & it : indexMap)
         {
             std::vector<unsigned int> edgeList;
-            getEdges(it->first, edgeList);
-            GraphStateStorage::MetadataType &md = store->getMetadata(it->second);
+            getEdges(it.first, edgeList);
+            GraphStateStorage::MetadataType &md = store->getMetadata(it.second);
             md.resize(edgeList.size());
             // map node indices to index values in StateStorage
             for (std::size_t k = 0 ; k < edgeList.size() ; ++k)
@@ -778,8 +747,8 @@ const ompl::base::SpaceInformationPtr& ompl::base::PlannerData::getSpaceInformat
 void ompl::base::PlannerData::freeMemory()
 {
     // Freeing decoupled states, if any
-    for (std::set<State*>::iterator it = decoupledStates_.begin(); it != decoupledStates_.end(); ++it)
-        si_->freeState(*it);
+    for (auto decoupledState : decoupledStates_)
+        si_->freeState(decoupledState);
 
     if (graph_)
     {

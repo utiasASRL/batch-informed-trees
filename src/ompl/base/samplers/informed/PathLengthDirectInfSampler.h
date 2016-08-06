@@ -82,27 +82,27 @@ namespace ompl
         public:
 
             /** \brief Construct a sampler that only generates states with a heuristic solution estimate that is less than the cost of the current solution using a direct ellipsoidal method. */
-            PathLengthDirectInfSampler(const ProblemDefinitionPtr probDefn, unsigned int maxNumberCalls);
-            virtual ~PathLengthDirectInfSampler();
+            PathLengthDirectInfSampler(const ProblemDefinitionPtr& probDefn, unsigned int maxNumberCalls);
+            ~PathLengthDirectInfSampler() override;
 
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are less than the provided cost, i.e. in the interval [0, maxCost). Returns false if such a state was not found in the specified number of iterations. */
-            virtual bool sampleUniform(State *statePtr, const Cost &maxCost);
+            bool sampleUniform(State *statePtr, const Cost &maxCost) override;
 
             /** \brief Sample uniformly in the subset of the state space whose heuristic solution estimates are between the provided costs, [minCost, maxCost). Returns false if such a state was not found in the specified number of iterations. */
-            virtual bool sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost);
+            bool sampleUniform(State *statePtr, const Cost &minCost, const Cost &maxCost) override;
 
             /** \brief Whether the sampler can provide a measure of the informed subset */
-            virtual bool hasInformedMeasure() const;
+            bool hasInformedMeasure() const override;
 
             /** \brief The measure of the subset of the state space defined by the current solution cost that is being searched. Does not consider problem boundaries but returns the measure of the entire space if no solution has been found. In the case of multiple goals, this measure assume each individual subset is independent, therefore the resulting measure will be an overestimate if any of the subsets overlap. */
-            virtual double getInformedMeasure(const Cost &currentCost) const;
+            double getInformedMeasure(const Cost &currentCost) const override;
 
             /** \brief A helper function to calculate the heuristic estimate of the solution cost for the informed subset of a given state. */
-            virtual Cost heuristicSolnCost(const State *statePtr) const;
+            Cost heuristicSolnCost(const State *statePtr) const override;
 
         private:
             /** \brief A constant pointer to ProlateHyperspheroid */
-            typedef boost::shared_ptr<const ompl::ProlateHyperspheroid> ProlateHyperspheroidCPtr;
+            using ProlateHyperspheroidCPtr = std::shared_ptr<const ompl::ProlateHyperspheroid>;
 
             // Helper functions:
             // High level
@@ -134,7 +134,7 @@ namespace ompl
             /** \brief Iterate through the list of PHSs and return true if the sample is in any of them */
             bool isInAnyPhs(const std::vector<double>& informedVector) const;
 
-            /** \brief Return true if the sample is in the specified PHS. Really just a wrapper to aid with boost::bind */
+            /** \brief Return true if the sample is in the specified PHS. */
             bool isInPhs(const ProlateHyperspheroidCPtr &phsCPtr, const std::vector<double> &informedVector) const;
 
             /** \brief Iterate through the list of PHSs and return the number of PHSs that the sample is in */

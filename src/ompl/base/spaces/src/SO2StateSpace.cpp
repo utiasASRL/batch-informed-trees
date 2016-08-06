@@ -180,12 +180,12 @@ void ompl::base::SO2StateSpace::registerProjections()
         {
         }
 
-        virtual unsigned int getDimension() const
+        unsigned int getDimension() const override
         {
             return 1;
         }
 
-        virtual void defaultCellSizes()
+        void defaultCellSizes() override
         {
             cellSizes_.resize(1);
             cellSizes_[0] = boost::math::constants::pi<double>() / magic::PROJECTION_DIMENSION_SPLITS;
@@ -194,7 +194,7 @@ void ompl::base::SO2StateSpace::registerProjections()
             bounds_.high[0] = boost::math::constants::pi<double>();
         }
 
-        virtual void project(const State *state, EuclideanProjection &projection) const
+        void project(const State *state, EuclideanProjection &projection) const override
         {
             projection(0) = state->as<SO2StateSpace::StateType>()->value;
         }
@@ -205,7 +205,7 @@ void ompl::base::SO2StateSpace::registerProjections()
 
 double* ompl::base::SO2StateSpace::getValueAddressAtIndex(State *state, const unsigned int index) const
 {
-    return index == 0 ? &(state->as<StateType>()->value) : NULL;
+    return index == 0 ? &(state->as<StateType>()->value) : nullptr;
 }
 
 void ompl::base::SO2StateSpace::printState(const State *state, std::ostream &out) const
@@ -214,7 +214,7 @@ void ompl::base::SO2StateSpace::printState(const State *state, std::ostream &out
     if (state)
         out << state->as<StateType>()->value;
     else
-        out << "NULL";
+        out << "nullptr";
     out << ']' << std::endl;
 }
 

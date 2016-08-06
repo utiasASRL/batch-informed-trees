@@ -57,7 +57,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::control::SimpleSetupPtr
-            \brief A boost shared pointer wrapper for ompl::control::SimpleSetup */
+            \brief A shared pointer wrapper for ompl::control::SimpleSetup */
 
         /** \brief Create the set of classes typically needed to solve a
             control problem */
@@ -73,9 +73,7 @@ namespace ompl
             explicit
             SimpleSetup(const ControlSpacePtr &space);
 
-            virtual ~SimpleSetup()
-            {
-            }
+            virtual ~SimpleSetup() = default;
 
             /** \brief Get the current instance of the space information */
             const SpaceInformationPtr& getSpaceInformation() const

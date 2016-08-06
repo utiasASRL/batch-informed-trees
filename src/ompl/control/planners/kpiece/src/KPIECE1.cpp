@@ -51,8 +51,8 @@ ompl::control::KPIECE1::KPIECE1(const SpaceInformationPtr &si) : base::Planner(s
     selectBorderFraction_ = 0.8;
     badScoreFactor_ = 0.45;
     goodScoreFactor_ = 0.9;
-    tree_.grid.onCellUpdate(computeImportance, NULL);
-    lastGoalMotion_ = NULL;
+    tree_.grid.onCellUpdate(computeImportance, nullptr);
+    lastGoalMotion_ = nullptr;
 
     Planner::declareParam<double>("goal_bias", this, &KPIECE1::setGoalBias, &KPIECE1::getGoalBias, "0.:.05:1.");
     Planner::declareParam<double>("border_fraction", this, &KPIECE1::setBorderFraction, &KPIECE1::getBorderFraction, "0.:0.05:1.");
@@ -90,7 +90,7 @@ void ompl::control::KPIECE1::clear()
     tree_.grid.clear();
     tree_.size = 0;
     tree_.iteration = 1;
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
 }
 
 void ompl::control::KPIECE1::freeMemory()
@@ -100,14 +100,14 @@ void ompl::control::KPIECE1::freeMemory()
 
 void ompl::control::KPIECE1::freeGridMotions(Grid &grid)
 {
-    for (Grid::iterator it = grid.begin(); it != grid.end() ; ++it)
-        freeCellData(it->second->data);
+    for (const auto & it : grid)
+        freeCellData(it.second->data);
 }
 
 void ompl::control::KPIECE1::freeCellData(CellData *cdata)
 {
-    for (unsigned int i = 0 ; i < cdata->motions.size() ; ++i)
-        freeMotion(cdata->motions[i]);
+    for (auto & motion : cdata->motions)
+        freeMotion(motion);
     delete cdata;
 }
 
@@ -182,7 +182,7 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
 
     while (const base::State *st = pis_.nextStart())
     {
-        Motion *motion = new Motion(siC_);
+        auto *motion = new Motion(siC_);
         si_->copyState(motion->state, st);
         siC_->nullControl(motion->control);
         addMotion(motion, 1.0);
@@ -199,8 +199,8 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
 
     OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), tree_.size);
 
-    Motion *solution  = NULL;
-    Motion *approxsol = NULL;
+    Motion *solution  = nullptr;
+    Motion *approxsol = nullptr;
     double  approxdif = std::numeric_limits<double>::infinity();
 
     Control *rctrl = siC_->allocControl();
@@ -209,8 +209,8 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
     std::vector<Grid::Coord>  coords(states.size());
     std::vector<Grid::Cell*>  cells(coords.size());
 
-    for (unsigned int i = 0 ; i < states.size() ; ++i)
-        states[i] = si_->allocState();
+    for (auto & state : states)
+        state = si_->allocState();
 
     // samples that were found to be the best, so far
     CloseSamples closeSamples(nCloseSamples_);
@@ -220,8 +220,8 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
         tree_.iteration++;
 
         /* Decide on a state to expand from */
-        Motion     *existing = NULL;
-        Grid::Cell *ecell = NULL;
+        Motion     *existing = nullptr;
+        Grid::Cell *ecell = nullptr;
 
         if (closeSamples.canSample() && rng_.uniform01() < goalBias_)
         {
@@ -265,7 +265,7 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
                 while (index < cd)
                 {
                     unsigned int nextIndex = findNextMotion(coords, index, cd);
-                    Motion *motion = new Motion(siC_);
+                    auto *motion = new Motion(siC_);
                     si_->copyState(motion->state, states[nextIndex]);
                     siC_->copyControl(motion->control, rctrl);
                     motion->steps = nextIndex - index + 1;
@@ -309,26 +309,26 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
 
     bool solved = false;
     bool approximate = false;
-    if (solution == NULL)
+    if (solution == nullptr)
     {
         solution = approxsol;
         approximate = true;
     }
 
-    if (solution != NULL)
+    if (solution != nullptr)
     {
         lastGoalMotion_ = solution;
 
         /* construct the solution path */
         std::vector<Motion*> mpath;
-        while (solution != NULL)
+        while (solution != nullptr)
         {
             mpath.push_back(solution);
             solution = solution->parent;
         }
 
         /* set the solution path */
-        PathControl *path = new PathControl(si_);
+        auto *path = new PathControl(si_);
         for (int i = mpath.size() - 1 ; i >= 0 ; --i)
             if (mpath[i]->parent)
                 path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC_->getPropagationStepSize());
@@ -340,8 +340,8 @@ ompl::base::PlannerStatus ompl::control::KPIECE1::solve(const base::PlannerTermi
     }
 
     siC_->freeControl(rctrl);
-    for (unsigned int i = 0 ; i < states.size() ; ++i)
-        si_->freeState(states[i]);
+    for (auto & state : states)
+        si_->freeState(state);
 
     OMPL_INFORM("%s: Created %u states in %u cells (%u internal + %u external)",
                 getName().c_str(), tree_.size, tree_.grid.size(),
@@ -363,8 +363,8 @@ bool ompl::control::KPIECE1::selectMotion(Motion* &smotion, Grid::Cell* &scell)
         std::vector<CellData*> content;
         content.reserve(tree_.grid.size());
         tree_.grid.getContent(content);
-        for (std::vector<CellData*>::iterator it = content.begin() ; it != content.end() ; ++it)
-            (*it)->score += 1.0 + log((double)((*it)->iteration));
+        for (auto & it : content)
+            it->score += 1.0 + log((double)(it->iteration));
         tree_.grid.updateAll();
     }
 
@@ -421,26 +421,25 @@ void ompl::control::KPIECE1::getPlannerData(base::PlannerData &data) const
     if (lastGoalMotion_)
         data.addGoalVertex(base::PlannerDataVertex(lastGoalMotion_->state));
 
-    for (unsigned int i = 0 ; i < cells.size() ; ++i)
+    for (auto & cell : cells)
     {
-        for (unsigned int j = 0 ; j < cells[i]->data->motions.size() ; ++j)
+        for (const auto & m : cell->data->motions)
         {
-            const Motion *m = cells[i]->data->motions[j];
             if (m->parent)
             {
                 if (data.hasControls())
                     data.addEdge(base::PlannerDataVertex (m->parent->state),
-                                 base::PlannerDataVertex (m->state, cells[i]->border ? 2 : 1),
+                                 base::PlannerDataVertex (m->state, cell->border ? 2 : 1),
                                  control::PlannerDataEdgeControl (m->control, m->steps * delta));
                 else
                     data.addEdge(base::PlannerDataVertex (m->parent->state),
-                                 base::PlannerDataVertex (m->state, cells[i]->border ? 2 : 1));
+                                 base::PlannerDataVertex (m->state, cell->border ? 2 : 1));
             }
             else
-                data.addStartVertex(base::PlannerDataVertex (m->state, cells[i]->border ? 2 : 1));
+                data.addStartVertex(base::PlannerDataVertex (m->state, cell->border ? 2 : 1));
 
             // A state created as a parent first may have an improper tag variable
-            data.tagState(m->state, cells[i]->border ? 2 : 1);
+            data.tagState(m->state, cell->border ? 2 : 1);
         }
     }
 }

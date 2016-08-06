@@ -58,7 +58,6 @@
 #include "ompl/geometric/planners/rrt/RRTConnect.h"
 #include "ompl/geometric/planners/rrt/pRRT.h"
 #include "ompl/geometric/planners/rrt/LazyRRT.h"
-#include "ompl/geometric/planners/est/EST.h"
 #include "ompl/geometric/planners/prm/PRM.h"
 
 #if OMPL_VERSION_VALUE >= 12000
@@ -74,6 +73,12 @@
 
 #if OMPL_VERSION_VALUE >= 14000
 #include "ompl/geometric/planners/stride/STRIDE.h"
+#endif
+
+#if OMPL_VERSION_VALUE >= 1002000
+#include "ompl/geometric/planners/est/EST.h"
+#include "ompl/geometric/planners/est/BiEST.h"
+#include "ompl/geometric/planners/est/ProjEST.h"
 #endif
 
 using namespace ompl;
@@ -121,18 +126,18 @@ void addAllPlanners(Benchmark &b, geometric::SimpleSetup &ss)
 
 // Setup a problem from the known set of problems included with the regression tests.
 template<unsigned int PROBLEM>
-boost::shared_ptr<geometric::SimpleSetup> setupProblem()
+std::shared_ptr<geometric::SimpleSetup> setupProblem()
 {
     if (PROBLEM == CIRCLES_ID)
         return setupCirclesProblem(0);
     fprintf(stderr, "Unknown problem '%d'", PROBLEM);
-    return boost::shared_ptr<geometric::SimpleSetup>();
+    return std::shared_ptr<geometric::SimpleSetup>();
 }
 
 template<unsigned int PROBLEM>
 void runProblem(double runtime_limit, double memory_limit, int run_count)
 {
-    boost::shared_ptr<geometric::SimpleSetup> ss = setupProblem<PROBLEM>();
+    std::shared_ptr<geometric::SimpleSetup> ss = setupProblem<PROBLEM>();
     if (ss)
     {
         const std::string exp_name = problemName<PROBLEM>();

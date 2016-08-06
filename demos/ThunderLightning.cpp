@@ -67,7 +67,7 @@ public:
         }
         if (ok)
         {
-            ob::RealVectorStateSpace *space = new ob::RealVectorStateSpace();
+            auto *space = new ob::RealVectorStateSpace();
             space->addDimension(0.0, ppm_.getWidth());
             space->addDimension(0.0, ppm_.getHeight());
             maxWidth_ = ppm_.getWidth() - 1;
@@ -83,7 +83,8 @@ public:
                 expPlanner_->setFilePath("lightning.db");
             }
             // set state validity checking for this space
-            expPlanner_->setStateValidityChecker(boost::bind(&Plane2DEnvironment::isStateValid, this, _1));
+            expPlanner_->setStateValidityChecker([this](const ob::State *state)
+                { return isStateValid(state); });
             space->setup();
             expPlanner_->getSpaceInformation()->setStateValidityCheckingResolution(1.0 / space->getMaximumExtent());
             vss_ = expPlanner_->getSpaceInformation()->allocValidStateSampler();
@@ -91,7 +92,7 @@ public:
             // DTC
             //experience_setup_->setPlanner(ob::PlannerPtr(new og::RRTConnect( si_ )));
             // Set the repair planner
-            // boost::shared_ptr<og::RRTConnect> repair_planner( new og::RRTConnect( si_ ) );
+            // std::shared_ptr<og::RRTConnect> repair_planner( new og::RRTConnect( si_ ) );
             // experience_setup_->setRepairPlanner(ob::PlannerPtr( repair_planner ));
         }
     }

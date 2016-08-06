@@ -84,13 +84,13 @@ namespace ompl
             /** \brief Constructor */
             TRRT(const base::SpaceInformationPtr &si);
 
-            virtual ~TRRT();
+            ~TRRT() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &plannerTerminationCondition);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &plannerTerminationCondition) override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Set the goal bias
 
@@ -139,7 +139,7 @@ namespace ompl
             }
 
             /** \brief Get the factor by which the temperature rises based on current acceptance/rejection rate */
-            double getTempChangeFactor( void ) const
+            double getTempChangeFactor( ) const
             {
                 return log(tempChangeFactor_);
             }
@@ -168,7 +168,7 @@ namespace ompl
             }
 
             /** \brief Get the temperature at the start of planning. */
-            double getInitTemperature( void ) const
+            double getInitTemperature( ) const
             {
                 return initTemperature_;
             }
@@ -182,7 +182,7 @@ namespace ompl
 
             /** \brief Get the distance between a new state and the nearest neighbor
                 that qualifies that state as being a frontier */
-            double getFrontierThreshold( void ) const
+            double getFrontierThreshold( ) const
             {
                 return frontierThreshold_;
             }
@@ -196,7 +196,7 @@ namespace ompl
 
             /** \brief Get the ratio between adding nonfrontier nodes to frontier nodes,
                 for example .1 is 1/10 or one nonfrontier node for every 10 frontier nodes added */
-            double getFrontierNodeRatio( void ) const
+            double getFrontierNodeRatio( ) const
             {
                 return frontierNodeRatio_;
             }
@@ -208,7 +208,7 @@ namespace ompl
                 nearestNeighbors_.reset(new NN<Motion*>());
             }
 
-            virtual void setup();
+            void setup() override;
 
         protected:
 
@@ -221,18 +221,16 @@ namespace ompl
             {
             public:
 
-                Motion() : state(NULL), parent(NULL)
+                Motion() : state(nullptr), parent(nullptr)
                 {
                 }
 
                 /** \brief Constructor that allocates memory for the state */
-                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(NULL)
+                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(nullptr)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The state contained by the motion */
                 base::State       *state;
@@ -266,7 +264,7 @@ namespace ompl
             base::StateSamplerPtr                          sampler_;
 
             /** \brief A nearest-neighbors datastructure containing the tree of motions */
-            boost::shared_ptr< NearestNeighbors<Motion*> > nearestNeighbors_;
+            std::shared_ptr< NearestNeighbors<Motion*> > nearestNeighbors_;
 
             /** \brief The fraction of time the goal is picked as the state to expand towards (if such a state is available) */
             double                                         goalBias_;

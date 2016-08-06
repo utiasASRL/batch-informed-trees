@@ -58,7 +58,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::ThunderRetrieveRepairPtr
-            \brief A boost shared pointer wrapper for ompl::base::ThunderRetrieveRepair */
+            \brief A shared pointer wrapper for ompl::base::ThunderRetrieveRepair */
 
         /**
            @anchor ThunderRetrieveRepair
@@ -77,12 +77,12 @@ namespace ompl
         public:
 
             /** \brief Constructor */
-            ThunderRetrieveRepair(const base::SpaceInformationPtr &si, const tools::ThunderDBPtr &experienceDB);
+            ThunderRetrieveRepair(const base::SpaceInformationPtr &si, tools::ThunderDBPtr experienceDB);
 
-            virtual ~ThunderRetrieveRepair(void);
+            ~ThunderRetrieveRepair() override;
 
             /** \brief Get information about the exploration data structure the planning from scratch motion planner used. */
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /**
              *  \brief Get debug information about the top recalled paths that were chosen for further filtering
@@ -105,9 +105,9 @@ namespace ompl
             /** \brief Get information about the exploration data structure the repair motion planner used each call. */
             void getRepairPlannerDatas(std::vector<base::PlannerDataPtr> &data) const;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear(void);
+            void clear() override;
 
             /**
              * \brief Pass a pointer of the database from the thunder framework
@@ -117,7 +117,7 @@ namespace ompl
             /** \brief Set the planner that will be used for repairing invalid paths recalled from experience */
             void setRepairPlanner(const base::PlannerPtr &planner);
 
-            virtual void setup(void);
+            void setup() override;
 
             /**
              * \brief Repairs a path to be valid in the current planning environment
@@ -166,7 +166,7 @@ namespace ompl
             std::size_t checkMotionScore(const base::State *s1, const base::State *s2) const;
 
             /** \brief Free the memory allocated by this planner */
-            void freeMemory(void);
+            void freeMemory();
 
             /** \brief The database of motions to search through */
             tools::ThunderDBPtr                          experienceDB_;

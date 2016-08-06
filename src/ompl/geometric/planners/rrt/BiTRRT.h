@@ -68,11 +68,11 @@ namespace ompl
         public:
             /// Constructor
             BiTRRT(const base::SpaceInformationPtr& si);
-            virtual ~BiTRRT();
-            virtual void clear();
-            virtual void setup();
-            virtual void getPlannerData(base::PlannerData &data) const;
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            ~BiTRRT() override;
+            void clear() override;
+            void setup() override;
+            void getPlannerData(base::PlannerData &data) const override;
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
             /// \brief Set the maximum possible length of any one motion in
             ///  the search tree.  Very short/long motions may inhibit
@@ -179,12 +179,12 @@ namespace ompl
             public:
 
                 /// \brief Default constructor
-                Motion() : state(NULL), parent(NULL), root(NULL) {}
+                Motion() : state(nullptr), parent(nullptr), root(nullptr) {}
 
                 /// \brief Constructor that allocates memory for the state
-                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(NULL), root(NULL) {}
+                Motion(const base::SpaceInformationPtr &si) : state(si->allocState()), parent(nullptr), root(nullptr) {}
 
-                ~Motion() {}
+                ~Motion() = default;
 
 
                 /// \brief The state contained by the motion
@@ -207,11 +207,11 @@ namespace ompl
 
             /// \brief The nearest-neighbors data structure that contains the
             /// entire the tree of motions generated during planning.
-            typedef boost::shared_ptr< NearestNeighbors<Motion*> > TreeData;
+            using TreeData = std::shared_ptr<NearestNeighbors<Motion *> >;
 
             /// \brief Add a state to the given tree.  The motion created
             /// is returned.
-            Motion* addMotion(const base::State* state, TreeData& tree, Motion* parent = NULL);
+            Motion* addMotion(const base::State* state, TreeData& tree, Motion* parent = nullptr);
 
             /// \brief Transition test that filters transitions based on the
             /// motion cost.  If the motion cost is near or below zero, the motion

@@ -42,7 +42,7 @@
 #include "ompl/geometric/planners/PlannerIncludes.h"
 #include "ompl/tools/config/SelfConfig.h"
 
-#include <boost/thread.hpp>
+#include <mutex>
 
 #include <vector>
 
@@ -81,17 +81,17 @@ namespace ompl
 
             CForest(const base::SpaceInformationPtr &si);
 
-            virtual ~CForest();
+            ~CForest() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Add an specific planner instance. */
             template <class T>
             void addPlannerInstance()
             {
-                base::CForestStateSpaceWrapper *cfspace = new base::CForestStateSpaceWrapper(this, si_->getStateSpace().get());
+                auto *cfspace = new base::CForestStateSpaceWrapper(this, si_->getStateSpace().get());
                 base::StateSpacePtr space(cfspace);
                 base::SpaceInformationPtr si(new base::SpaceInformation(space));
                 si->setStateValidityChecker(si_->getStateValidityChecker());
@@ -125,11 +125,11 @@ namespace ompl
                 return planners_[idx];
             }
 
-            virtual void setup();
+            void setup() override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            void addSampler(base::StateSamplerPtr sampler)
+            void addSampler(const base::StateSamplerPtr& sampler)
             {
                 addSamplerMutex_.lock();
                 samplers_.push_back(sampler);
@@ -189,7 +189,7 @@ namespace ompl
             std::vector<base::StateSamplerPtr>           samplers_;
 
             /** \brief Stores the states already shared to check if a specific state has been shared. */
-            boost::unordered_set<const base::State *>    statesShared_;
+            std::unordered_set<const base::State *>      statesShared_;
 
             /** \brief Cost of the best path found so far among planners. */
             base::Cost                                   bestCost_;
@@ -201,10 +201,10 @@ namespace ompl
             unsigned int                                 numStatesShared_;
 
             /** \brief Mutex to control the access to the newSolutionFound() method. */
-            boost::mutex                                 newSolutionFoundMutex_;
+            std::mutex                                   newSolutionFoundMutex_;
 
             /** \brief Mutex to control the access to samplers_ */
-            boost::mutex                                 addSamplerMutex_;
+            std::mutex                                   addSamplerMutex_;
 
             /** \brief Flag to control whether the search is focused. */
             bool                                         focusSearch_;

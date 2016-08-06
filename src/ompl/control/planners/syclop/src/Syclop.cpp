@@ -49,9 +49,13 @@ void ompl::control::Syclop::setup()
 {
     base::Planner::setup();
     if (!leadComputeFn)
-        setLeadComputeFn(boost::bind(&ompl::control::Syclop::defaultComputeLead, this, _1, _2, _3));
+        setLeadComputeFn(
+            [this](int startRegion, int goalRegion, std::vector<int>& lead)
+            {
+                defaultComputeLead(startRegion, goalRegion, lead);
+            });
     buildGraph();
-    addEdgeCostFactor(boost::bind(&ompl::control::Syclop::defaultEdgeCost, this, _1, _2));
+    addEdgeCostFactor([this](int r, int s) { return defaultEdgeCost(r,s); });
 }
 
 void ompl::control::Syclop::clear()
@@ -105,7 +109,7 @@ ompl::base::PlannerStatus ompl::control::Syclop::solve(const base::PlannerTermin
     OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), numMotions_);
 
     std::vector<Motion*> newMotions;
-    const Motion *solution = NULL;
+    const Motion *solution = nullptr;
     base::Goal *goal = pdef_->getGoal().get();
     double goalDist = std::numeric_limits<double>::infinity();
     bool solved = false;
@@ -172,7 +176,7 @@ ompl::base::PlannerStatus ompl::control::Syclop::solve(const base::PlannerTermin
                     }
 
                     /* If this region already exists in availDist, update its weight. */
-                    if (newRegionObj.pdfElem != NULL)
+                    if (newRegionObj.pdfElem != nullptr)
                         availDist_.update(newRegionObj.pdfElem, newRegionObj.weight);
                     /* Otherwise, only add this region to availDist
                        if it already exists in the lead. */
@@ -188,15 +192,15 @@ ompl::base::PlannerStatus ompl::control::Syclop::solve(const base::PlannerTermin
         }
     }
     bool addedSolution = false;
-    if (solution != NULL)
+    if (solution != nullptr)
     {
         std::vector<const Motion*> mpath;
-        while (solution != NULL)
+        while (solution != nullptr)
         {
             mpath.push_back(solution);
             solution = solution->parent;
         }
-        PathControl *path = new PathControl(si_);
+        auto *path = new PathControl(si_);
         for (int i = mpath.size()-1; i >= 0; --i)
             if (mpath[i]->parent)
                 path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC_->getPropagationStepSize());
@@ -229,7 +233,7 @@ void ompl::control::Syclop::initRegion(Region &r)
     r.volume = 1.0;
     r.percentValidCells = 1.0;
     r.freeVolume = 1.0;
-    r.pdfElem = NULL;
+    r.pdfElem = nullptr;
 }
 
 void ompl::control::Syclop::setupRegionEstimates()
@@ -299,9 +303,8 @@ void ompl::control::Syclop::setupEdgeEstimates()
 void ompl::control::Syclop::updateEdge(Adjacency &a)
 {
     a.cost = 1.0;
-    for (std::vector<EdgeCostFactorFn>::const_iterator i = edgeCostFactors_.begin(); i != edgeCostFactors_.end(); ++i)
+    for (const auto & factor : edgeCostFactors_)
     {
-        const EdgeCostFactorFn& factor = *i;
         a.cost *= factor(a.source->index, a.target->index);
     }
 }
@@ -344,12 +347,12 @@ void ompl::control::Syclop::buildGraph()
         /* Create an edge between this vertex and each of its neighboring regions in the decomposition,
             and initialize the edge's Adjacency object. */
         decomp_->getNeighbors(index[*vi], neighbors);
-        for (std::vector<int>::const_iterator j = neighbors.begin(); j != neighbors.end(); ++j)
+        for (const auto & j : neighbors)
         {
             RegionGraph::edge_descriptor edge;
             bool ignore;
-            boost::tie(edge, ignore) = boost::add_edge(*vi, boost::vertex(*j, graph_), graph_);
-            initEdge(graph_[edge], &graph_[*vi], &graph_[boost::vertex(*j, graph_)]);
+            boost::tie(edge, ignore) = boost::add_edge(*vi, boost::vertex(j, graph_), graph_);
+            initEdge(graph_[edge], &graph_[*vi], &graph_[boost::vertex(j, graph_)]);
         }
         neighbors.clear();
     }
@@ -378,7 +381,7 @@ int ompl::control::Syclop::selectRegion()
 void ompl::control::Syclop::computeAvailableRegions()
 {
     for (unsigned int i = 0; i < availDist_.size(); ++i)
-        graph_[boost::vertex(availDist_[i],graph_)].pdfElem = NULL;
+        graph_[boost::vertex(availDist_[i],graph_)].pdfElem = nullptr;
     availDist_.clear();
     for (int i = lead_.size()-1; i >= 0; --i)
     {

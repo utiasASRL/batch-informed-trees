@@ -41,14 +41,14 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/geometric/PathSimplifier.h"
 #include "ompl/util/Time.h"
+#include "ompl/util/Hash.h"
 
 #include <boost/range/adaptor/map.hpp>
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/pending/disjoint_sets.hpp>
-#include <boost/function.hpp>
-#include <boost/thread.hpp>
+#include <mutex>
 #include <iostream>
 #include <fstream>
 #include <utility>
@@ -92,10 +92,10 @@ namespace ompl
             };
 
             /** \brief The type used internally for representing vertex IDs */
-            typedef unsigned long int VertexIndexType;
+            using VertexIndexType = unsigned long;
 
             /** \brief Pair of vertices which support an interface. */
-            typedef std::pair< VertexIndexType, VertexIndexType > VertexPair;
+            using VertexPair = std::pair< VertexIndexType, VertexIndexType >;
 
             /** \brief Interface information storage class, which does bookkeeping for criterion four. */
             struct InterfaceData
@@ -113,10 +113,10 @@ namespace ompl
 
                 /** \brief Constructor */
                 InterfaceData() :
-                    pointA_(NULL),
-                    pointB_(NULL),
-                    sigmaA_(NULL),
-                    sigmaB_(NULL),
+                    pointA_(nullptr),
+                    pointB_(nullptr),
+                    sigmaA_(nullptr),
+                    sigmaB_(nullptr),
                     d_(std::numeric_limits<double>::infinity())
                 {
                 }
@@ -127,22 +127,22 @@ namespace ompl
                     if (pointA_)
                     {
                         si->freeState(pointA_);
-                        pointA_ = NULL;
+                        pointA_ = nullptr;
                     }
                     if (pointB_)
                     {
                         si->freeState(pointB_);
-                        pointB_ = NULL;
+                        pointB_ = nullptr;
                     }
                     if (sigmaA_)
                     {
                         si->freeState(sigmaA_);
-                        sigmaA_ = NULL;
+                        sigmaA_ = nullptr;
                     }
                     if (sigmaB_)
                     {
                         si->freeState(sigmaB_);
-                        sigmaB_ = NULL;
+                        sigmaB_ = nullptr;
                     }
                     d_ = std::numeric_limits<double>::infinity();
                 }
@@ -179,28 +179,18 @@ namespace ompl
             };
 
             /** \brief the hash which maps pairs of neighbor points to pairs of states */
-            typedef boost::unordered_map< VertexPair, InterfaceData, boost::hash< VertexPair > > InterfaceHash;
-
-            // The InterfaceHash structure is wrapped inside of this struct due to a compilation error on
-            // GCC 4.6 with Boost 1.48.  An implicit assignment operator overload does not compile with these
-            // components, so an explicit overload is given here.
-            // Remove this struct when the minimum Boost requirement is > v1.48.
-            struct InterfaceHashStruct
-            {
-                InterfaceHashStruct& operator=(const InterfaceHashStruct &rhs) { interfaceHash = rhs.interfaceHash; return *this; }
-                InterfaceHash interfaceHash;
-            };
+            using InterfaceHash = std::unordered_map<VertexPair, InterfaceData>;
 
             struct vertex_state_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_color_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             struct vertex_interface_data_t {
-                typedef boost::vertex_property_tag kind;
+                using kind = boost::vertex_property_tag;
             };
 
             /**
@@ -218,29 +208,29 @@ namespace ompl
 
              @par Edges should be undirected and have a weight property.
              */
-            typedef boost::adjacency_list <
+            using Graph = boost::adjacency_list <
                 boost::vecS, boost::vecS, boost::undirectedS,
                 boost::property < vertex_state_t, base::State*,
                 boost::property < boost::vertex_predecessor_t, VertexIndexType,
                 boost::property < boost::vertex_rank_t, VertexIndexType,
                 boost::property < vertex_color_t, GuardType,
-                boost::property < vertex_interface_data_t, InterfaceHashStruct > > > > >,
+                boost::property < vertex_interface_data_t, InterfaceHash > > > > >,
                 boost::property < boost::edge_weight_t, base::Cost >
-            > Graph;
+            >;
 
             /** \brief Vertex in Graph */
-            typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
+            using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 
             /** \brief Edge in Graph */
-            typedef boost::graph_traits<Graph>::edge_descriptor   Edge;
+            using Edge = boost::graph_traits<Graph>::edge_descriptor;
 
             /** \brief Constructor */
             SPARStwo(const base::SpaceInformationPtr &si);
 
             /** \brief Destructor */
-            virtual ~SPARStwo();
+            ~SPARStwo() override;
 
-            virtual void setProblemDefinition(const base::ProblemDefinitionPtr &pdef);
+            void setProblemDefinition(const base::ProblemDefinitionPtr &pdef) override;
 
             /** \brief Sets the stretch factor */
             void setStretchFactor(double t)
@@ -313,7 +303,7 @@ namespace ompl
                 input states should be however cleared, without
                 clearing the roadmap itself. This can be done using
                 the clearQuery() function. */
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
             /** \brief Clear the query previously loaded from the ProblemDefinition.
                 Subsequent calls to solve() will reuse the previously computed roadmap,
@@ -321,7 +311,7 @@ namespace ompl
                 This enables multi-query functionality for PRM. */
             void clearQuery();
 
-            virtual void clear();
+            void clear() override;
 
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
@@ -332,7 +322,7 @@ namespace ompl
                     setup();
             }
 
-            virtual void setup();
+            void setup() override;
 
             /** \brief Retrieve the computed roadmap. */
             const Graph& getRoadmap() const
@@ -346,7 +336,7 @@ namespace ompl
                 return boost::num_vertices(g_);
             }
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
             /** \brief Print debug information about planner */
             void printDebug(std::ostream &out = std::cout) const;
@@ -456,7 +446,7 @@ namespace ompl
             base::StateSamplerPtr                                               simpleSampler_;
 
             /** \brief Nearest neighbors data structure */
-            boost::shared_ptr< NearestNeighbors<Vertex> >                       nn_;
+            std::shared_ptr< NearestNeighbors<Vertex> >                         nn_;
 
             /** \brief Connectivity graph */
             Graph                                                               g_;
@@ -521,7 +511,7 @@ namespace ompl
             double                                                              denseDelta_;
 
             /** \brief Mutex to guard access to the Graph member (g_) */
-            mutable boost::mutex                                                graphMutex_;
+            mutable std::mutex                                                  graphMutex_;
 
             /** \brief Objective cost function for PRM graph edges */
             base::OptimizationObjectivePtr                                      opt_;

@@ -45,8 +45,6 @@
 #include "ompl/base/Cost.h"
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/util/ClassForward.h"
-#include <boost/noncopyable.hpp>
-#include <boost/function.hpp>
 #include <boost/serialization/access.hpp>
 
 namespace ompl
@@ -63,8 +61,8 @@ namespace ompl
             /// \brief Constructor.  Takes a state pointer and an optional integer tag.
             PlannerDataVertex(const State *st, int tag = 0) : state_(st), tag_(tag) {}
             /// \brief Copy constructor.
-            PlannerDataVertex(const PlannerDataVertex &rhs) : state_(rhs.state_), tag_(rhs.tag_) {}
-            virtual ~PlannerDataVertex() {}
+            PlannerDataVertex(const PlannerDataVertex &rhs) = default;
+            virtual ~PlannerDataVertex() = default;
 
             /// \brief Returns the integer tag associated with this vertex.
             virtual int  getTag() const { return tag_; }
@@ -94,7 +92,7 @@ namespace ompl
             }
 
         protected:
-            PlannerDataVertex() {}
+            PlannerDataVertex() = default;
 
             friend class boost::serialization::access;
             template <class Archive>
@@ -117,8 +115,8 @@ namespace ompl
         class PlannerDataEdge
         {
         public:
-            PlannerDataEdge() {}
-            virtual ~PlannerDataEdge() {}
+            PlannerDataEdge() = default;
+            virtual ~PlannerDataEdge() = default;
             /// \brief Return a clone of this object, allocated from the heap.
             virtual PlannerDataEdge* clone() const { return new PlannerDataEdge(); }
 
@@ -153,7 +151,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::base::PlannerDataPtr
-            \brief A boost shared pointer wrapper for ompl::base::PlannerData */
+            \brief A shared pointer wrapper for ompl::base::PlannerData */
 
 
         /// \brief Object containing planner generated vertex and edge data.  It
@@ -161,7 +159,7 @@ namespace ompl
         /// edge connects two vertices.
         /// \note The storage for states this class maintains belongs to the planner
         /// instance that filled the data (by default; see PlannerData::decoupleFromPlanner())
-        class PlannerData : boost::noncopyable
+        class PlannerData
         {
         public:
             class Graph;
@@ -173,8 +171,12 @@ namespace ompl
             /// \brief Representation of an invalid vertex index
             static const unsigned int      INVALID_INDEX;
 
+            // non-copyable
+            PlannerData(const PlannerData&) = delete;
+            PlannerData& operator=(const PlannerData&) = delete;
+
             /// \brief Constructor.  Accepts a SpaceInformationPtr for the space planned in.
-            PlannerData(const SpaceInformationPtr &si);
+            PlannerData(SpaceInformationPtr si);
             /// \brief Destructor.
             virtual ~PlannerData();
 

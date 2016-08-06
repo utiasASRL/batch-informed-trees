@@ -62,24 +62,24 @@ void ompl::base::CForestStateSampler::sampleGaussian(State *state, const State *
 
 void ompl::base::CForestStateSampler::setStatesToSample(const std::vector<const State *> &states)
 {
-    boost::mutex::scoped_lock slock(statesLock_);
-    for (size_t i = 0; i < statesToSample_.size(); ++i)
-        space_->freeState(statesToSample_[i]);
+    std::lock_guard<std::mutex> slock(statesLock_);
+    for (auto & i : statesToSample_)
+        space_->freeState(i);
     statesToSample_.clear();
 
     statesToSample_.reserve(states.size());
     // push in reverse order, so that the states are popped in order in getNextSample()
-    for (std::vector<const State *>::const_iterator st = states.begin(); st != states.end(); ++st)
+    for (auto state : states)
     {
         State *s = space_->allocState();
-        space_->copyState(s, *st);
+        space_->copyState(s, state);
         statesToSample_.push_back(s);
     }
 }
 
 void ompl::base::CForestStateSampler::getNextSample(State *state)
 {
-    boost::mutex::scoped_lock slock(statesLock_);
+    std::lock_guard<std::mutex> slock(statesLock_);
     space_->copyState(state, statesToSample_.back());
     space_->freeState(statesToSample_.back());
     statesToSample_.pop_back();
@@ -87,9 +87,9 @@ void ompl::base::CForestStateSampler::getNextSample(State *state)
 
 void ompl::base::CForestStateSampler::clear()
 {
-    boost::mutex::scoped_lock slock(statesLock_);
-    for (size_t i = 0; i < statesToSample_.size(); ++i)
-        space_->freeState(statesToSample_[i]);
+    std::lock_guard<std::mutex> slock(statesLock_);
+    for (auto & i : statesToSample_)
+        space_->freeState(i);
     statesToSample_.clear();
     sampler_.reset();
 }

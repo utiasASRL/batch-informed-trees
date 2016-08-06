@@ -44,9 +44,9 @@
 
 #include <fstream>
 #include <vector>
+#include <tuple>
 #include <cassert>
 
-#include <boost/tuple/tuple.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
@@ -64,13 +64,13 @@ namespace ompl
             /** \brief Constructor */
             LazyLBTRRT(const base::SpaceInformationPtr &si);
 
-            virtual ~LazyLBTRRT(void);
+            ~LazyLBTRRT() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear(void);
+            void clear() override;
 
             /** \brief Set the goal bias
 
@@ -87,7 +87,7 @@ namespace ompl
             }
 
             /** \brief Get the goal bias the planner is using */
-            double getGoalBias(void) const
+            double getGoalBias() const
             {
                 return goalBias_;
             }
@@ -103,19 +103,19 @@ namespace ompl
             }
 
             /** \brief Get the range the planner is using */
-            double getRange(void) const
+            double getRange() const
             {
                 return maxDistance_;
             }
 
             /** \brief Set a different nearest neighbors datastructure */
             template<template<typename T> class NN>
-            void setNearestNeighbors(void)
+            void setNearestNeighbors()
             {
                 nn_.reset(new NN<Motion*>());
             }
 
-            virtual void setup(void);
+            void setup() override;
 
             /** \brief Set the apprimation factor */
             void setApproximationFactor (double epsilon)
@@ -127,11 +127,11 @@ namespace ompl
             // Planner progress property functions
             std::string getIterationCount() const
             {
-                return boost::lexical_cast<std::string>(iterations_);
+                return std::to_string(iterations_);
             }
             std::string getBestCost() const
             {
-                return boost::lexical_cast<std::string>(bestCost_);
+                return std::to_string(bestCost_);
             }
 
         protected:
@@ -140,7 +140,7 @@ namespace ompl
             {
             public:
 
-                Motion(void) : state_(NULL)
+                Motion() : state_(nullptr)
                 {
                 }
 
@@ -149,9 +149,7 @@ namespace ompl
                 {
                 }
 
-                ~Motion(void)
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The id of the motion */
                 std::size_t       id_;
@@ -160,13 +158,13 @@ namespace ompl
                 base::State       *state_;
             };
 
-            typedef boost::property<boost::edge_weight_t, double> WeightProperty;
-            typedef boost::adjacency_list<  boost::vecS, //container type for the out edge list
+            using WeightProperty = boost::property<boost::edge_weight_t, double>;
+            using BoostGraph = boost::adjacency_list<  boost::vecS, //container type for the out edge list
             boost::vecS,            //container type for the vertex list
             boost::undirectedS,     // directedS / undirectedS / bidirectionalS.
             std::size_t,            //vertex properties
             WeightProperty          //edge properties
-                >  BoostGraph;
+                >;
 
             friend class CostEstimatorApx; //allow CostEstimatorApx access to private members
             class CostEstimatorApx
@@ -208,14 +206,14 @@ namespace ompl
                 std::vector<Motion*> &idToMotionMap_;
             }; //CostEstimatorLb
 
-            typedef LPAstarOnGraph<BoostGraph, CostEstimatorApx> LPAstarApx;
-            typedef LPAstarOnGraph<BoostGraph, CostEstimatorLb>  LPAstarLb;
+            using LPAstarApx = LPAstarOnGraph<BoostGraph, CostEstimatorApx>;
+            using LPAstarLb = LPAstarOnGraph<BoostGraph, CostEstimatorLb>;
 
             /** \brief sample with goal biasing*/
             void sampleBiased(const base::GoalSampleableRegion* goal_s, base::State *rstate);
 
             /** \brief Free the memory allocated by this planner */
-            void freeMemory(void);
+            void freeMemory();
 
             /** \brief Compute distance between motions (actually distance between contained states) */
             double distanceFunction(const base::State *a, const base::State *b) const
@@ -279,7 +277,7 @@ namespace ompl
                 LPAstarLb_->removeEdge(b->id_, a->id_);
                 return;
             }
-            boost::tuple<Motion*, base::State*, double> rrtExtend(
+            std::tuple<Motion*, base::State*, double> rrtExtend(
                 const base::GoalSampleableRegion *goal_s, base::State *xstate,
                 Motion *rmotion, double &approxdif);
             void rrt(const base::PlannerTerminationCondition &ptc,
@@ -291,7 +289,7 @@ namespace ompl
             void closeBounds(const base::PlannerTerminationCondition &ptc);
 
             /** \brief Get the apprimation factor */
-            double getApproximationFactor(void) const
+            double getApproximationFactor() const
             {
                 return epsilon_;
             }
@@ -300,7 +298,7 @@ namespace ompl
             base::StateSamplerPtr               sampler_;
 
             /** \brief A nearest-neighbors datastructure containing the tree of motions */
-            boost::shared_ptr< NearestNeighbors<Motion*> > nn_;
+            std::shared_ptr< NearestNeighbors<Motion*> > nn_;
 
             /** \brief The fraction of time the goal is picked as the state to expand towards (if such a state is available) */
             double                              goalBias_;

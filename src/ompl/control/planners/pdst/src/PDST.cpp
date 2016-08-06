@@ -38,8 +38,8 @@
 #include "ompl/control/planners/pdst/PDST.h"
 
 ompl::control::PDST::PDST(const SpaceInformationPtr &si)
-    : base::Planner(si, "PDST"), siC_(si.get()), bsp_(NULL), goalBias_(0.05),
-    goalSampler_(NULL), iteration_(1), lastGoalMotion_(NULL)
+    : base::Planner(si, "PDST"), siC_(si.get()), bsp_(nullptr), goalBias_(0.05),
+    goalSampler_(nullptr), iteration_(1), lastGoalMotion_(nullptr)
 {
     Planner::declareParam<double>("goal_bias", this, &PDST::setGoalBias, &PDST::getGoalBias, "0.:.05:1.");
 }
@@ -72,7 +72,7 @@ ompl::base::PlannerStatus ompl::control::PDST::solve(const base::PlannerTerminat
     // generated an approximate or exact solution. If solve is being called for the first
     // time then initializes hasSolution to false and isApproximate to true.
     double distanceToGoal, closestDistanceToGoal = std::numeric_limits<double>::infinity();
-    bool hasSolution = lastGoalMotion_ != NULL;
+    bool hasSolution = lastGoalMotion_ != nullptr;
     bool isApproximate = !hasSolution || !goal->isSatisfied(lastGoalMotion_->endState_, &closestDistanceToGoal);
     unsigned int ndim = projectionEvaluator_->getDimension();
 
@@ -83,7 +83,7 @@ ompl::base::PlannerStatus ompl::control::PDST::solve(const base::PlannerTerminat
     // Initialize tree with start state(s)
     while (const base::State *st = pis_.nextStart())
     {
-        Motion *startMotion = new Motion(si_->cloneState(st));
+        auto *startMotion = new Motion(si_->cloneState(st));
         bsp_->addMotion(startMotion);
         startMotion->heapElement_ = priorityQueue_.insert(startMotion);
     }
@@ -106,7 +106,7 @@ ompl::base::PlannerStatus ompl::control::PDST::solve(const base::PlannerTerminat
         priorityQueue_.update(motionSelected->heapElement_);
 
         Motion *newMotion = propagateFrom(motionSelected, tmpState1, tmpState2);
-        if (newMotion == NULL)
+        if (newMotion == nullptr)
             continue;
 
         addMotion(newMotion, bsp_, tmpState1, tmpState2, tmpProj1, tmpProj2);
@@ -133,11 +133,11 @@ ompl::base::PlannerStatus ompl::control::PDST::solve(const base::PlannerTerminat
         std::vector<Motion*> motions;
         cellSelected->subdivide(ndim);
         motions.swap(cellSelected->motions_);
-        for (std::vector<Motion*>::iterator m = motions.begin() ; m != motions.end() ; ++m)
-            addMotion(*m, cellSelected, tmpState1, tmpState2, tmpProj1, tmpProj2);
+        for (auto & motion : motions)
+            addMotion(motion, cellSelected, tmpState1, tmpState2, tmpProj1, tmpProj2);
     }
 
-    if (lastGoalMotion_ != NULL)
+    if (lastGoalMotion_ != nullptr)
         hasSolution = true;
 
     // If a solution path has been computed, save it in the problem definition object.
@@ -154,7 +154,7 @@ ompl::base::PlannerStatus ompl::control::PDST::solve(const base::PlannerTerminat
             mpath.push_back(m);
         }
 
-        PathControl *path = new PathControl(si_);
+        auto *path = new PathControl(si_);
         double dt = siC_->getPropagationStepSize();
         path->append(mpath.back()->endState_);
         for (int i = (int) mpath.size() - 2; i > 0; i--)
@@ -194,7 +194,7 @@ ompl::control::PDST::Motion* ompl::control::PDST::propagateFrom(
     if (duration < siC_->getMinControlDuration())
     {
         siC_->freeControl(control);
-        return NULL;
+        return nullptr;
     }
     return new Motion(si_->cloneState(start), si_->cloneState(rnd),
         control, duration, ++iteration_, motion);
@@ -212,7 +212,7 @@ void ompl::control::PDST::addMotion(Motion *motion, Cell *bsp, base::State *prev
         return;
     }
 
-    Cell *cell = NULL, *prevCell = NULL;
+    Cell *cell = nullptr, *prevCell = nullptr;
     si_->copyState(prevState, motion->startState_);
     // propagate the motion, check for cell boundary crossings, and split as necessary
     for (unsigned int i = 0, duration = 0 ; i < motion->controlDuration_ - 1 ; ++i, ++duration)
@@ -222,7 +222,7 @@ void ompl::control::PDST::addMotion(Motion *motion, Cell *bsp, base::State *prev
         cell = bsp->stab(proj);
         if (duration > 0 && cell != prevCell)
         {
-            Motion *newMotion = new Motion(motion->startState_, si_->cloneState(prevState),
+            auto *newMotion = new Motion(motion->startState_, si_->cloneState(prevState),
                 motion->control_, duration, motion->priority_, motion->parent_);
             newMotion->isSplit_ = true;
             prevCell->addMotion(newMotion);
@@ -287,7 +287,7 @@ void ompl::control::PDST::clear()
     sampler_.reset();
     controlSampler_.reset();
     iteration_ = 1;
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
     freeMemory();
     bsp_ = new Cell(1., projectionEvaluator_->getBounds(), 0);
 }
@@ -298,21 +298,21 @@ void ompl::control::PDST::freeMemory()
     std::vector<Motion*> motions;
     motions.reserve(priorityQueue_.size());
     priorityQueue_.getContent(motions);
-    for (std::vector<Motion*>::iterator it = motions.begin() ; it < motions.end() ; ++it)
+    for (auto & motion : motions)
     {
-        if ((*it)->startState_ != (*it)->endState_)
-            si_->freeState((*it)->startState_);
-        if (!(*it)->isSplit_)
+        if (motion->startState_ != motion->endState_)
+            si_->freeState(motion->startState_);
+        if (!motion->isSplit_)
         {
-            si_->freeState((*it)->endState_);
-            if ((*it)->control_)
-                siC_->freeControl((*it)->control_);
+            si_->freeState(motion->endState_);
+            if (motion->control_)
+                siC_->freeControl(motion->control_);
         }
-        delete *it;
+        delete motion;
     }
     priorityQueue_.clear(); // clears the Element objects in the priority queue
     delete bsp_;
-    bsp_ = NULL;
+    bsp_ = nullptr;
 }
 
 void ompl::control::PDST::setup()
@@ -327,7 +327,7 @@ void ompl::control::PDST::setup()
     if (bsp_)
         delete bsp_;
     bsp_ = new Cell(1., projectionEvaluator_->getBounds(), 0);
-    lastGoalMotion_ = NULL;
+    lastGoalMotion_ = nullptr;
 }
 
 void ompl::control::PDST::getPlannerData(ompl::base::PlannerData &data) const
@@ -341,17 +341,17 @@ void ompl::control::PDST::getPlannerData(ompl::base::PlannerData &data) const
     priorityQueue_.getContent(motions);
 
     // Add goal vertex
-    if (lastGoalMotion_ != NULL)
+    if (lastGoalMotion_ != nullptr)
         data.addGoalVertex(lastGoalMotion_->endState_);
 
-    for (std::vector<Motion*>::iterator it = motions.begin(); it < motions.end(); ++it)
-        if (!(*it)->isSplit_)
+    for (auto & motion : motions)
+        if (!motion->isSplit_)
         {
             // We only add one edge for each motion that has been split into smaller segments
-            Motion *cur = *it, *ancestor;
+            Motion *cur = motion, *ancestor;
             unsigned int duration = findDurationAndAncestor(cur, cur->endState_, scratch, ancestor);
 
-            if (cur->parent_ == NULL)
+            if (cur->parent_ == nullptr)
                 data.addStartVertex(base::PlannerDataVertex(cur->endState_));
             else if (data.hasControls())
             {

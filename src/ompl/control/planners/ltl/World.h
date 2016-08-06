@@ -37,8 +37,28 @@
 #ifndef OMPL_CONTROL_PLANNERS_LTL_WORLD_
 #define OMPL_CONTROL_PLANNERS_LTL_WORLD_
 
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <string>
+
+namespace ompl
+{
+    namespace control
+    {
+        class World;
+    }
+}
+
+/// @cond IGNORE
+/** \brief Hash function for World to be used in std::unordered_map */
+namespace std
+{
+    template<>
+    struct hash<ompl::control::World>
+    {
+        size_t operator()(const ompl::control::World &w) const;
+    };
+}
+/// @endcond
 
 namespace ompl
 {
@@ -64,7 +84,7 @@ namespace ompl
 
             /** \brief Returns the number of propositions declared for this World.
                 Not all of the propositions have necessarily been set. */
-            unsigned int numProps(void) const;
+            unsigned int numProps() const;
 
             /** \brief Returns whether this World propositionally satisfies a given World w.
                 Specifically, returns true iff for every proposition p assigned in w,
@@ -73,27 +93,24 @@ namespace ompl
 
             /** \brief Returns a formatted string representation of this World,
                 as a conjunction of literals. */
-            std::string formula(void) const;
+            std::string formula() const;
 
             /** \brief Returns this World's underlying proposition-to-boolean
                 assignment map. */
-            const boost::unordered_map<unsigned int, bool>& props(void) const;
+            const std::unordered_map<unsigned int, bool>& props() const;
 
             /** \brief Returns whether this World is equivalent to a given World,
                 by comparing their truth assignment maps. */
             bool operator==(const World& w) const;
 
             /** \brief Clears this world's truth assignment. */
-            void clear(void);
+            void clear();
 
-            /// @cond IGNORE
-            /** \brief Hash function for World to be used in boost::unordered_map */
-            friend std::size_t hash_value(const World& w);
-            /// @endcond
+            friend struct std::hash<World>;
 
         protected:
             unsigned int numProps_;
-            boost::unordered_map<unsigned int, bool> props_;
+            std::unordered_map<unsigned int, bool> props_;
         };
     }
 }

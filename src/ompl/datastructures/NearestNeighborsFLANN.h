@@ -46,6 +46,7 @@
 #include "ompl/base/StateSpace.h"
 
 #include <flann/flann.hpp>
+#include <utility>
 
 namespace ompl
 {
@@ -56,8 +57,8 @@ namespace ompl
     class FLANNDistance
     {
     public:
-        typedef _T ElementType;
-        typedef double ResultType;
+        using ElementType = ompl::base::State *;
+        using ResultType = double;
 
         FLANNDistance(const typename NearestNeighbors<_T>::DistanceFunction& distFun)
             : distFun_(distFun)
@@ -88,39 +89,39 @@ namespace ompl
     {
     public:
 
-        NearestNeighborsFLANN(const boost::shared_ptr<flann::IndexParams> &params)
-            : index_(0), params_(params), searchParams_(32, 0., true), dimension_(1)
+        NearestNeighborsFLANN(std::shared_ptr<flann::IndexParams> params)
+            : index_(nullptr), params_(std::move(params)), searchParams_(32, 0., true), dimension_(1)
         {
         }
 
-        virtual ~NearestNeighborsFLANN()
+        ~NearestNeighborsFLANN() override
         {
             if (index_)
                 delete index_;
         }
 
-        virtual void clear()
+        void clear() override
         {
             if (index_)
             {
                 delete index_;
-                index_ = NULL;
+                index_ = nullptr;
             }
             data_.clear();
         }
 
-        virtual bool reportsSortedResults() const
+        bool reportsSortedResults() const override
         {
             return searchParams_.sorted;
         }
 
-        virtual void setDistanceFunction(const typename NearestNeighbors<_T>::DistanceFunction &distFun)
+        void setDistanceFunction(const typename NearestNeighbors<_T>::DistanceFunction &distFun) override
         {
             NearestNeighbors<_T>::setDistanceFunction(distFun);
             rebuildIndex();
         }
 
-        virtual void add(const _T &data)
+        void add(const _T &data) override
         {
             bool rebuild = index_ && (data_.size() + 1 > data_.capacity());
 
@@ -135,7 +136,7 @@ namespace ompl
             else
                 createIndex(mat);
         }
-        virtual void add(const std::vector<_T> &data)
+        void add(const std::vector<_T> &data) override
         {
             unsigned int oldSize = data_.size();
             unsigned int newSize = oldSize + data.size();
@@ -157,7 +158,7 @@ namespace ompl
                 createIndex(mat);
             }
         }
-        virtual bool remove(const _T& data)
+        bool remove(const _T& data) override
         {
             if (!index_) return false;
             _T& elt = const_cast<_T&>(data);
@@ -173,7 +174,7 @@ namespace ompl
             }
             return false;
         }
-        virtual _T nearest(const _T &data) const
+        _T nearest(const _T &data) const override
         {
             if (size())
             {
@@ -188,7 +189,7 @@ namespace ompl
         }
         /// \brief Return the k nearest neighbors in sorted order if
         /// searchParams_.sorted==true (the default)
-        virtual void nearestK(const _T &data, std::size_t k, std::vector<_T> &nbh) const
+        void nearestK(const _T &data, std::size_t k, std::vector<_T> &nbh) const override
         {
             _T& elt = const_cast<_T&>(data);
             const flann::Matrix<_T> query(&elt, 1, dimension_);
@@ -201,7 +202,7 @@ namespace ompl
         }
         /// \brief Return the nearest neighbors within distance \c radius in sorted
         /// order if searchParams_.sorted==true (the default)
-        virtual void nearestR(const _T &data, double radius, std::vector<_T> &nbh) const
+        void nearestR(const _T &data, double radius, std::vector<_T> &nbh) const override
         {
             _T& elt = const_cast<_T&>(data);
             flann::Matrix<_T> query(&elt, 1, dimension_);
@@ -213,12 +214,12 @@ namespace ompl
                 nbh[i] = *index_->getPoint(indices[0][i]);
         }
 
-        virtual std::size_t size() const
+        std::size_t size() const override
         {
             return index_ ? index_->size() : 0;
         }
 
-        virtual void list(std::vector<_T> &data) const
+        void list(std::vector<_T> &data) const override
         {
             std::size_t sz = size();
             if (sz == 0)
@@ -237,14 +238,14 @@ namespace ompl
         ///
         /// The parameters determine the type of nearest neighbor
         /// data structure to be constructed.
-        virtual void setIndexParams(const boost::shared_ptr<flann::IndexParams> &params)
+        virtual void setIndexParams(const std::shared_ptr<flann::IndexParams> &params)
         {
             params_ = params;
             rebuildIndex();
         }
 
         /// \brief Get the FLANN parameters used to build the current index.
-        virtual const boost::shared_ptr<flann::IndexParams>& getIndexParams() const
+        virtual const std::shared_ptr<flann::IndexParams>& getIndexParams() const
         {
             return params_;
         }
@@ -309,7 +310,7 @@ namespace ompl
 
         /// \brief The FLANN index parameters. This contains both the type of
         /// index and the parameters for that type.
-        boost::shared_ptr<flann::IndexParams> params_;
+        std::shared_ptr<flann::IndexParams> params_;
 
         /// \brief The parameters used to seach for nearest neighbors.
         mutable flann::SearchParams           searchParams_;
@@ -334,7 +335,7 @@ namespace ompl
     public:
         NearestNeighborsFLANNLinear()
             : NearestNeighborsFLANN<_T, _Dist>(
-                boost::shared_ptr<flann::LinearIndexParams>(
+                std::shared_ptr<flann::LinearIndexParams>(
                     new flann::LinearIndexParams()))
         {
         }
@@ -346,7 +347,7 @@ namespace ompl
     public:
         NearestNeighborsFLANNHierarchicalClustering()
             : NearestNeighborsFLANN<_T, _Dist>(
-                boost::shared_ptr<flann::HierarchicalClusteringIndexParams>(
+                std::shared_ptr<flann::HierarchicalClusteringIndexParams>(
                     new flann::HierarchicalClusteringIndexParams()))
         {
         }

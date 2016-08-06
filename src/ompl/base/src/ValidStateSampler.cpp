@@ -36,16 +36,13 @@
 
 #include "ompl/base/ValidStateSampler.h"
 #include "ompl/tools/config/MagicConstants.h"
-#include <boost/bind.hpp>
 
 ompl::base::ValidStateSampler::ValidStateSampler(const SpaceInformation *si) :
     si_(si), attempts_(magic::MAX_VALID_SAMPLE_ATTEMPTS), name_("not set")
 {
     params_.declareParam<unsigned int>("nr_attempts",
-                                       boost::bind(&ValidStateSampler::setNrAttempts, this, _1),
-                                       boost::bind(&ValidStateSampler::getNrAttempts, this));
+        [this](unsigned int n) { setNrAttempts(n); },
+        [this] { return getNrAttempts(); });
 }
 
-ompl::base::ValidStateSampler::~ValidStateSampler()
-{
-}
+ompl::base::ValidStateSampler::~ValidStateSampler() = default;

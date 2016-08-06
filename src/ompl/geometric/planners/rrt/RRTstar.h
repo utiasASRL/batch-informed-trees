@@ -82,15 +82,15 @@ namespace ompl
 
             RRTstar(const base::SpaceInformationPtr &si);
 
-            virtual ~RRTstar();
+            ~RRTstar() override;
 
-            virtual void getPlannerData(base::PlannerData &data) const;
+            void getPlannerData(base::PlannerData &data) const override;
 
-            virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc);
+            base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
-            virtual void clear();
+            void clear() override;
 
-            virtual void setup();
+            void setup() override;
 
             /** \brief Set the goal bias
 
@@ -310,13 +310,11 @@ namespace ompl
                 /** \brief Constructor that allocates memory for the state. This constructor automatically allocates memory for \e state, \e cost, and \e incCost */
                 Motion(const base::SpaceInformationPtr &si) :
                     state(si->allocState()),
-                    parent(NULL)
+                    parent(nullptr)
                 {
                 }
 
-                ~Motion()
-                {
-                }
+                ~Motion() = default;
 
                 /** \brief The state contained by the motion */
                 base::State       *state;
@@ -400,7 +398,7 @@ namespace ompl
             base::InformedSamplerPtr                       infSampler_;
 
             /** \brief A nearest-neighbors datastructure containing the tree of motions */
-            boost::shared_ptr< NearestNeighbors<Motion*> > nn_;
+            std::shared_ptr< NearestNeighbors<Motion*> > nn_;
 
             /** \brief The fraction of time the goal is picked as the state to expand towards (if such a state is available) */
             double                                         goalBias_;
@@ -477,11 +475,11 @@ namespace ompl
             // Planner progress property functions
             std::string numIterationsProperty() const
             {
-                return boost::lexical_cast<std::string>(numIterations());
+                return std::to_string(numIterations());
             }
             std::string bestCostProperty() const
             {
-                return boost::lexical_cast<std::string>(bestCost());
+                return std::to_string(bestCost().value());
             }
         };
     }

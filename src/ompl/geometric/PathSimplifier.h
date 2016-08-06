@@ -58,7 +58,7 @@ namespace ompl
         /// @endcond
 
         /** \class ompl::geometric::PathSimplifierPtr
-            \brief A boost shared pointer wrapper for ompl::geometric::PathSimplifier */
+            \brief A shared pointer wrapper for ompl::geometric::PathSimplifier */
 
         /** \brief This class contains routines that attempt to simplify geometric paths.
 
@@ -71,11 +71,9 @@ namespace ompl
             /** \brief Create an instance for a specified space information.
             Optionally, a GoalSampleableRegion may be passed in to attempt
             improvements at the end of the path as well. */
-            PathSimplifier(const base::SpaceInformationPtr &si, const base::GoalPtr& goal = base::GoalPtr());
+            PathSimplifier(base::SpaceInformationPtr si, const base::GoalPtr& goal = ompl::base::GoalPtr());
 
-            virtual ~PathSimplifier()
-            {
-            }
+            virtual ~PathSimplifier() = default;
 
 
             /** \brief Given a path, attempt to remove vertices from
@@ -258,7 +256,7 @@ namespace ompl
             base::SpaceInformationPtr si_;
 
             /** \brief The goal object for the path simplifier.  Used for end-of-path improvements */
-            boost::shared_ptr<base::GoalSampleableRegion> gsr_;
+            std::shared_ptr<base::GoalSampleableRegion> gsr_;
 
             /** \brief Flag indicating whether the states removed from a motion should be freed */
             bool                      freeStates_;

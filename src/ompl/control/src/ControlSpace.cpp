@@ -34,6 +34,8 @@
 
 /* Author: Ioan Sucan */
 
+#include <utility>
+
 #include "ompl/control/ControlSpace.h"
 #include "ompl/util/Exception.h"
 
@@ -58,15 +60,13 @@ namespace ompl
 }
 /// @endcond
 
-ompl::control::ControlSpace::ControlSpace(const base::StateSpacePtr &stateSpace) : stateSpace_(stateSpace)
+ompl::control::ControlSpace::ControlSpace(base::StateSpacePtr stateSpace) : stateSpace_(std::move(stateSpace))
 {
     name_ = "Control[" + stateSpace_->getName() + "]";
     type_ = CONTROL_SPACE_UNKNOWN;
 }
 
-ompl::control::ControlSpace::~ControlSpace()
-{
-}
+ompl::control::ControlSpace::~ControlSpace() = default;
 
 const std::string& ompl::control::ControlSpace::getName() const
 {
@@ -102,7 +102,7 @@ void ompl::control::ControlSpace::clearControlSamplerAllocator()
 
 double* ompl::control::ControlSpace::getValueAddressAtIndex(Control* /*control*/, const unsigned int /*index*/) const
 {
-    return NULL;
+    return nullptr;
 }
 
 void ompl::control::ControlSpace::printControl(const Control *control, std::ostream &out) const
@@ -180,7 +180,7 @@ unsigned int ompl::control::CompoundControlSpace::getDimension() const
 
 ompl::control::Control* ompl::control::CompoundControlSpace::allocControl() const
 {
-    CompoundControl *control = new CompoundControl();
+    auto *control = new CompoundControl();
     control->components = new Control*[componentCount_];
     for (unsigned int i = 0 ; i < componentCount_ ; ++i)
         control->components[i] = components_[i]->allocControl();
@@ -223,7 +223,7 @@ void ompl::control::CompoundControlSpace::nullControl(Control *control) const
 
 ompl::control::ControlSamplerPtr ompl::control::CompoundControlSpace::allocDefaultControlSampler() const
 {
-    CompoundControlSampler *ss = new CompoundControlSampler(this);
+    auto *ss = new CompoundControlSampler(this);
     for (unsigned int i = 0 ; i < componentCount_ ; ++i)
         ss->addSampler(components_[i]->allocControlSampler());
     return ControlSamplerPtr(ss);
@@ -253,7 +253,7 @@ double* ompl::control::CompoundControlSpace::getValueAddressAtIndex(Control *con
             else
                 break;
         }
-    return NULL;
+    return nullptr;
 }
 
 void ompl::control::CompoundControlSpace::printControl(const Control *control, std::ostream &out) const
