@@ -320,6 +320,9 @@ namespace ompl
             template <template <typename T> class NN>
             void setNearestNeighbors()
             {
+                if (nn_ && nn_->size() == 0)
+                    OMPL_WARN("Calling setNearestNeighbors will clear all states.");
+                clear();
                 nn_ = std::make_shared<NN<Vertex>>();
                 if (isSetup())
                     setup();
@@ -456,9 +459,6 @@ namespace ompl
 
             /** \brief Sampler user for generating valid samples in the state space */
             base::ValidStateSamplerPtr sampler_;
-
-            /** \brief Sampler user for generating random in the state space */
-            base::StateSamplerPtr simpleSampler_;
 
             /** \brief Nearest neighbors data structure */
             std::shared_ptr<NearestNeighbors<Vertex>> nn_;

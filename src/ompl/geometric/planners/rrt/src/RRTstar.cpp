@@ -35,18 +35,18 @@
 /* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez, Jonathan Gammell */
 
 #include "ompl/geometric/planners/rrt/RRTstar.h"
-#include "ompl/base/goals/GoalSampleableRegion.h"
-#include "ompl/tools/config/SelfConfig.h"
-#include "ompl/base/objectives/PathLengthOptimizationObjective.h"
+#include <algorithm>
+#include <boost/math/constants/constants.hpp>
+#include <limits>
+#include <vector>
 #include "ompl/base/Goal.h"
+#include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/base/goals/GoalState.h"
-#include "ompl/util/GeometricEquations.h"
+#include "ompl/base/objectives/PathLengthOptimizationObjective.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
 #include "ompl/base/samplers/informed/RejectionInfSampler.h"
-#include <algorithm>
-#include <limits>
-#include <boost/math/constants/constants.hpp>
-#include <vector>
+#include "ompl/tools/config/SelfConfig.h"
+#include "ompl/util/GeometricEquations.h"
 
 ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si)
   : base::Planner(si, "RRTstar")
@@ -54,8 +54,8 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si)
   , maxDistance_(0.0)
   , useKNearest_(true)
   , rewireFactor_(1.1)
-  , k_rrg_(0u)
-  , r_rrg_(0.0)
+  , k_rrt_(0u)
+  , r_rrt_(0.0)
   , delayCC_(true)
   , lastGoalMotion_(nullptr)
   , useTreePruning_(false)
@@ -95,16 +95,10 @@ ompl::geometric::RRTstar::RRTstar(const base::SpaceInformationPtr &si)
                                 &RRTstar::getAdmissibleCostToCome, "0,1");
     Planner::declareParam<bool>("focus_search", this, &RRTstar::setFocusSearch, &RRTstar::getFocusSearch, "0,1");
     Planner::declareParam<unsigned int>("number_sampling_attempts", this, &RRTstar::setNumSamplingAttempts,
-                                &RRTstar::getNumSamplingAttempts, "10:10:100000");
+                                        &RRTstar::getNumSamplingAttempts, "10:10:100000");
 
-    addPlannerProgressProperty("iterations INTEGER", [this]
-                               {
-                                   return numIterationsProperty();
-                               });
-    addPlannerProgressProperty("best cost REAL", [this]
-                               {
-                                   return bestCostProperty();
-                               });
+    addPlannerProgressProperty("iterations INTEGER", [this] { return numIterationsProperty(); });
+    addPlannerProgressProperty("best cost REAL", [this] { return bestCostProperty(); });
 }
 
 ompl::geometric::RRTstar::~RRTstar()
@@ -124,10 +118,7 @@ void ompl::geometric::RRTstar::setup()
 
     if (!nn_)
         nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion *>(this));
-    nn_->setDistanceFunction([this](const Motion *a, const Motion *b)
-                             {
-                                 return distanceFunction(a, b);
-                             });
+    nn_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
     // Setup optimization objective
     //
@@ -260,11 +251,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
 
     if (useKNearest_)
         OMPL_INFORM("%s: Initial k-nearest value of %u", getName().c_str(),
-                    (unsigned int)std::ceil(k_rrg_ * log((double)(nn_->size() + 1u))));
+                    (unsigned int)std::ceil(k_rrt_ * log((double)(nn_->size() + 1u))));
     else
         OMPL_INFORM(
             "%s: Initial rewiring radius of %.2f", getName().c_str(),
-            std::min(maxDistance_, r_rrg_ * std::pow(log((double)(nn_->size() + 1u)) / ((double)(nn_->size() + 1u)),
+            std::min(maxDistance_, r_rrt_ * std::pow(log((double)(nn_->size() + 1u)) / ((double)(nn_->size() + 1u)),
                                                      1 / (double)(si_->getStateDimension()))));
 
     // our functor for sorting nearest neighbors
@@ -368,7 +359,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                 for (std::vector<std::size_t>::const_iterator i = sortedCostIndices.begin();
                      i != sortedCostIndices.begin() + nbh.size(); ++i)
                 {
-                    if (nbh[*i] == nmotion || si_->checkMotion(nbh[*i]->state, motion->state))
+                    if (nbh[*i] == nmotion ||
+                        ((!useKNearest_ || si_->distance(nbh[*i]->state, motion->state) < maxDistance_) &&
+                         si_->checkMotion(nbh[*i]->state, motion->state)))
                     {
                         motion->incCost = incCosts[*i];
                         motion->cost = costs[*i];
@@ -393,7 +386,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         costs[i] = opt_->combineCosts(nbh[i]->cost, incCosts[i]);
                         if (opt_->isCostBetterThan(costs[i], motion->cost))
                         {
-                            if (si_->checkMotion(nbh[i]->state, motion->state))
+                            if ((!useKNearest_ || si_->distance(nbh[i]->state, motion->state) < maxDistance_) &&
+                                si_->checkMotion(nbh[i]->state, motion->state))
                             {
                                 motion->incCost = incCosts[i];
                                 motion->cost = costs[i];
@@ -450,7 +444,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTstar::solve(const base::PlannerTer
                         bool motionValid;
                         if (valid[i] == 0)
                         {
-                            motionValid = si_->checkMotion(motion->state, nbh[i]->state);
+                            motionValid =
+                                (!useKNearest_ || si_->distance(nbh[i]->state, motion->state) < maxDistance_) &&
+                                si_->checkMotion(motion->state, nbh[i]->state);
                         }
                         else
                         {
@@ -608,13 +604,13 @@ void ompl::geometric::RRTstar::getNeighbors(Motion *motion, std::vector<Motion *
     if (useKNearest_)
     {
         //- k-nearest RRT*
-        unsigned int k = std::ceil(k_rrg_ * log(cardDbl));
+        unsigned int k = std::ceil(k_rrt_ * log(cardDbl));
         nn_->nearestK(motion, k, nbh);
     }
     else
     {
         double r = std::min(
-            maxDistance_, r_rrg_ * std::pow(log(cardDbl) / cardDbl, 1 / static_cast<double>(si_->getStateDimension())));
+            maxDistance_, r_rrt_ * std::pow(log(cardDbl) / cardDbl, 1 / static_cast<double>(si_->getStateDimension())));
         nn_->nearestR(motion, r, nbh);
     }
 }
@@ -1105,14 +1101,14 @@ bool ompl::geometric::RRTstar::sampleUniform(base::State *statePtr)
 
 void ompl::geometric::RRTstar::calculateRewiringLowerBounds()
 {
-    double dimDbl = static_cast<double>(si_->getStateDimension());
+    const double dimDbl = static_cast<double>(si_->getStateDimension());
+    
+    // k_rrt > 2^(d + 1) * e * (1 + 1 / d).  K-nearest RRT*
+    k_rrt_ = rewireFactor_ * (std::pow(2, dimDbl + 1) * boost::math::constants::e<double>() * (1.0 + 1.0 / dimDbl));
 
-    // k_rrg > e+e/d.  K-nearest RRT*
-    k_rrg_ = rewireFactor_ * (boost::math::constants::e<double>() + (boost::math::constants::e<double>() / dimDbl));
-
-    // r_rrg > 2*(1+1/d)^(1/d)*(measure/ballvolume)^(1/d)
+    // r_rrt > (2*(1+1/d))^(1/d)*(measure/ballvolume)^(1/d)
     // If we're not using the informed measure, prunedMeasure_ will be set to si_->getSpaceMeasure();
-    r_rrg_ =
-        rewireFactor_ * 2.0 *
-        std::pow((1.0 + 1.0 / dimDbl) * (prunedMeasure_ / unitNBallMeasure(si_->getStateDimension())), 1.0 / dimDbl);
+    r_rrt_ =
+        rewireFactor_ * 
+        std::pow(2 * (1.0 + 1.0 / dimDbl) * (prunedMeasure_ / unitNBallMeasure(si_->getStateDimension())), 1.0 / dimDbl);
 }
