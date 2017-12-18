@@ -107,21 +107,17 @@ namespace ompl
             class Motion
             {
             public:
-                Motion() : root(nullptr), state(nullptr), parent(nullptr)
-                {
-                    parent = nullptr;
-                    state = nullptr;
-                }
+                Motion() = default;
 
-                Motion(const base::SpaceInformationPtr &si) : root(nullptr), state(si->allocState()), parent(nullptr)
+                Motion(const base::SpaceInformationPtr &si) : state(si->allocState())
                 {
                 }
 
                 ~Motion() = default;
 
-                const base::State *root;
-                base::State *state;
-                Motion *parent;
+                const base::State *root{nullptr};
+                base::State *state{nullptr};
+                Motion *parent{nullptr};
             };
 
             /** \brief A nearest-neighbor datastructure representing a tree of motions */
@@ -168,7 +164,7 @@ namespace ompl
             TreeData tGoal_;
 
             /** \brief The maximum length of a motion to be added to a tree */
-            double maxDistance_;
+            double maxDistance_{0.};
 
             /** \brief The random number generator */
             RNG rng_;

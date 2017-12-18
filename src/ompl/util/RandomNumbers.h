@@ -80,7 +80,7 @@ namespace ompl
         /** \brief Generate a random integer within given bounds: [\e lower_bound, \e upper_bound] */
         int uniformInt(int lower_bound, int upper_bound)
         {
-            int r = (int)floor(uniformReal((double)lower_bound, (double)(upper_bound) + 1.0));
+            auto r = (int)floor(uniformReal((double)lower_bound, (double)(upper_bound) + 1.0));
             return (r > upper_bound) ? upper_bound : r;
         }
 
@@ -157,7 +157,7 @@ namespace ompl
 #if OMPL_HAVE_EIGEN3
         /** \brief Uniform random sampling of the surface of a prolate hyperspheroid, a special symmetric type of
         n-dimensional ellipse. The return variable \e value is expected to already exist.
-        @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
+        @par J. D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
         Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic." In Proceedings
         of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS). Chicago, IL, USA,
         14-18 Sept. 2014.
@@ -169,7 +169,7 @@ namespace ompl
 
         /** \brief Uniform random sampling of a prolate hyperspheroid, a special symmetric type of
         n-dimensional ellipse. The return variable \e value is expected to already exist.
-        @par J D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
+        @par J. D. Gammell, S. S. Srinivasa, T. D. Barfoot, "Informed RRT*: Optimal Sampling-based
         Path Planning Focused via Direct Sampling of an Admissible Ellipsoidal Heuristic." In Proceedings
         of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS). Chicago, IL, USA,
         14-18 Sept. 2014.
@@ -187,8 +187,8 @@ namespace ompl
         /** \brief The seed used for the instance of a RNG */
         std::uint_fast32_t localSeed_;
         std::mt19937 generator_;
-        std::uniform_real_distribution<> uniDist_;
-        std::normal_distribution<> normalDist_;
+        std::uniform_real_distribution<> uniDist_{0,1};
+        std::normal_distribution<> normalDist_{0,1};
         // A structure holding boost::uniform_on_sphere distributions and the associated boost::variate_generators for
         // various dimension
         std::shared_ptr<SphericalData> sphericalDataPtr_;

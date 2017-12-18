@@ -48,6 +48,7 @@ src/ompl/base/spaces/DiscreteStateSpace.h
 src/ompl/base/spaces/TimeStateSpace.h
 src/ompl/base/spaces/DubinsStateSpace.h
 src/ompl/base/spaces/ReedsSheppStateSpace.h
+src/ompl/base/samplers/BridgeTestValidStateSampler.h
 src/ompl/base/samplers/GaussianValidStateSampler.h
 src/ompl/base/samplers/MaximizeClearanceValidStateSampler.h
 src/ompl/base/samplers/ObstacleBasedValidStateSampler.h
@@ -55,4 +56,5 @@ src/ompl/base/samplers/UniformValidStateSampler.h
 src/ompl/base/samplers/InformedStateSampler.h
 src/ompl/base/samplers/informed/PathLengthDirectInfSampler.h
 src/ompl/base/samplers/informed/RejectionInfSampler.h
+src/ompl/base/samplers/informed/OrderedInfSampler.h
 py-bindings/ompl_py_base.h

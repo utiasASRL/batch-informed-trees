@@ -1,7 +1,7 @@
 /*********************************************************************
 * Software License Agreement (BSD License)
 *
-*  Copyright (c) 2010, Rice University
+*  Copyright (c) 2014, University of Toronto
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
 *     copyright notice, this list of conditions and the following
 *     disclaimer in the documentation and/or other materials provided
 *     with the distribution.
-*   * Neither the name of the Rice University nor the names of its
+*   * Neither the name of the University of Toronto nor the names of its
 *     contributors may be used to endorse or promote products derived
 *     from this software without specific prior written permission.
 *
@@ -32,12 +32,20 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Author: Caleb Voss */
+/* Authors: Jonathan Gammell */
 
-#include "ompl/extensions/morse/MorseTerminationCondition.h"
+#include "ompl/geometric/planners/rrt/SORRTstar.h"
 
-bool ompl::base::MorseTerminationCondition::eval() const
+ompl::geometric::SORRTstar::SORRTstar(const base::SpaceInformationPtr &si)
+    : InformedRRTstar(si)
 {
-    // the Python object will unset this if we should stop
-    return !env_->simRunning_;
+    //Set my name:
+    setName("SORRTstar");
+
+    //Configure InformedRRT* to be SORRT*:
+    setOrderedSampling(true);
+    setBatchSize(100u);
+
+    //Remove those parameters:
+    params_.remove("use_ordered_sampling");
 }

@@ -44,10 +44,6 @@ ompl::geometric::RRT::RRT(const base::SpaceInformationPtr &si) : base::Planner(s
     specs_.approximateSolutions = true;
     specs_.directed = true;
 
-    goalBias_ = 0.05;
-    maxDistance_ = 0.0;
-    lastGoalMotion_ = nullptr;
-
     Planner::declareParam<double>("range", this, &RRT::setRange, &RRT::getRange, "0.:1.:10000.");
     Planner::declareParam<double>("goal_bias", this, &RRT::setGoalBias, &RRT::getGoalBias, "0.:.05:1.");
 }
@@ -89,7 +85,7 @@ void ompl::geometric::RRT::freeMemory()
         nn_->list(motions);
         for (auto &motion : motions)
         {
-            if (motion->state)
+            if (motion->state != nullptr)
                 si_->freeState(motion->state);
             delete motion;
         }
@@ -100,7 +96,7 @@ ompl::base::PlannerStatus ompl::geometric::RRT::solve(const base::PlannerTermina
 {
     checkValidity();
     base::Goal *goal = pdef_->getGoal().get();
-    base::GoalSampleableRegion *goal_s = dynamic_cast<base::GoalSampleableRegion *>(goal);
+    auto *goal_s = dynamic_cast<base::GoalSampleableRegion *>(goal);
 
     while (const base::State *st = pis_.nextStart())
     {
@@ -127,10 +123,10 @@ ompl::base::PlannerStatus ompl::geometric::RRT::solve(const base::PlannerTermina
     base::State *rstate = rmotion->state;
     base::State *xstate = si_->allocState();
 
-    while (ptc == false)
+    while (!ptc)
     {
         /* sample random state (with goal biasing) */
-        if (goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
+        if ((goal_s != nullptr) && rng_.uniform01() < goalBias_ && goal_s->canSample())
             goal_s->sampleGoal(rstate);
         else
             sampler_->sampleUniform(rstate);
@@ -200,7 +196,7 @@ ompl::base::PlannerStatus ompl::geometric::RRT::solve(const base::PlannerTermina
     }
 
     si_->freeState(xstate);
-    if (rmotion->state)
+    if (rmotion->state != nullptr)
         si_->freeState(rmotion->state);
     delete rmotion;
 
@@ -217,7 +213,7 @@ void ompl::geometric::RRT::getPlannerData(base::PlannerData &data) const
     if (nn_)
         nn_->list(motions);
 
-    if (lastGoalMotion_)
+    if (lastGoalMotion_ != nullptr)
         data.addGoalVertex(base::PlannerDataVertex(lastGoalMotion_->state));
 
     for (auto &motion : motions)
