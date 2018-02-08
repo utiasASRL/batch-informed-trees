@@ -38,7 +38,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include "2DmapSetup1.h"
-#include "../../BoostTestTeamCityReporter.h"
 #include <iostream>
 
 using namespace ompl;
@@ -69,7 +68,7 @@ public:
         if (setup.solve(SOLUTION_TIME))
         {
             ompl::time::duration elapsed = ompl::time::now() - startTime;
-            if (time)
+            if (time != nullptr)
                 *time += ompl::time::seconds(elapsed);
             if (show)
                 printf("Found solution in %f seconds!\n", ompl::time::seconds(elapsed));
@@ -82,7 +81,7 @@ public:
             setup.getPathSimplifier()->reduceVertices(path);
             elapsed = ompl::time::now() - startTime;
 
-            if (time)
+            if (time != nullptr)
                 *time += ompl::time::seconds(elapsed);
 
             if (show)
@@ -91,7 +90,7 @@ public:
             /* fill in values that were linearly interpolated */
             path.interpolate(path.getStateCount() * 2);
 
-            if (pathLength)
+            if (pathLength != nullptr)
                 *pathLength += path.length();
 
             if (show)
@@ -104,8 +103,8 @@ public:
             /* display the solution */
             for (unsigned int i = 0 ; i < path.getStateCount() ; ++i)
             {
-                int x = (int)path.getState(i)->as<base::CompoundState>()->as<base::RealVectorStateSpace::StateType>(0)->values[0];
-                int y = (int)path.getState(i)->as<base::CompoundState>()->as<base::RealVectorStateSpace::StateType>(1)->values[0];
+                auto x = (int)path.getState(i)->as<base::CompoundState>()->as<base::RealVectorStateSpace::StateType>(0)->values[0];
+                auto y = (int)path.getState(i)->as<base::CompoundState>()->as<base::RealVectorStateSpace::StateType>(1)->values[0];
                 if (temp.grid[x][y] == T_FREE || temp.grid[x][y] == T_PATH)
                     temp.grid[x][y] = T_PATH;
                 else

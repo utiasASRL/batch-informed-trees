@@ -40,7 +40,6 @@
 #include "ompl/base/ScopedState.h"
 #include "ompl/base/spaces/SE3StateSpace.h"
 #include "ompl/base/spaces/SE2StateSpace.h"
-#include "../BoostTestTeamCityReporter.h"
 
 using namespace ompl;
 
@@ -49,12 +48,10 @@ using namespace ompl;
 
 struct Metadata
 {
-    Metadata() : tag1(0), tag2(0.5f)
-    {
-    }
+    Metadata() = default;
 
-    int   tag1;
-    float tag2;
+    int   tag1{0};
+    float tag2{0.5f};
 
     template<typename Archive>
     void serialize(Archive & ar, const unsigned int /*version*/)

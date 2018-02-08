@@ -42,8 +42,9 @@
 #error FLANN is not available. Please use a different NearestNeighbors data structure.
 #else
 
-#include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/StateSpace.h"
+#include "ompl/datastructures/NearestNeighbors.h"
+#include "ompl/util/Exception.h"
 
 #include <flann/flann.hpp>
 #include <utility>
@@ -160,7 +161,7 @@ namespace ompl
         {
             if (!index_)
                 return false;
-            _T &elt = const_cast<_T &>(data);
+            auto &elt = const_cast<_T &>(data);
             const flann::Matrix<_T> query(&elt, 1, dimension_);
             std::vector<std::vector<size_t>> indices(1);
             std::vector<std::vector<double>> dists(1);
@@ -177,7 +178,7 @@ namespace ompl
         {
             if (size())
             {
-                _T &elt = const_cast<_T &>(data);
+                auto &elt = const_cast<_T &>(data);
                 const flann::Matrix<_T> query(&elt, 1, dimension_);
                 std::vector<std::vector<size_t>> indices(1);
                 std::vector<std::vector<double>> dists(1);
@@ -190,7 +191,7 @@ namespace ompl
         /// searchParams_.sorted==true (the default)
         void nearestK(const _T &data, std::size_t k, std::vector<_T> &nbh) const override
         {
-            _T &elt = const_cast<_T &>(data);
+            auto &elt = const_cast<_T &>(data);
             const flann::Matrix<_T> query(&elt, 1, dimension_);
             std::vector<std::vector<size_t>> indices;
             std::vector<std::vector<double>> dists;
@@ -203,7 +204,7 @@ namespace ompl
         /// order if searchParams_.sorted==true (the default)
         void nearestR(const _T &data, double radius, std::vector<_T> &nbh) const override
         {
-            _T &elt = const_cast<_T &>(data);
+            auto &elt = const_cast<_T &>(data);
             flann::Matrix<_T> query(&elt, 1, dimension_);
             std::vector<std::vector<size_t>> indices;
             std::vector<std::vector<double>> dists;
@@ -293,7 +294,7 @@ namespace ompl
                 std::vector<_T> data;
                 list(data);
                 clear();
-                if (capacity)
+                if (capacity != 0u)
                     data_.reserve(capacity);
                 add(data);
             }
@@ -320,7 +321,8 @@ namespace ompl
     };
 
     template <>
-    void NearestNeighborsFLANN<double, flann::L2<double>>::createIndex(const flann::Matrix<double> &mat)
+    inline void NearestNeighborsFLANN<double, flann::L2<double>>::createIndex(
+        const flann::Matrix<double> &mat)
     {
         index_ = new flann::Index<flann::L2<double>>(mat, *params_);
         index_->buildIndex();

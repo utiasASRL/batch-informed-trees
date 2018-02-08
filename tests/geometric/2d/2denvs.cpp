@@ -66,7 +66,6 @@
 #include "ompl/geometric/planners/prm/SPARStwo.h"
 #include "ompl/base/objectives/PathLengthOptimizationObjective.h"
 
-#include "../../BoostTestTeamCityReporter.h"
 #include "../../base/PlannerTest.h"
 
 using namespace ompl;
@@ -125,7 +124,7 @@ public:
             {
                 ompl::time::duration elapsed = ompl::time::now() - startTime;
                 good++;
-                if (time)
+                if (time != nullptr)
                     *time += ompl::time::seconds(elapsed);
                 if (show)
                     printf("Found solution in %f seconds!\n", ompl::time::seconds(elapsed));
@@ -138,16 +137,16 @@ public:
                 startTime = ompl::time::now();
                 sm->simplify(*path, SOLUTION_TIME);
                 elapsed = ompl::time::now() - startTime;
-                if (pathLength)
+                if (pathLength != nullptr)
                     *pathLength += path->length();
-                if (time)
+                if (time != nullptr)
                     *time += ompl::time::seconds(elapsed);
             }
         }
 
-        if (pathLength)
+        if (pathLength != nullptr)
             *pathLength /= (double)circles.getQueryCount();
-        if (time)
+        if (time != nullptr)
             *time /= (double)circles.getQueryCount();
 
         return (double)good / (double)circles.getQueryCount();
@@ -181,7 +180,7 @@ public:
         if (planner->solve(SOLUTION_TIME))
         {
             ompl::time::duration elapsed = ompl::time::now() - startTime;
-            if (time)
+            if (time != nullptr)
                 *time += ompl::time::seconds(elapsed);
             if (show)
                 printf("Found solution in %f seconds!\n", ompl::time::seconds(elapsed));
@@ -196,7 +195,7 @@ public:
             sm->reduceVertices(*path);
             elapsed = ompl::time::now() - startTime;
 
-            if (time)
+            if (time != nullptr)
                 *time += ompl::time::seconds(elapsed);
 
             if (show)
@@ -205,7 +204,7 @@ public:
             /* fill in values that were linearly interpolated */
             path->interpolate(path->getStateCount() * 2);
 
-            if (pathLength)
+            if (pathLength != nullptr)
                 *pathLength += path->length();
 
             if (show)
@@ -218,8 +217,8 @@ public:
             /* display the solution */
             for (unsigned int i = 0 ; i < path->getStateCount() ; ++i)
             {
-                int x = (int)(path->getState(i)->as<base::RealVectorStateSpace::StateType>()->values[0]);
-                int y = (int)(path->getState(i)->as<base::RealVectorStateSpace::StateType>()->values[1]);
+                auto x = (int)(path->getState(i)->as<base::RealVectorStateSpace::StateType>()->values[0]);
+                auto y = (int)(path->getState(i)->as<base::RealVectorStateSpace::StateType>()->values[1]);
                 if (temp.grid[x][y] == T_FREE || temp.grid[x][y] == T_PATH)
                     temp.grid[x][y] = T_PATH;
                 else

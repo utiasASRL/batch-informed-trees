@@ -54,7 +54,7 @@ Lifelong Planning A. Artif. Intell. 155(1-2): 93-146 (2004)
 
 // workaround for bug in Boost 1.60; see https://svn.boost.org/trac/boost/ticket/11880
 #include <boost/version.hpp>
-#if BOOST_VERSION > 105900
+#if BOOST_VERSION == 106000
 #include <boost/type_traits/ice.hpp>
 #endif
 
@@ -96,8 +96,6 @@ namespace ompl
                 n_v->setRhs(n_u->costToCome() + c);
                 updateVertex(n_v);
             }
-
-            return;
         }
         void removeEdge(std::size_t u, std::size_t v)
         {
@@ -315,7 +313,6 @@ namespace ompl
             }
             else if (n->isInQueue())
                 removeQueue(n);
-            return;
         }
         // queue utils
         Node *popHead()
@@ -338,9 +335,7 @@ namespace ompl
             node->calculateKey();
             node->inQueue(true);
             queue_.insert(node);
-
-            return;
-        }
+       }
         void removeQueue(Node *node)
         {
             if (node->isInQueue())
@@ -348,13 +343,11 @@ namespace ompl
                 node->inQueue(false);
                 queue_.erase(node);
             }
-            return;
         }
         void updateQueue(Node *node)
         {
             removeQueue(node);
             insertQueue(node);
-            return;
         }
 
         void chooseBestIncomingNode(Node *n_v, WeightMap &weights)

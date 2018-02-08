@@ -1,5 +1,31 @@
 # Release Notes
 
+# OMPL 1.3.2 (November 11, 2017)
+
+- Bug fixes for gcc6, clang5, and new versions of Boost.
+- Made PlannerArena work with latest versions of R packages.
+- Made MORSE plugin work with latest version MORSE.
+- [Optionally, use PyPy for Python binding generation.](buildOptions.html) This can significantly speed up the binding generation process (with pypy3 5.9.0 it now takes less than 10 minutes on a modern PC).
+- Misc. bug fixes.
+
+
+# OMPL 1.3.1 (May 18, 2017)
+
+- Tidy up code.
+- Small bug fixes.
+
+
+# OMPL 1.3.0 (March 1, 2017)
+
+- Added new planners:
+    - [RRT#](\ref gRRTsharp), a variant of [RRT*](\ref gRRTstar) with an improved convergence rate.
+    - [RRTX](\ref gRRTXstatic), a variant of [RRT*](\ref gRRTstar) with an improved convergence rate. Only the static part of the RRTX algorithm is implemented. Dynamical obstacles and updates of the robot position are not available in this implementation.
+    - [SORRT*](\ref gSORRTstar), a variant of [Informed RRT*](\ref gInformedRRTstar) that orders states in the subproblem that could provide a better solution by their potential solution cost.
+- New refactored versions of [BIT*](\ref gBITstar) and [Informed RRT*](\ref gInformedRRTstar).
+- Various changes throughout to follow standard C++11 practices that improve efficiency, safety, or legibility.
+- Fixes for Boost 1.63 and pygccxml 1.8.5.
+- Misc. small bug fixes.
+
 
 # OMPL 1.2.1 (July 1, 2016)
 

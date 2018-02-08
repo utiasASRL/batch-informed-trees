@@ -88,7 +88,7 @@ class KinematicChainSpace : public ompl::base::CompoundStateSpace
 {
 public:
     KinematicChainSpace(unsigned int numLinks, double linkLength, Environment *env = nullptr)
-        : ompl::base::CompoundStateSpace(), linkLength_(linkLength), environment_(env)
+        : linkLength_(linkLength), environment_(env)
     {
         for (unsigned int i = 0; i < numLinks; ++i)
             addSubspace(std::make_shared<ompl::base::SO2StateSpace>(), 1.);
@@ -102,8 +102,8 @@ public:
 
     double distance(const ompl::base::State *state1, const ompl::base::State *state2) const override
     {
-        const StateType *cstate1 = state1->as<StateType>();
-        const StateType *cstate2 = state2->as<StateType>();
+        const auto *cstate1 = state1->as<StateType>();
+        const auto *cstate2 = state2->as<StateType>();
         double theta1 = 0., theta2 = 0., dx = 0., dy = 0., dist = 0.;
 
         for (unsigned int i = 0; i < getSubspaceCount(); ++i)
@@ -142,7 +142,7 @@ public:
     bool isValid(const ompl::base::State *state) const override
     {
         const KinematicChainSpace* space = si_->getStateSpace()->as<KinematicChainSpace>();
-        const KinematicChainSpace::StateType *s = state->as<KinematicChainSpace::StateType>();
+        const auto *s = state->as<KinematicChainSpace::StateType>();
         unsigned int n = si_->getStateDimension();
         Environment segments;
         double linkLength = space->linkLength();
@@ -216,7 +216,7 @@ protected:
 
 Environment createHornEnvironment(unsigned int d, double eps)
 {
-    std::ofstream envFile("environment.dat");
+    std::ofstream envFile(boost::str(boost::format("environment_%i.dat") % d));
     std::vector<Segment> env;
     double w = 1. / (double)d, x = w, y = -eps, xN, yN, theta = 0.,
         scale = w * (1. + boost::math::constants::pi<double>() * eps);
@@ -261,7 +261,7 @@ int main(int argc, char **argv)
         exit(0);
     }
 
-    unsigned int numLinks = boost::lexical_cast<unsigned int>(std::string(argv[1]));
+    auto numLinks = boost::lexical_cast<unsigned int>(std::string(argv[1]));
     Environment env = createHornEnvironment(numLinks, log((double)numLinks) / (double)numLinks);
     auto chain(std::make_shared<KinematicChainSpace>(numLinks, 1. / (double)numLinks, &env));
     ompl::geometric::SimpleSetup ss(chain);
@@ -290,14 +290,9 @@ int main(int argc, char **argv)
         ss.solve(3600);
         ss.simplifySolution();
 
-        ompl::geometric::PathGeometric path = ss.getSolutionPath();
-        std::vector<double> v;
-        for(unsigned int i = 0; i < path.getStateCount(); ++i)
-        {
-            chain->copyToReals(v, path.getState(i));
-            std::copy(v.begin(), v.end(), std::ostream_iterator<double>(std::cout, " "));
-            std::cout << std::endl;
-        }
+        std::ofstream pathfile(
+                    boost::str(boost::format("kinematic_path_%i.dat") % numLinks).c_str());
+        ss.getSolutionPath().printAsMatrix(pathfile);
         exit(0);
     }
 

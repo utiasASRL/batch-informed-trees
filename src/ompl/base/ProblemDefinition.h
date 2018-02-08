@@ -71,12 +71,8 @@ namespace ompl
             /** \brief Construct a solution that consists of a \e path and its attributes (whether it is \e approximate
              * and the \e difference to the desired goal) */
             PlannerSolution(const PathPtr &path)
-              : index_(-1)
-              , path_(path)
+              : path_(path)
               , length_(path ? path->length() : std::numeric_limits<double>::infinity())
-              , approximate_(false)
-              , difference_(-1)
-              , optimized_(false)
             {
             }
 
@@ -113,7 +109,7 @@ namespace ompl
 
             /** \brief When multiple solutions are found, each is given a number starting at 0, so that the order in
              * which the solutions was found can be retrieved. */
-            int index_;
+            int index_{-1};
 
             /** \brief Solution path */
             PathPtr path_;
@@ -122,13 +118,13 @@ namespace ompl
             double length_;
 
             /** \brief True if goal was not achieved, but an approximate solution was found */
-            bool approximate_;
+            bool approximate_{false};
 
             /** \brief The achieved difference between the found solution and the desired goal */
-            double difference_;
+            double difference_{0.};
 
             /** \brief True if the solution was optimized to meet the specified optimization criterion */
-            bool optimized_;
+            bool optimized_{false};
 
             /** \brief Optimization objective that was used to optimize this solution */
             OptimizationObjectivePtr opt_;
@@ -249,11 +245,11 @@ namespace ompl
                 addStartState(), creates an instance of
                 ompl::base::GoalState and calls setGoal() on it. */
             void setStartAndGoalStates(const State *start, const State *goal,
-                                       const double threshold = std::numeric_limits<double>::epsilon());
+                                       double threshold = std::numeric_limits<double>::epsilon());
 
             /** \brief A simple form of setting the goal. This is called by setStartAndGoalStates(). A more general form
              * is setGoal() */
-            void setGoalState(const State *goal, const double threshold = std::numeric_limits<double>::epsilon());
+            void setGoalState(const State *goal, double threshold = std::numeric_limits<double>::epsilon());
 
             /** \copydoc setStartAndGoalStates() */
             void setStartAndGoalStates(const ScopedState<> &start, const ScopedState<> &goal,
@@ -272,7 +268,7 @@ namespace ompl
             /** \brief Check if an optimization objective was defined for planning  */
             bool hasOptimizationObjective() const
             {
-                return optimizationObjective_.get();
+                return optimizationObjective_ != nullptr;
             }
 
             /** \brief Get the optimization objective to be considered during planning */

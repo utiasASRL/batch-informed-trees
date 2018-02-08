@@ -102,6 +102,12 @@ namespace ompl
             /** \todo With the future invention of a heuristic class, this should move.  */
             virtual Cost heuristicSolnCost(const State *statePtr) const;
 
+            /** Helper for the OrderedInfSampler wrapper */
+            ProblemDefinitionPtr getProblemDefn() const;
+
+            /** Helper for the OrderedInfSampler wrapper */
+            unsigned int getMaxNumberOfIters() const;
+
         protected:
             /** \brief A copy of the problem definition */
             ProblemDefinitionPtr probDefn_;
@@ -141,11 +147,11 @@ namespace ompl
 
             /** \brief By default sampleUniformNear throws. This can be overloaded by a specific informed sampler if
              * desired. */
-            void sampleUniformNear(State *statePtr, const State *near, const double distance) override;
+            void sampleUniformNear(State *statePtr, const State *near, double distance) override;
 
             /** \brief By default sampleGaussian throws. This can be overloaded by a specific informed sampler if
              * desired. */
-            void sampleGaussian(State *statePtr, const State *mean, const double stdDev) override;
+            void sampleGaussian(State *statePtr, const State *mean, double stdDev) override;
 
         private:
             /** \brief A helper function for construction */

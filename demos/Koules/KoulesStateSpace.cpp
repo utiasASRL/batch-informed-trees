@@ -84,12 +84,12 @@ KoulesStateSpace::KoulesStateSpace(unsigned int numKoules)
 
 void KoulesStateSpace::registerProjections()
 {
-    registerDefaultProjection(std::make_shared<KoulesProjection>(this, (getDimension() - 1) / 4 + 1));
+    registerDefaultProjection(std::make_shared<KoulesProjection>(this, 3));
     registerProjection("PDSTProjection", std::make_shared<KoulesProjection>(this, (getDimension() - 1) / 2 + 1));
 }
 
 bool KoulesStateSpace::isDead(const ompl::base::State* state, unsigned int i) const
 {
-    const StateType* s = static_cast<const StateType*>(state);
-    return s->values[i ? 4 * i + 1 : 0] == -2. * kouleRadius;
+    const auto* s = static_cast<const StateType*>(state);
+    return s->values[i != 0u ? 4 * i + 1 : 0] == -2. * kouleRadius;
 }

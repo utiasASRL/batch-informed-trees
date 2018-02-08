@@ -204,7 +204,7 @@ ompl::base::PlannerStatus ompl::control::Syclop::solve(const base::PlannerTermin
         }
         auto path(std::make_shared<PathControl>(si_));
         for (int i = mpath.size() - 1; i >= 0; --i)
-            if (mpath[i]->parent)
+            if (mpath[i]->parent != nullptr)
                 path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC_->getPropagationStepSize());
             else
                 path->append(mpath[i]->state);
@@ -406,7 +406,7 @@ void ompl::control::Syclop::defaultComputeLead(int startRegion, int goalRegion, 
         return;
     }
 
-    else if (rng_.uniform01() < probShortestPath_)
+    if (rng_.uniform01() < probShortestPath_)
     {
         std::vector<RegionGraph::vertex_descriptor> parents(decomp_->getNumRegions());
         std::vector<double> distances(decomp_->getNumRegions());
@@ -510,7 +510,7 @@ double ompl::control::Syclop::defaultEdgeCost(int r, int s)
     const Adjacency &a = *regionsToEdge_[std::pair<int, int>(r, s)];
     double factor = 1.0;
     const int nsel = (a.empty ? a.numLeadInclusions : a.numSelections);
-    factor = (double)(1 + nsel * nsel) / (double)(1 + a.covGridCells.size() * a.covGridCells.size());
+    factor = (1.0 + (double)nsel * nsel) / (1.0 + (double)a.covGridCells.size() * a.covGridCells.size());
     factor *= (a.source->alpha * a.target->alpha);
     return factor;
 }

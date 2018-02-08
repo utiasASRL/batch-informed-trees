@@ -46,13 +46,15 @@ namespace
 {
     const double twopi = 2. * boost::math::constants::pi<double>();
     const double DUBINS_EPS = 1e-6;
-    const double DUBINS_ZERO = -1e-9;
+    const double DUBINS_ZERO = -1e-7;
 
     inline double mod2pi(double x)
     {
         if (x < 0 && x > DUBINS_ZERO)
             return 0;
-        return x - twopi * floor(x / twopi);
+        double xm = x - twopi * floor(x / twopi);
+        if (twopi - xm < .5 * DUBINS_EPS) xm = 0.;
+        return xm;
     }
 
     DubinsStateSpace::DubinsPath dubinsLSL(double d, double alpha, double beta)
@@ -65,8 +67,8 @@ namespace
             double t = mod2pi(-alpha + theta);
             double p = sqrt(std::max(tmp, 0.));
             double q = mod2pi(beta - theta);
-            assert(fabs(p * cos(alpha + t) - sa + sb - d) < DUBINS_EPS);
-            assert(fabs(p * sin(alpha + t) + ca - cb) < DUBINS_EPS);
+            assert(fabs(p * cos(alpha + t) - sa + sb - d) < 2 * DUBINS_EPS);
+            assert(fabs(p * sin(alpha + t) + ca - cb) < 2 * DUBINS_EPS);
             assert(mod2pi(alpha + t + q - beta + .5 * DUBINS_EPS) < DUBINS_EPS);
             return DubinsStateSpace::DubinsPath(DubinsStateSpace::dubinsPathType[0], t, p, q);
         }
@@ -83,8 +85,8 @@ namespace
             double t = mod2pi(alpha - theta);
             double p = sqrt(std::max(tmp, 0.));
             double q = mod2pi(-beta + theta);
-            assert(fabs(p * cos(alpha - t) + sa - sb - d) < DUBINS_EPS);
-            assert(fabs(p * sin(alpha - t) - ca + cb) < DUBINS_EPS);
+            assert(fabs(p * cos(alpha - t) + sa - sb - d) < 2* DUBINS_EPS);
+            assert(fabs(p * sin(alpha - t) - ca + cb) < 2 * DUBINS_EPS);
             assert(mod2pi(alpha - t - q - beta + .5 * DUBINS_EPS) < DUBINS_EPS);
             return DubinsStateSpace::DubinsPath(DubinsStateSpace::dubinsPathType[1], t, p, q);
         }
@@ -101,8 +103,8 @@ namespace
             double theta = atan2(ca + cb, d - sa - sb) - atan2(2., p);
             double t = mod2pi(alpha - theta);
             double q = mod2pi(beta - theta);
-            assert(fabs(p * cos(alpha - t) - 2. * sin(alpha - t) + sa + sb - d) < DUBINS_EPS);
-            assert(fabs(p * sin(alpha - t) + 2. * cos(alpha - t) - ca - cb) < DUBINS_EPS);
+            assert(fabs(p * cos(alpha - t) - 2. * sin(alpha - t) + sa + sb - d) < 2 * DUBINS_EPS);
+            assert(fabs(p * sin(alpha - t) + 2. * cos(alpha - t) - ca - cb) < 2 * DUBINS_EPS);
             assert(mod2pi(alpha - t + q - beta + .5 * DUBINS_EPS) < DUBINS_EPS);
             return DubinsStateSpace::DubinsPath(DubinsStateSpace::dubinsPathType[2], t, p, q);
         }
@@ -119,8 +121,8 @@ namespace
             double theta = atan2(-ca - cb, d + sa + sb) - atan2(-2., p);
             double t = mod2pi(-alpha + theta);
             double q = mod2pi(-beta + theta);
-            assert(fabs(p * cos(alpha + t) + 2. * sin(alpha + t) - sa - sb - d) < DUBINS_EPS);
-            assert(fabs(p * sin(alpha + t) - 2. * cos(alpha + t) + ca + cb) < DUBINS_EPS);
+            assert(fabs(p * cos(alpha + t) + 2. * sin(alpha + t) - sa - sb - d) < 2 * DUBINS_EPS);
+            assert(fabs(p * sin(alpha + t) - 2. * cos(alpha + t) + ca + cb) < 2 * DUBINS_EPS);
             assert(mod2pi(alpha + t - q - beta + .5 * DUBINS_EPS) < DUBINS_EPS);
             return DubinsStateSpace::DubinsPath(DubinsStateSpace::dubinsPathType[3], t, p, q);
         }
@@ -137,8 +139,8 @@ namespace
             double theta = atan2(ca - cb, d - sa + sb);
             double t = mod2pi(alpha - theta + .5 * p);
             double q = mod2pi(alpha - beta - t + p);
-            assert(fabs(2. * sin(alpha - t + p) - 2. * sin(alpha - t) - d + sa - sb) < DUBINS_EPS);
-            assert(fabs(-2. * cos(alpha - t + p) + 2. * cos(alpha - t) - ca + cb) < DUBINS_EPS);
+            assert(fabs(2. * sin(alpha - t + p) - 2. * sin(alpha - t) - d + sa - sb) < 2 * DUBINS_EPS);
+            assert(fabs(-2. * cos(alpha - t + p) + 2. * cos(alpha - t) - ca + cb) < 2 * DUBINS_EPS);
             assert(mod2pi(alpha - t + p - q - beta + .5 * DUBINS_EPS) < DUBINS_EPS);
             return DubinsStateSpace::DubinsPath(DubinsStateSpace::dubinsPathType[4], t, p, q);
         }
@@ -155,8 +157,8 @@ namespace
             double theta = atan2(-ca + cb, d + sa - sb);
             double t = mod2pi(-alpha + theta + .5 * p);
             double q = mod2pi(beta - alpha - t + p);
-            assert(fabs(-2. * sin(alpha + t - p) + 2. * sin(alpha + t) - d - sa + sb) < DUBINS_EPS);
-            assert(fabs(2. * cos(alpha + t - p) - 2. * cos(alpha + t) + ca - cb) < DUBINS_EPS);
+            assert(fabs(-2. * sin(alpha + t - p) + 2. * sin(alpha + t) - d - sa + sb) < 2 * DUBINS_EPS);
+            assert(fabs(2. * cos(alpha + t - p) - 2. * cos(alpha + t) + ca - cb) < 2 * DUBINS_EPS);
             assert(mod2pi(alpha + t - p + q - beta + .5 * DUBINS_EPS) < DUBINS_EPS);
             return DubinsStateSpace::DubinsPath(DubinsStateSpace::dubinsPathType[5], t, p, q);
         }
@@ -213,8 +215,7 @@ double ompl::base::DubinsStateSpace::distance(const State *state1, const State *
 {
     if (isSymmetric_)
         return rho_ * std::min(dubins(state1, state2).length(), dubins(state2, state1).length());
-    else
-        return rho_ * dubins(state1, state2).length();
+    return rho_ * dubins(state1, state2).length();
 }
 
 void ompl::base::DubinsStateSpace::interpolate(const State *from, const State *to, const double t, State *state) const
@@ -259,7 +260,7 @@ void ompl::base::DubinsStateSpace::interpolate(const State *from, const State *t
 
 void ompl::base::DubinsStateSpace::interpolate(const State *from, const DubinsPath &path, double t, State *state) const
 {
-    StateType *s = allocState()->as<StateType>();
+    auto *s = allocState()->as<StateType>();
     double seg = t * path.length(), phi, v;
 
     s->setXY(0., 0.);
@@ -320,8 +321,8 @@ void ompl::base::DubinsStateSpace::interpolate(const State *from, const DubinsPa
 ompl::base::DubinsStateSpace::DubinsPath ompl::base::DubinsStateSpace::dubins(const State *state1,
                                                                               const State *state2) const
 {
-    const StateType *s1 = static_cast<const StateType *>(state1);
-    const StateType *s2 = static_cast<const StateType *>(state2);
+    const auto *s1 = static_cast<const StateType *>(state1);
+    const auto *s2 = static_cast<const StateType *>(state2);
     double x1 = s1->getX(), y1 = s1->getY(), th1 = s1->getYaw();
     double x2 = s2->getX(), y2 = s2->getY(), th2 = s2->getYaw();
     double dx = x2 - x1, dy = y2 - y1, d = sqrt(dx * dx + dy * dy) / rho_, th = atan2(dy, dx);
@@ -332,7 +333,7 @@ ompl::base::DubinsStateSpace::DubinsPath ompl::base::DubinsStateSpace::dubins(co
 void ompl::base::DubinsMotionValidator::defaultSettings()
 {
     stateSpace_ = dynamic_cast<DubinsStateSpace *>(si_->getStateSpace().get());
-    if (!stateSpace_)
+    if (stateSpace_ == nullptr)
         throw Exception("No state space for motion validator");
 }
 
@@ -356,7 +357,7 @@ bool ompl::base::DubinsMotionValidator::checkMotion(const State *s1, const State
             if (!si_->isValid(test))
             {
                 lastValid.second = (double)(j - 1) / (double)nd;
-                if (lastValid.first)
+                if (lastValid.first != nullptr)
                     stateSpace_->interpolate(s1, s2, lastValid.second, firstTime, path, lastValid.first);
                 result = false;
                 break;
@@ -369,7 +370,7 @@ bool ompl::base::DubinsMotionValidator::checkMotion(const State *s1, const State
         if (!si_->isValid(s2))
         {
             lastValid.second = (double)(nd - 1) / (double)nd;
-            if (lastValid.first)
+            if (lastValid.first != nullptr)
                 stateSpace_->interpolate(s1, s2, lastValid.second, firstTime, path, lastValid.first);
             result = false;
         }
